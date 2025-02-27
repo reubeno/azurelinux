@@ -1,0 +1,64 @@
+From 90e4a1c8542a278b03a40cd4ce66d6f0432049d3 Mon Sep 17 00:00:00 2001
+From: reuben olinsky <reubeno@users.noreply.github.com>
+Date: Thu, 27 Feb 2025 11:07:30 -0800
+Subject: [PATCH] feat: add ssl_copy_ca_trust_dirs setting to allow disablement
+
+---
+ mock/docs/site-defaults.cfg          | 7 +++++++
+ mock/py/mockbuild/config.py          | 1 +
+ mock/py/mockbuild/package_manager.py | 9 +++++----
+ 3 files changed, 13 insertions(+), 4 deletions(-)
+
+diff --git a/mock/docs/site-defaults.cfg b/mock/docs/site-defaults.cfg
+index 372d2ba4..9cf9ea5c 100644
+--- a/mock/docs/site-defaults.cfg
++++ b/mock/docs/site-defaults.cfg
+@@ -613,6 +613,13 @@
+ # if 0 is set, then no time limit is used
+ # config_opts['opstimeout'] = 0
+ 
++# Copy host's SSL CA trust directories ('/etc/pki/ca-trust' and
++# '/usr/share/pki/ca-trust-source') into the same locations inside chroot.
++# This setting is enabled by default. Some destination chroots may have
++# different directory layout or a different way of provisioning these
++# directories' contents, and disabling this setting may be required.
++#config_opts['ssl_copy_ca_trust_dirs'] = True
++
+ # Copy host's SSL certificate bundle ('/etc/pki/tls/certs/ca-bundle.crt') into
+ # specified location inside chroot.  This usually isn't needed because we copy
+ # the whole /etc/pki/ca-trust/extracted directory recursively by default, and
+diff --git a/mock/py/mockbuild/config.py b/mock/py/mockbuild/config.py
+index 2178c5b7..9c0f1e87 100644
+--- a/mock/py/mockbuild/config.py
++++ b/mock/py/mockbuild/config.py
+@@ -110,6 +110,7 @@ def setup_default_config_opts():
+ 
+     config_opts['redhat_subscription_required'] = False
+ 
++    config_opts['ssl_copy_ca_trust_dirs'] = True
+     config_opts['ssl_ca_bundle_path'] = None
+ 
+     config_opts['ssl_extra_certs'] = None
+diff --git a/mock/py/mockbuild/package_manager.py b/mock/py/mockbuild/package_manager.py
+index fdaf2d2e..c102de8e 100644
+--- a/mock/py/mockbuild/package_manager.py
++++ b/mock/py/mockbuild/package_manager.py
+@@ -392,10 +392,11 @@ Error:      Neither dnf-utils nor yum-utils are installed. Dnf-utils or yum-util
+ 
+     @traceLog()
+     def copy_certs(self):
+-        cert_paths = ["/etc/pki/ca-trust", "/usr/share/pki/ca-trust-source"]
+-        for cert_path in cert_paths:
+-            pki_dir = self.buildroot.make_chroot_path(cert_path)
+-            file_util.update_tree(pki_dir, cert_path)
++        if self.config.get('ssl_copy_ca_trust_dirs', True):
++            cert_paths = ["/etc/pki/ca-trust", "/usr/share/pki/ca-trust-source"]
++            for cert_path in cert_paths:
++                pki_dir = self.buildroot.make_chroot_path(cert_path)
++                file_util.update_tree(pki_dir, cert_path)
+ 
+         bundle_path = self.config['ssl_ca_bundle_path']
+         if bundle_path:
+-- 
+2.45.2
+

@@ -1,0 +1,159 @@
+[components.azurelinux-rpm-config]
+spec = { type = "upstream", upstream-name = "redhat-rpm-config" }
+
+# Update tags.
+[[components.azurelinux-rpm-config.overlays]]
+type = "spec-set-tag"
+tag = "URL"
+value = "https://aka.ms/azurelinux"
+
+# Global search-and-replace in spec file: fedora->azurelinux
+[[components.azurelinux-rpm-config.overlays]]
+type = "spec-search-replace"
+regex = "fedora"
+replacement = "azurelinux"
+
+# Global search-and-replace in spec file: redhat->azurelinux
+[[components.azurelinux-rpm-config.overlays]]
+type = "spec-search-replace"
+regex = "redhat"
+replacement = "azurelinux"
+
+# Update vendor macro.
+[[components.azurelinux-rpm-config.overlays]]
+type = "file-search-replace"
+file = "macros"
+regex = "%_vendor.*"
+replacement = "%_vendor azurelinux"
+
+# Update paths to match our vendor macro.
+[[components.azurelinux-rpm-config.overlays]]
+type = "file-search-replace"
+file = "*"
+regex = "/usr/lib/rpm/redhat"
+replacement = "/usr/lib/rpm/azurelinux"
+allow-no-match = true
+
+# Remove dist.sh file; we'll replace it below.
+[[components.azurelinux-rpm-config.overlays]]
+type = "file-remove"
+file = "dist.sh"
+
+# Remove changelog; our replacements will cause undesired issues with it.
+[[components.azurelinux-rpm-config.overlays]]
+type = "file-remove"
+file = "changelog"
+
+# Add our own version of dist.sh.
+[[components.azurelinux-rpm-config.overlays]]
+type = "file-add"
+file = "dist.sh"
+source = "dist.sh"
+
+# Rename: macros.fedora-misc -> macros.azurelinux-misc
+[[components.azurelinux-rpm-config.overlays]]
+type = "file-rename"
+file = "macros.fedora-misc"
+replacement = "macros.azurelinux-misc"
+
+# Rename: macros.fedora-misc-srpm -> macros.azurelinux-misc-srpm
+[[components.azurelinux-rpm-config.overlays]]
+type = "file-rename"
+file = "macros.fedora-misc-srpm"
+replacement = "macros.azurelinux-misc-srpm"
+
+# Rename: STAGE2-redhat-rpm-config -> STAGE2-azurelinux-rpm-config
+[[components.azurelinux-rpm-config.overlays]]
+type = "file-rename"
+file = "STAGE2-redhat-rpm-config"
+replacement = "STAGE2-azurelinux-rpm-config"
+
+# TODO(azl): review this
+# Rename: redhat-annobin-cc1 -> azurelinux-annobin-cc1
+[[components.azurelinux-rpm-config.overlays]]
+type = "file-remove" # TODO(azl): review this symlink
+file = "redhat-annobin-cc1"
+# replacement = "azurelinux-annobin-cc1"
+
+# TODO(azl): review this
+[[components.azurelinux-rpm-config.overlays]]
+type = "spec-search-replace"
+regex = "^.*azurelinux-annobin-cc1.*$"
+replacement = ""
+
+# Rename: redhat-annobin-plugin-select.sh -> azurelinux-annobin-plugin-select.sh
+[[components.azurelinux-rpm-config.overlays]]
+type = "file-rename"
+file = "redhat-annobin-plugin-select.sh"
+replacement = "azurelinux-annobin-plugin-select.sh"
+# Rename: redhat-annobin-select-annobin-built-plugin -> azurelinux-annobin-select-annobin-built-plugin
+[[components.azurelinux-rpm-config.overlays]]
+type = "file-rename"
+file = "redhat-annobin-select-annobin-built-plugin"
+replacement = "azurelinux-annobin-select-annobin-built-plugin"
+# Rename: redhat-annobin-select-gcc-built-plugin -> azurelinux-annobin-select-gcc-built-plugin
+[[components.azurelinux-rpm-config.overlays]]
+type = "file-rename"
+file = "redhat-annobin-select-gcc-built-plugin"
+replacement = "azurelinux-annobin-select-gcc-built-plugin"
+# Rename: redhat-hardened-cc1 -> azurelinux-hardened-cc1
+[[components.azurelinux-rpm-config.overlays]]
+type = "file-rename"
+file = "redhat-hardened-cc1"
+replacement = "azurelinux-hardened-cc1"
+# Rename: redhat-hardened-clang.cfg -> azurelinux-hardened-clang.cfg
+[[components.azurelinux-rpm-config.overlays]]
+type = "file-rename"
+file = "redhat-hardened-clang.cfg"
+replacement = "azurelinux-hardened-clang.cfg"
+# Rename: redhat-hardened-clang-ld.cfg -> azurelinux-hardened-clang-ld.cfg
+[[components.azurelinux-rpm-config.overlays]]
+type = "file-rename"
+file = "redhat-hardened-clang-ld.cfg"
+replacement = "azurelinux-hardened-clang-ld.cfg"
+# Rename: redhat-hardened-ld -> azurelinux-hardened-ld
+[[components.azurelinux-rpm-config.overlays]]
+type = "file-rename"
+file = "redhat-hardened-ld"
+replacement = "azurelinux-hardened-ld"
+# Rename: redhat-hardened-ld-errors -> azurelinux-hardened-ld-errors
+[[components.azurelinux-rpm-config.overlays]]
+type = "file-rename"
+file = "redhat-hardened-ld-errors"
+replacement = "azurelinux-hardened-ld-errors"
+
+# Update the name of this package.
+[[components.azurelinux-rpm-config.overlays]]
+type = "file-search-replace"
+file = "*"
+regex = "redhat-rpm-config"
+replacement = "azurelinux-rpm-config"
+allow-no-match = true
+
+[[components.azurelinux-rpm-config.overlays]]
+type = "file-search-replace"
+file = "*"
+regex = 'swidtag/fedoraproject.org'
+replacement = "swidtag/microsoft.com"
+allow-no-match = true
+
+# Final replacements of Fedora.
+[[components.azurelinux-rpm-config.overlays]]
+type = "file-search-replace"
+file = "macros.azurelinux-misc"
+regex = "fedora"
+replacement = "azurelinux"
+
+[[components.azurelinux-rpm-config.overlays]]
+type = "file-search-replace"
+file = "macros.azurelinux-misc-srpm"
+regex = "fedora"
+replacement = "azurelinux"
+
+# Final catch-all to replace all instances of redhat with a trailing hyphen.
+[[components.azurelinux-rpm-config.overlays]]
+type = "file-search-replace"
+file = "*"
+regex = "redhat-"
+replacement = "azurelinux"
+allow-no-match = true

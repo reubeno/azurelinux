@@ -8,7 +8,9 @@
 # TODO(azl): review
 %define eol_date 1900-01-01
 
-%define dist_version 4.0
+%define dist_version_major 4
+%define dist_version_minor 0
+%define dist_version %{dist_version_major}.%{dist_version_minor}
 
 %if %{is_evergreen}
 %define bug_version evergreen
@@ -17,7 +19,7 @@
 %else
 %define bug_version %{dist_version}
 %define releasever %{dist_version}
-%define doc_version f%{dist_version}
+%define doc_version %{dist_version}
 %endif
 
 %bcond basic 1
@@ -353,9 +355,9 @@ cat >> %{buildroot}%{_rpmconfigdir}/macros.d/macros.dist << EOF
 # dist macros.
 
 %%__bootstrap         ~bootstrap
-%%azurelinux              %{dist_version}
-%%fc%{dist_version}                1
-%%distcore            .azl%%{azurelinux}
+%%azurelinux          %{dist_version}
+%%azl4                1
+%%distcore            .azl%%{dist_version_major}
 %%dist                %%{!?distprefix0:%%{?distprefix}}%%{expand:%%{lua:for i=0,9999 do print("%%{?distprefix" .. i .."}") end}}%%{distcore}%%{?with_bootstrap:%%{__bootstrap}}%%{?buildrelease:+build%%{buildrelease}}
 %%dist_vendor         %{dist_vendor}
 %%dist_name           %{dist_name}

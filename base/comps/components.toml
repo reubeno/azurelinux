@@ -268,7 +268,6 @@ spec = { type = "upstream", upstream-distro = { name = "fedora", version = "rawh
 [components.rng-tools]
 [components.rootfiles]
 [components.rpcbind]
-[components.rpm]
 [components.rsync]
 
 [components.rust]

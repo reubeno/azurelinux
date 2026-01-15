@@ -1,1 +1,6 @@
 # TODO: images go here.
+
+# NOTE:
+# sudo dnf install -y kiwi-cli
+# sudo dnf install -y veritysetup
+# sudo kiwi --loglevel 10 system build --description ./vm-base --target-dir <output_dir>

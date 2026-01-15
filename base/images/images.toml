@@ -13,4 +13,4 @@
 #     system build \
 #     --description ./container-base \
 #     --target-dir <output_dir> \
-#     --add-repo='file:///home/username/some/dir/with/private/rpms,rpm-md,1,false,false,,,,,
+#     --add-repo='file:///home/username/some/dir/with/private/rpms,rpm-md,azl,1

@@ -1,6 +1,16 @@
-# TODO: images go here.
+# [images.vm-base]
+# description = "VM Base Image"
+# definition = { type = "kiwi", path = "vm-base/vm-base.kiwi" }
+
+# [images.container-base]
+# description = "Container Base Image"
+# definition = { type = "kiwi", path = "container-base/container-base.kiwi" }
 
 # NOTE:
 # sudo dnf install -y kiwi-cli
-# sudo dnf install -y veritysetup
-# sudo kiwi --loglevel 10 system build --description ./vm-base --target-dir <output_dir>
+# sudo kiwi --loglevel 10 \
+#     --kiwi-file container-base.kiwi \
+#     system build \
+#     --description ./container-base \
+#     --target-dir <output_dir> \
+#     --add-repo='file:///home/username/some/dir/with/private/rpms,rpm-md,1,false,false,,,,,

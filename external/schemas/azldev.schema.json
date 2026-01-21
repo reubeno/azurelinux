@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/microsoft/azldev/internal/projectconfig/config-file",
+  "$id": "https://github.com/gim-home/azldev-preview/internal/projectconfig/config-file",
   "$ref": "#/$defs/ConfigFile",
   "$defs": {
     "ComponentBuildConfig": {
@@ -99,7 +99,9 @@
             "spec-search-replace",
             "file-prepend-lines",
             "file-search-replace",
-            "file-add"
+            "file-add",
+            "file-remove",
+            "file-rename"
           ],
           "title": "Overlay type",
           "description": "The type of overlay to apply"
@@ -156,6 +158,11 @@
           "type": "string",
           "title": "Source",
           "description": "For overlays that require a source file as input"
+        },
+        "allow-no-match": {
+          "type": "boolean",
+          "title": "Allow no match",
+          "description": "For search-and-replace overlays (spec-search-replace"
         }
       },
       "additionalProperties": false,

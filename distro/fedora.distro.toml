@@ -1,6 +1,6 @@
 [distros.fedora]
 description = "Fedora Linux"
-default-version = "42"
+default-version = "43"
 dist-git-base-uri = "https://src.fedoraproject.org/rpms/$pkg.git"
 lookaside-base-uri = "https://src.fedoraproject.org/repo/pkgs/$pkg/$filename/$hashtype/$hash/$filename"
 repos = [
@@ -24,6 +24,11 @@ dist-git-branch = "f42"
 description = "Fedora Linux 43"
 release-ver = "43"
 dist-git-branch = "f43"
+
+[distros.fedora.versions.44]
+description = "Fedora Linux 44"
+release-ver = "43"
+dist-git-branch = "f44"
 
 [distros.fedora.versions.rawhide]
 description = "Fedora Linux Rawhide"

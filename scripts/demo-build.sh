@@ -20,14 +20,11 @@ for prereq in azldev kiwi createrepo_c docker; do
     fi
 done
 
-# Build azurelinux-rpm-config to generate system macros, etc.
-azldev comp build azurelinux-rpm-config && createrepo_c ./base/out
-# Build azurelinux-release and azurelinux-repos to provide repo files and release info.
-# They require the rpm-config package to be built first.
-azldev comp build azurelinux-release --local-repo ./base/out && createrepo_c ./base/out
-azldev comp build azurelinux-repos --local-repo ./base/out && createrepo_c ./base/out
-# Build rpm to ensure the azl-specific vendor tag is configured.
-azldev comp build rpm --local-repo ./base/out && createrepo_c ./base/out
+# 1. Build azurelinux-rpm-config to generate system macros, etc.
+# 2. Build azurelinux-release and azurelinux-repos to provide repo files and release info.
+#    These latter two require the rpm-config
+# 3. Build rpm to ensure the azl-specific vendor tag is configured.
+azldev comp build azurelinux-rpm-config  azurelinux-release azurelinux-repos rpm --publish-local-repo ./base/outazldev comp build rpm --local-repo ./base/out --publish-local-repo ./base/out
 # Build a base container image using these private RPMs and upstream Fedora packages.
 sudo kiwi --loglevel 10 \
     --kiwi-file container-base.kiwi \

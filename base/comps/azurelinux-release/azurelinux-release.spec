@@ -33,10 +33,8 @@
 Summary:        Azure Linux release files
 Name:           azurelinux-release
 Version:        4.0
-# The numbering is 0.<r> before a given release is released,
-# and then just <r>.
-# TODO(azl): Review whether -p should be passed to %autorelease for development builds.
-Release:        %autorelease
+# TODO(azl): Review whether we can move back to %autorelease (with conditional %p)
+Release:        2%{?dist}
 License:        MIT
 URL:            https://aka.ms/azurelinux
 

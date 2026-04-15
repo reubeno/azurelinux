@@ -8,7 +8,7 @@ from typing import Callable
 
 import pytest
 
-from image_test.types import StatResult
+from utils.types import StatResult
 
 
 def test_etc_shadow_permissions(file_stat_fn: Callable[[str], StatResult]) -> None:

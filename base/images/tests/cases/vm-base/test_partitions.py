@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from image_test.types import PartitionInfo
+from utils.types import PartitionInfo
 
 
 def test_has_partitions(partition_table: list[PartitionInfo]) -> None:

@@ -16,13 +16,13 @@ System packages (not pip-installable):
 ## Usage
 
 ```bash
-cd base/images
+cd base/images/tests
 
 # VM image
-uv run pytest --image-name vm-base --image-path ../out/images/vm-base/<image>.raw
+uv run pytest --image-name vm-base --image-path ../../out/images/vm-base/<image>.raw
 
 # Container image
-uv run pytest --image-name container-base --image-path ../out/images/container-base/<image>.oci.tar.xz
+uv run pytest --image-name container-base --image-path ../../out/images/container-base/<image>.oci.tar.xz
 
 # Collect only (verify test selection without running)
 uv run pytest --image-name vm-base --image-path /path/to/image.raw --collect-only
@@ -31,7 +31,7 @@ uv run pytest --image-name vm-base --image-path /path/to/image.raw --collect-onl
 uv run pytest --image-name vm-base --image-path /path/to/image.raw --log-cli-level=DEBUG
 ```
 
-One image per invocation. The `--image-name` flag controls which per-image test directory is collected, while `common/tests/` (shared tests) always runs.
+One image per invocation. The `--image-name` flag controls which per-image test directory is collected, while shared tests in `cases/` always run.
 
 ### Logging
 
@@ -45,24 +45,29 @@ uv run pytest ... --log-cli-level=DEBUG
 
 ```
 base/images/
-├── conftest.py              # CLI options, collection hooks, all fixtures
-├── image_test/              # Helper package (not test-collected)
-│   ├── extract.py           # Image mounting (guestmount / skopeo+umoci)
-│   ├── disk.py              # VM disk inspection (virt-inspector)
-│   ├── parsers.py           # File content parsers
-│   └── types.py             # Dataclasses
-├── common/tests/            # Shared tests (all images)
-│   ├── test_os_release.py
-│   ├── test_repos.py
-│   ├── test_packages.py
-│   ├── test_services.py
-│   └── test_filesystem.py
-├── vm-base/tests/           # VM-specific tests
-│   ├── test_partitions.py
-│   ├── test_bootloader.py
-│   └── test_kernel.py
-└── container-base/tests/    # Container-specific tests
-    └── test_container.py
+├── images.toml                          # Image registry
+├── vm-base/vm-base.kiwi                 # VM image definition
+├── container-base/container-base.kiwi   # Container image definition
+└── tests/
+    ├── pyproject.toml                   # uv project: pytest, dependencies
+    ├── conftest.py                      # CLI options, collection hooks, all fixtures
+    ├── utils/                           # Helper package (not test-collected)
+    │   ├── extract.py                   # Image mounting (guestmount / skopeo+umoci)
+    │   ├── disk.py                      # VM disk inspection (virt-inspector)
+    │   ├── parsers.py                   # File content parsers
+    │   └── types.py                     # Dataclasses
+    └── cases/                           # Test cases
+        ├── test_os_release.py           # Shared: /etc/os-release validation
+        ├── test_repos.py                # Shared: yum repo validation
+        ├── test_packages.py             # Shared: package validation
+        ├── test_services.py             # Shared: systemd service validation
+        ├── test_filesystem.py           # Shared: file permissions validation
+        ├── vm-base/                     # VM-specific tests
+        │   ├── test_partitions.py
+        │   ├── test_bootloader.py
+        │   └── test_kernel.py
+        └── container-base/              # Container-specific tests
+            └── test_container.py
 ```
 
 ## How It Works
@@ -78,10 +83,10 @@ base/images/
 ## Adding Tests
 
 ### Shared tests (all images)
-Add to `common/tests/`. Use fixtures like `rootfs`, `os_release`, `installed_packages`, `file_stat_fn`.
+Add to `cases/`. Use fixtures like `rootfs`, `os_release`, `installed_packages`, `file_stat_fn`.
 
 ### Image-specific tests
-Add to `<image-name>/tests/`. These only run when `--image-name` matches. For VM-only logic, use `partition_table` or `kernel_cmdline` fixtures (they auto-skip for containers).
+Add to `cases/<image-name>/`. These only run when `--image-name` matches. For VM-only logic, use `partition_table` or `kernel_cmdline` fixtures (they auto-skip for containers).
 
 ## Available Fixtures
 

@@ -6,7 +6,18 @@ dependencies = [
     "pytest>=8.0",
 ]
 
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["utils"]
+
+[project.entry-points."pytest11"]
+azl_image = "utils.pytest_plugin"
+
 [tool.pytest.ini_options]
+testpaths = ["cases"]
 addopts = ["-v", "--tb=short"]
 log_cli = true
 log_cli_level = "INFO"

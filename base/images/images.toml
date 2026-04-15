@@ -1,10 +1,18 @@
 [images.vm-base]
 description = "VM Base Image"
 definition = { type = "kiwi", path = "vm-base/vm-base.kiwi" }
+tests = [
+    { name = "common-vm-checks" },
+    { name = "vm-base-checks" },
+]
 
 [images.container-base]
 description = "Container Base Image"
 definition = { type = "kiwi", path = "container-base/container-base.kiwi", profile = "core" }
+tests = [
+    { name = "common-container-checks" },
+    { name = "container-base-checks" },
+]
 
 [images.container-distroless-minimal]
 description = "Container Distroless Minimal Image"
@@ -17,6 +25,48 @@ definition = { type = "kiwi", path = "container-base/container-base.kiwi", profi
 [images.container-distroless-debug]
 description = "Container Distroless Debug Image"
 definition = { type = "kiwi", path = "container-base/container-base.kiwi", profile = "distroless-debug" }
+
+# ---- Test suites ----
+
+# Shared checks applicable to all VM images (OS release, packages, repos, services, filesystem).
+[tests.common-vm-checks]
+type = "pytest"
+description = "Common offline validation checks for VM images"
+
+[tests.common-vm-checks.pytest]
+working-dir = "tests"
+test-paths = ["cases/test_*.py"]
+extra-args = ["--image-path", "{image-path}"]
+
+# VM-base specific checks (partitions, bootloader, kernel).
+[tests.vm-base-checks]
+type = "pytest"
+description = "VM base image specific checks"
+
+[tests.vm-base-checks.pytest]
+working-dir = "tests"
+test-paths = ["cases/vm-base/"]
+extra-args = ["--image-path", "{image-path}"]
+
+# Shared checks applicable to all container images.
+[tests.common-container-checks]
+type = "pytest"
+description = "Common offline validation checks for container images"
+
+[tests.common-container-checks.pytest]
+working-dir = "tests"
+test-paths = ["cases/test_*.py"]
+extra-args = ["--image-path", "{image-path}"]
+
+# Container-base specific checks.
+[tests.container-base-checks]
+type = "pytest"
+description = "Container base image specific checks"
+
+[tests.container-base-checks.pytest]
+working-dir = "tests"
+test-paths = ["cases/container-base/"]
+extra-args = ["--image-path", "{image-path}"]
 
 # NOTE:
 # sudo dnf install -y kiwi-cli

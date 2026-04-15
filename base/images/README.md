@@ -31,7 +31,7 @@ uv run pytest --image-name vm-base --image-path /path/to/image.raw --collect-onl
 uv run pytest --image-name vm-base --image-path /path/to/image.raw --log-cli-level=DEBUG
 ```
 
-One image per invocation. The `--image-name` flag controls which per-image test directory is collected, while `tests/` (shared tests) always runs.
+One image per invocation. The `--image-name` flag controls which per-image test directory is collected, while `common/tests/` (shared tests) always runs.
 
 ### Logging
 
@@ -51,7 +51,7 @@ base/images/
 │   ├── disk.py              # VM disk inspection (virt-inspector)
 │   ├── parsers.py           # File content parsers
 │   └── types.py             # Dataclasses
-├── tests/                   # Shared tests (all images)
+├── common/tests/            # Shared tests (all images)
 │   ├── test_os_release.py
 │   ├── test_repos.py
 │   ├── test_packages.py
@@ -78,7 +78,7 @@ base/images/
 ## Adding Tests
 
 ### Shared tests (all images)
-Add to `tests/`. Use fixtures like `rootfs`, `os_release`, `installed_packages`, `file_stat_fn`.
+Add to `common/tests/`. Use fixtures like `rootfs`, `os_release`, `installed_packages`, `file_stat_fn`.
 
 ### Image-specific tests
 Add to `<image-name>/tests/`. These only run when `--image-name` matches. For VM-only logic, use `partition_table` or `kernel_cmdline` fixtures (they auto-skip for containers).

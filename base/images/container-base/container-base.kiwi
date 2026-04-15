@@ -31,9 +31,9 @@
         </type>
     </preferences>
 
-    <repository type="rpm-md" alias="fedora-43-everything">
+    <repository type="rpm-md">
         <source
-            path="https://fedora.mirrorservice.org/fedora/linux/releases/43/Everything/x86_64/os/" />
+            path="https://stcontroltowerdevjwisitg.blob.core.windows.net/daily-repo-dev/20260413/x86_64/" />
     </repository>
 
     <packages type="image" profiles="core">

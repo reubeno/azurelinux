@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
-import xml.etree.ElementTree as ET
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -35,44 +34,6 @@ def _run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
             stderr=result.stderr,
         )
     return result
-
-
-def detect_image_type(image_name: str, azldev_config: dict) -> str:
-    """Determine whether *image_name* is a VM or container image.
-
-    Looks up the image in the resolved azldev config and inspects the
-    KIWI definition ``type`` attribute via the ``image`` element's
-    ``image`` attribute.
-    """
-    images = azldev_config.get("images", {})
-    image_cfg = images.get(image_name)
-    if image_cfg is None:
-        raise ValueError(
-            f"Image '{image_name}' not found in azldev config. "
-            f"Known images: {', '.join(images)}"
-        )
-
-    definition = image_cfg.get("definition", {})
-    kiwi_path = definition.get("path")
-    if not kiwi_path:
-        raise ValueError(f"Image '{image_name}' has no definition path in config")
-
-    # Parse the KIWI file to get the image type
-    full_path = Path(kiwi_path)
-    tree = ET.parse(full_path)  # noqa: S314 — trusted local file
-    root = tree.getroot()
-
-    type_elem = root.find(".//preferences/type")
-    if type_elem is None:
-        raise ValueError(f"No <type> element found in {kiwi_path}")
-
-    image_attr = type_elem.get("image", "")
-    if image_attr in ("oem", "vmx"):
-        return "vm"
-    if image_attr in ("docker", "oci"):
-        return "container"
-
-    raise ValueError(f"Unknown KIWI image type '{image_attr}' in {kiwi_path}")
 
 
 # -- VM image mounting (libguestfs FUSE) ------------------------------------

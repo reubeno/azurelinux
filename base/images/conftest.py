@@ -74,8 +74,8 @@ def pytest_ignore_collect(
 
     top_dir = parts[0]
 
-    # Always collect shared tests/ directory
-    if top_dir == "tests":
+    # Always collect shared common/ tests directory
+    if top_dir == "common":
         return None
 
     # Always skip the helper package

@@ -9,9 +9,19 @@ import subprocess
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from .tools import NativeTool
 from .types import DiskInfo, PartitionInfo
 
 logger = logging.getLogger(__name__)
+
+REQUIRED_TOOLS = [
+    NativeTool(
+        name="virt-inspector",
+        package_hint="guestfs-tools",
+        reason="inspect VM disk partitions and filesystems",
+        when="vm",
+    ),
+]
 
 # Use direct backend to avoid libvirt/SELinux issues
 _GUESTFS_ENV = {**os.environ, "LIBGUESTFS_BACKEND": "direct"}

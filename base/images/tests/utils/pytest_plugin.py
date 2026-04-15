@@ -57,3 +57,28 @@ def pytest_addoption(parser) -> None:  # type: ignore[no-untyped-def]
             "Defaults to .workdir/ next to conftest.py."
         ),
     )
+
+
+def pytest_configure(config) -> None:  # type: ignore[no-untyped-def]
+    """Fail fast if required native tools are missing."""
+    from utils.tools import check_tools
+
+    # Determine image type early (before fixtures) so we only check
+    # the tools that are actually needed for this run.
+    image_type = config.getoption("--image-type", default=None)
+    if image_type is None:
+        image_path = config.getoption("--image-path", default=None)
+        if image_path:
+            image_type = detect_image_type(image_path)
+
+    missing = check_tools(when=image_type)
+    if missing:
+        names = ", ".join(t.name for t in missing)
+        hints = "\n".join(
+            f"  - {t.name}: {t.reason} (install: {t.package_hint})"
+            for t in missing
+        )
+        raise config.Error(
+            f"Missing required native tool(s): {names}\n{hints}\n\n"
+            "Run 'uv run python -m utils.tools' for a full status check."
+        )

@@ -12,7 +12,42 @@ import os
 import subprocess
 from pathlib import Path
 
+from .tools import NativeTool
+
 logger = logging.getLogger(__name__)
+
+REQUIRED_TOOLS = [
+    NativeTool(
+        name="guestmount",
+        package_hint="libguestfs / libguestfs-tools",
+        reason="FUSE-mount VM images read-only",
+        when="vm",
+    ),
+    NativeTool(
+        name="guestunmount",
+        package_hint="libguestfs / libguestfs-tools",
+        reason="unmount guestmount FUSE mounts",
+        when="vm",
+    ),
+    NativeTool(
+        name="skopeo",
+        package_hint="skopeo",
+        reason="convert OCI archives to OCI layouts",
+        when="container",
+    ),
+    NativeTool(
+        name="umoci",
+        package_hint="umoci",
+        reason="rootless OCI image unpacking",
+        when="container",
+    ),
+    NativeTool(
+        name="buildah",
+        package_hint="buildah",
+        reason="cleanup rootless umoci extracts (buildah unshare)",
+        when="container",
+    ),
+]
 
 
 def _run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:

@@ -13,9 +13,19 @@ import os
 import subprocess
 from pathlib import Path
 
+from .tools import NativeTool
 from .types import RepoInfo, StatResult
 
 logger = logging.getLogger(__name__)
+
+REQUIRED_TOOLS = [
+    NativeTool(
+        name="rpm",
+        package_hint="rpm",
+        reason="query installed packages via rpm --root",
+        when="always",
+    ),
+]
 
 
 def parse_os_release(content: str) -> dict[str, str]:

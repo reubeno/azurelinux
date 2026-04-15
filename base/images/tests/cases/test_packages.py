@@ -11,7 +11,7 @@ REQUIRED_PACKAGES = {
 }
 
 # Packages that must NOT be present in any image
-BLACKLISTED_PACKAGES = {
+BLOCKLISTED_PACKAGES = {
     "telnet-server",
     "rsh-server",
     "tftp-server",
@@ -23,8 +23,8 @@ def test_required_packages_installed(installed_packages: set[str]) -> None:
     assert not missing, f"Required packages missing: {sorted(missing)}"
 
 
-@pytest.mark.parametrize("pkg", sorted(BLACKLISTED_PACKAGES))
-def test_blacklisted_package_absent(
+@pytest.mark.parametrize("pkg", sorted(BLOCKLISTED_PACKAGES))
+def test_blocklisted_package_absent(
     pkg: str, installed_packages: set[str]
 ) -> None:
-    assert pkg not in installed_packages, f"Blacklisted package installed: {pkg}"
+    assert pkg not in installed_packages, f"Blocklisted package installed: {pkg}"

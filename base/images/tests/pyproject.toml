@@ -17,7 +17,6 @@ packages = ["utils"]
 azl_image = "utils.pytest_plugin"
 
 [tool.pytest.ini_options]
-testpaths = ["cases"]
 addopts = ["-v", "--tb=short"]
 log_cli = true
 log_cli_level = "INFO"

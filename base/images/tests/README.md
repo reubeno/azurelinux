@@ -18,20 +18,26 @@ System packages (not pip-installable):
 ```bash
 cd base/images/tests
 
-# VM image
-uv run pytest --image-name vm-base --image-path ../../out/images/vm-base/<image>.raw
+# VM image — shared + VM-specific tests
+uv run pytest cases/ cases/vm-base/ --image-path /path/to/image.raw
 
-# Container image
-uv run pytest --image-name container-base --image-path ../../out/images/container-base/<image>.oci.tar.xz
+# Container image — shared + container-specific tests
+uv run pytest cases/ cases/container-base/ --image-path /path/to/image.oci.tar.xz
 
-# Collect only (verify test selection without running)
-uv run pytest --image-name vm-base --image-path /path/to/image.raw --collect-only
+# Shared tests only
+uv run pytest cases/ --image-path /path/to/image.raw
+
+# Explicit image type (overrides auto-detection from file extension)
+uv run pytest cases/ --image-path /path/to/image --image-type vm
+
+# Custom workdir for mounts/extractions (default: .workdir/)
+uv run pytest cases/ --image-path /path/to/image.raw --workdir /tmp/my-workdir
 
 # Verbose debug logging
-uv run pytest --image-name vm-base --image-path /path/to/image.raw --log-cli-level=DEBUG
+uv run pytest cases/ --image-path /path/to/image.raw --log-cli-level=DEBUG
 ```
 
-One image per invocation. The `--image-name` flag controls which per-image test directory is collected, while shared tests in `cases/` always run.
+Test collection is controlled via standard pytest positional arguments — pass the directories/files you want to run.
 
 ### Logging
 
@@ -50,8 +56,9 @@ base/images/
 ├── container-base/container-base.kiwi   # Container image definition
 └── tests/
     ├── pyproject.toml                   # uv project: pytest, dependencies
-    ├── conftest.py                      # CLI options, collection hooks, all fixtures
+    ├── conftest.py                      # Fixtures
     ├── utils/                           # Helper package (not test-collected)
+    │   ├── pytest_plugin.py             # CLI options (loaded early via entry point)
     │   ├── extract.py                   # Image mounting (guestmount / skopeo+umoci)
     │   ├── disk.py                      # VM disk inspection (virt-inspector)
     │   ├── parsers.py                   # File content parsers
@@ -80,19 +87,30 @@ base/images/
 
 `skopeo copy` converts the OCI archive to an OCI layout, then `umoci unpack --rootless` extracts the rootfs — no root privileges or user namespaces required. Cleanup uses `buildah unshare rm -rf` to handle read-only directories preserved by the rootless extraction.
 
+### Image type detection
+
+Image type is auto-detected from the file extension (`.raw`/`.vhd` → vm, `.oci.tar.xz` → container). Override with `--image-type vm|container` if needed.
+
 ## Adding Tests
 
 ### Shared tests (all images)
 Add to `cases/`. Use fixtures like `rootfs`, `os_release`, `installed_packages`, `file_stat_fn`.
 
 ### Image-specific tests
-Add to `cases/<image-name>/`. These only run when `--image-name` matches. For VM-only logic, use `partition_table` or `kernel_cmdline` fixtures (they auto-skip for containers).
+Add to `cases/<image-name>/`. These only run when the caller includes that directory. VM-only fixtures (`partition_table`, `kernel_cmdline`) auto-skip for container images.
+
+## CLI Options
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `--image-path` | Yes | Path to the built image artifact |
+| `--image-type` | No | `vm` or `container` (auto-detected from extension) |
+| `--workdir` | No | Working directory for mounts/extractions (default: `.workdir/`) |
 
 ## Available Fixtures
 
 | Fixture | Scope | Type | Description |
 |---------|-------|------|-------------|
-| `image_name` | session | `str` | From `--image-name` |
 | `image_path` | session | `Path` | From `--image-path` |
 | `image_type` | session | `str` | `"vm"` or `"container"` |
 | `rootfs` | session | `Path` | Mounted image filesystem |

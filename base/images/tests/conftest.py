@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: MIT
-"""Root conftest — CLI options, collection hooks, and all fixtures."""
+"""Root conftest — fixtures for image validation.
+
+CLI options (``--image-path``, ``--image-type``, ``--workdir``) are
+registered in :mod:`utils.pytest_plugin` (loaded early via entry point).
+"""
 
 from __future__ import annotations
 
-import json
 import logging
-import subprocess
 from pathlib import Path
 from typing import Callable
 
@@ -13,7 +15,6 @@ import pytest
 
 from utils.disk import inspect_disk
 from utils.extract import (
-    detect_image_type,
     mount_container_image,
     mount_vm_image,
     unmount_container_image,
@@ -27,58 +28,15 @@ from utils.parsers import (
     parse_systemd_enabled,
     query_rpm_packages,
 )
+from utils.pytest_plugin import detect_image_type
 from utils.types import DiskInfo, PartitionInfo, RepoInfo, StatResult
 
 logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Collection hook — filter test directories by --image-name
-# ---------------------------------------------------------------------------
-
-
-def pytest_ignore_collect(
-    collection_path: Path, config: pytest.Config
-) -> bool | None:
-    image_name = config.getoption("--image-name")
-    tests_root = Path(__file__).resolve().parent
-
-    try:
-        rel = collection_path.resolve().relative_to(tests_root)
-    except ValueError:
-        return None
-
-    parts = rel.parts
-    if not parts:
-        return None
-
-    top_dir = parts[0]
-
-    # Always skip the helper package
-    if top_dir == "utils":
-        return True
-
-    # Inside cases/: shared tests live at cases/test_*.py, per-image in cases/<name>/
-    if top_dir == "cases" and len(parts) >= 2:
-        subdir = parts[1]
-        # If it's a subdirectory (not a file), only collect matching image name
-        candidate = tests_root / "cases" / subdir
-        if candidate.is_dir() and subdir != image_name:
-            return True
-
-    return None
-
-
-# ---------------------------------------------------------------------------
 # Core fixtures (session-scoped)
 # ---------------------------------------------------------------------------
-
-
-@pytest.fixture(scope="session")
-def image_name(request: pytest.FixtureRequest) -> str:
-    name = request.config.getoption("--image-name")
-    logger.info("Image name: %s", name)
-    return name
 
 
 @pytest.fixture(scope="session")
@@ -92,40 +50,41 @@ def image_path(request: pytest.FixtureRequest) -> Path:
 
 
 @pytest.fixture(scope="session")
-def azldev_config() -> dict:
-    """Resolved TOML config from ``azldev config dump``."""
-    logger.info("Loading azldev config via 'azldev config dump -q -f json'")
-    result = subprocess.run(
-        ["azldev", "config", "dump", "-q", "-f", "json"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    config = json.loads(result.stdout)
-    logger.debug("Config loaded: %d top-level keys", len(config))
-    return config
+def image_type(request: pytest.FixtureRequest, image_path: Path) -> str:
+    """``'vm'`` or ``'container'`` — from ``--image-type`` or auto-detected."""
+    explicit = request.config.getoption("--image-type")
+    if explicit:
+        logger.info("Image type (explicit): %s", explicit)
+        return explicit
+
+    detected = detect_image_type(str(image_path))
+    if detected is None:
+        pytest.fail(
+            f"Cannot detect image type from extension of {image_path.name}. "
+            "Pass --image-type explicitly."
+        )
+    logger.info("Image type (auto-detected): %s", detected)
+    return detected
 
 
 @pytest.fixture(scope="session")
-def image_type(image_name: str, azldev_config: dict) -> str:
-    """``'vm'`` or ``'container'``, detected from KIWI definition."""
-    itype = detect_image_type(image_name, azldev_config)
-    logger.info("Detected image type: %s", itype)
-    return itype
+def workdir(request: pytest.FixtureRequest) -> Path:
+    """Working directory for mounts and extractions."""
+    explicit = request.config.getoption("--workdir")
+    if explicit:
+        p = Path(explicit).resolve()
+    else:
+        p = Path(__file__).resolve().parent / ".workdir"
+    p.mkdir(parents=True, exist_ok=True)
+    logger.debug("Work dir: %s", p)
+    return p
 
 
 @pytest.fixture(scope="session")
-def rootfs(
-    image_path: Path, image_type: str, azldev_config: dict,
-) -> Path:
+def rootfs(image_path: Path, image_type: str, workdir: Path) -> Path:
     """Mounted rootfs — session yield-fixture with cleanup."""
-    work_dir = Path(azldev_config["project"]["workDir"])
-    scratch_dir = work_dir / "scratch" / "image-tests"
-    scratch_dir.mkdir(parents=True, exist_ok=True)
-    logger.debug("Scratch dir: %s", scratch_dir)
-
     if image_type == "vm":
-        mountpoint = scratch_dir / "vm-rootfs"
+        mountpoint = workdir / "vm-rootfs"
         mountpoint.mkdir(parents=True, exist_ok=True)
         logger.info("Mounting VM image at %s", mountpoint)
         mount_vm_image(image_path, mountpoint)
@@ -133,7 +92,7 @@ def rootfs(
         logger.info("Unmounting VM image at %s", mountpoint)
         unmount_vm_image(mountpoint)
     else:
-        container_dir = scratch_dir / "container"
+        container_dir = workdir / "container"
         logger.info("Extracting container image to %s", container_dir)
         rootfs_path = mount_container_image(image_path, container_dir)
         logger.info("Container rootfs ready at %s", rootfs_path)

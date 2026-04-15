@@ -20,7 +20,7 @@ def test_has_root_partition(partition_table: list[PartitionInfo]) -> None:
 
 
 def test_root_filesystem_type(partition_table: list[PartitionInfo]) -> None:
-    """Root partition should use ext4 (as defined in vm-base.kiwi)."""
+    """Root partition should use ext4."""
     root = next((p for p in partition_table if p.mountpoint == "/"), None)
     if root is None:
         pytest.skip("No root partition found")

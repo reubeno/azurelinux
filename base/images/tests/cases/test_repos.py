@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from image_test.types import RepoInfo
+from utils.types import RepoInfo
 
 
 def test_repos_dir_exists(rootfs: Path) -> None:

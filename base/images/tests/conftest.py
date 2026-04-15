@@ -11,15 +11,15 @@ from typing import Callable
 
 import pytest
 
-from image_test.disk import inspect_disk
-from image_test.extract import (
+from utils.disk import inspect_disk
+from utils.extract import (
     detect_image_type,
     mount_container_image,
     mount_vm_image,
     unmount_container_image,
     unmount_vm_image,
 )
-from image_test.parsers import (
+from utils.parsers import (
     file_stat as _file_stat,
     parse_grub_defaults,
     parse_os_release,
@@ -27,28 +27,9 @@ from image_test.parsers import (
     parse_systemd_enabled,
     query_rpm_packages,
 )
-from image_test.types import DiskInfo, PartitionInfo, RepoInfo, StatResult
+from utils.types import DiskInfo, PartitionInfo, RepoInfo, StatResult
 
 logger = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# CLI options
-# ---------------------------------------------------------------------------
-
-
-def pytest_addoption(parser: pytest.Parser) -> None:
-    group = parser.getgroup("image", "Azure Linux image validation")
-    group.addoption(
-        "--image-name",
-        required=True,
-        help="Image name matching a key in images.toml (e.g. vm-base, container-base)",
-    )
-    group.addoption(
-        "--image-path",
-        required=True,
-        help="Path to the built image artifact (VHD, tar.xz, etc.)",
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -60,11 +41,10 @@ def pytest_ignore_collect(
     collection_path: Path, config: pytest.Config
 ) -> bool | None:
     image_name = config.getoption("--image-name")
-    images_root = Path(__file__).resolve().parent
+    tests_root = Path(__file__).resolve().parent
 
-    # Relative path from base/images/
     try:
-        rel = collection_path.resolve().relative_to(images_root)
+        rel = collection_path.resolve().relative_to(tests_root)
     except ValueError:
         return None
 
@@ -74,20 +54,17 @@ def pytest_ignore_collect(
 
     top_dir = parts[0]
 
-    # Always collect shared common/ tests directory
-    if top_dir == "common":
-        return None
-
     # Always skip the helper package
-    if top_dir == "image_test":
+    if top_dir == "utils":
         return True
 
-    # Image-specific directories: only collect the one matching --image-name
-    if top_dir != image_name:
-        # Check if this is actually an image directory (has a .kiwi file)
-        candidate = images_root / top_dir
-        if candidate.is_dir() and list(candidate.glob("*.kiwi")):
-            return True  # Skip — it's a different image
+    # Inside cases/: shared tests live at cases/test_*.py, per-image in cases/<name>/
+    if top_dir == "cases" and len(parts) >= 2:
+        subdir = parts[1]
+        # If it's a subdirectory (not a file), only collect matching image name
+        candidate = tests_root / "cases" / subdir
+        if candidate.is_dir() and subdir != image_name:
+            return True
 
     return None
 

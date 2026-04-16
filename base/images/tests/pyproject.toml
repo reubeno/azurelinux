@@ -18,7 +18,7 @@ packages = ["utils"]
 azl_image = "utils.pytest_plugin"
 
 [tool.pytest.ini_options]
-addopts = ["-v", "--tb=short"]
+addopts = ["-v", "--tb=short", "--import-mode=importlib"]
 log_cli = true
 log_cli_level = "INFO"
 log_cli_format = "%(asctime)s %(levelname)-5s %(name)s: %(message)s"

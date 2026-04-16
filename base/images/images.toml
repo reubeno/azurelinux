@@ -1,9 +1,7 @@
 [images.vm-base]
 description = "VM Base Image"
 definition = { type = "kiwi", path = "vm-base/vm-base.kiwi" }
-
-[images.vm-base.tests]
-test-suites = [
+tests.test-suites = [
     { name = "common-vm-checks" },
     { name = "vm-base-checks" },
 ]
@@ -11,9 +9,7 @@ test-suites = [
 [images.container-base]
 description = "Container Base Image"
 definition = { type = "kiwi", path = "container-base/container-base.kiwi", profile = "core" }
-
-[images.container-base.tests]
-test-suites = [
+tests.test-suites = [
     { name = "common-container-checks" },
     { name = "container-base-checks" },
 ]
@@ -25,6 +21,10 @@ definition = { type = "kiwi", path = "container-base/container-base.kiwi", profi
 [images.container-distroless-base]
 description = "Container Distroless Base Image"
 definition = { type = "kiwi", path = "container-base/container-base.kiwi", profile = "distroless-base" }
+tests.test-suites = [
+    { name = "common-container-checks" },
+    { name = "container-base-checks" },
+]
 
 [images.container-distroless-debug]
 description = "Container Distroless Debug Image"

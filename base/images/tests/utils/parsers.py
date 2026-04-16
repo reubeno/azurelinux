@@ -25,6 +25,12 @@ REQUIRED_TOOLS = [
         reason="query installed packages via rpm --root",
         when="always",
     ),
+    NativeTool(
+        name="systemctl",
+        package_hint="systemd",
+        reason="query unit enablement state via systemctl --root",
+        when="always",
+    ),
 ]
 
 
@@ -85,20 +91,76 @@ def _parse_single_repo_file(content: str) -> list[RepoInfo]:
     return repos
 
 
-def parse_systemd_enabled(etc_systemd_dir: Path) -> set[str]:
-    """Walk ``*.wants/`` directories to find enabled systemd services."""
-    enabled: set[str] = set()
-    system_dir = etc_systemd_dir / "system"
-    if not system_dir.is_dir():
-        logger.debug("Systemd system dir does not exist: %s", system_dir)
-        return enabled
+def is_service_enabled(rootfs: Path, unit: str) -> bool:
+    """Fast check whether a single systemd unit is enabled.
 
-    for wants_dir in system_dir.glob("*.wants"):
-        for entry in wants_dir.iterdir():
-            if entry.is_symlink() or entry.is_file():
-                logger.debug("Enabled service: %s (via %s)", entry.name, wants_dir.name)
-                enabled.add(entry.name)
+    Uses ``systemctl --root is-enabled`` which resolves only the
+    specified unit's symlink chain — much faster than listing all units.
+    """
+    cmd = [
+        "systemctl", "--root", str(rootfs),
+        "is-enabled", unit, "--no-pager",
+    ]
+    logger.debug("Running: %s", " ".join(cmd))
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    state = result.stdout.strip()
+    logger.debug("is-enabled %s → %s (rc=%d)", unit, state, result.returncode)
+    return state == "enabled"
+
+
+def query_systemd_unit_files(rootfs: Path) -> dict[str, str]:
+    """Query systemd unit enablement states via ``systemctl --root``.
+
+    Returns a dict mapping unit name to its state (e.g. ``"enabled"``,
+    ``"disabled"``, ``"static"``, ``"masked"``, ``"indirect"``).
+
+    .. note:: This scans *all* unit files and can be slow on FUSE-mounted
+       filesystems.  Prefer :func:`is_service_enabled` for checking
+       individual units.
+    """
+    cmd = [
+        "systemctl", "--root", str(rootfs),
+        "list-unit-files", "--no-pager", "--no-legend",
+    ]
+    logger.debug("Running: %s", " ".join(cmd))
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        logger.warning(
+            "systemctl list-unit-files failed (rc=%d): %s",
+            result.returncode,
+            result.stderr.strip(),
+        )
+        return {}
+
+    units: dict[str, str] = {}
+    for line in result.stdout.splitlines():
+        # Format: "<unit>  <vendor-preset>  <runtime-state>"  or  "<unit>  <state>"
+        parts = line.split()
+        if len(parts) >= 2:
+            unit_name, state = parts[0], parts[1]
+            units[unit_name] = state
+    logger.debug("systemctl returned %d unit files", len(units))
+    return units
+
+
+def query_enabled_services(rootfs: Path) -> set[str]:
+    """Return the set of systemd units that are ``enabled``.
+
+    .. note:: Calls :func:`query_systemd_unit_files` which scans all units.
+       For checking individual units, prefer :func:`is_service_enabled`.
+    """
+    units = query_systemd_unit_files(rootfs)
+    enabled = {name for name, state in units.items() if state == "enabled"}
+    logger.debug("Enabled services: %s", sorted(enabled))
     return enabled
+
+
+def query_masked_services(rootfs: Path) -> set[str]:
+    """Return the set of systemd units that are ``masked``."""
+    units = query_systemd_unit_files(rootfs)
+    masked = {name for name, state in units.items() if state == "masked"}
+    logger.debug("Masked services: %s", sorted(masked))
+    return masked
 
 
 def parse_grub_defaults(content: str) -> dict[str, str]:

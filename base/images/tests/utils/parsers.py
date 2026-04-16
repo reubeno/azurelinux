@@ -11,6 +11,7 @@ import configparser
 import logging
 import os
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
 from .tools import NativeTool
@@ -29,6 +30,12 @@ REQUIRED_TOOLS = [
         name="systemctl",
         package_hint="systemd",
         reason="query unit enablement state via systemctl --root",
+        when="always",
+    ),
+    NativeTool(
+        name="systemd-analyze",
+        package_hint="systemd",
+        reason="verify unit file correctness via systemd-analyze --root",
         when="always",
     ),
 ]
@@ -257,3 +264,67 @@ def file_stat(rootfs: Path, path: str) -> StatResult:
         is_symlink=full_path.is_symlink(),
         link_target=link_target,
     )
+
+
+# ---------------------------------------------------------------------------
+# systemd-analyze
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class UnitVerifyResult:
+    """Result of ``systemd-analyze verify`` for a single unit."""
+
+    unit: str
+    ok: bool
+    diagnostics: str
+
+
+def verify_systemd_units(rootfs: Path, units: list[str]) -> list[UnitVerifyResult]:
+    """Run ``systemd-analyze verify --root`` on units.
+
+    Verifies all units in a single batch invocation to amortize the cost
+    of loading the unit dependency graph (expensive on FUSE mounts).
+    Diagnostics are then attributed back to individual units.
+    """
+    if not units:
+        return []
+
+    cmd = [
+        "systemd-analyze", "verify",
+        "--root", str(rootfs),
+        "--man=no",
+        *units,
+    ]
+    logger.debug("Running: %s", " ".join(cmd))
+    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    stderr = proc.stderr
+
+    # Attribute each diagnostic line to its unit.  Lines typically start
+    # with the unit path or name, e.g.:
+    #   /root/.../sshd.service:16: Some warning
+    #   foo.service: Some error
+    unit_diags: dict[str, list[str]] = {u: [] for u in units}
+    for line in stderr.splitlines():
+        matched = False
+        for u in units:
+            # Match unit name at start of line (with or without path prefix)
+            if u in line.split(":", 1)[0] if ":" in line else u in line:
+                unit_diags[u].append(line)
+                matched = True
+                break
+        if not matched and line.strip():
+            # Unattributed diagnostic — attach to a special key
+            unit_diags.setdefault("_unattributed", []).append(line)
+
+    results: list[UnitVerifyResult] = []
+    for u in units:
+        diag = "\n".join(unit_diags.get(u, []))
+        ok = not diag
+        if not ok:
+            logger.debug("verify %s: FAIL\n%s", u, diag)
+        else:
+            logger.debug("verify %s: OK", u)
+        results.append(UnitVerifyResult(unit=u, ok=ok, diagnostics=diag))
+
+    return results

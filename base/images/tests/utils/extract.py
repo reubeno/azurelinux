@@ -73,8 +73,9 @@ def _run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
 
 # -- VM image mounting (libguestfs FUSE) ------------------------------------
 
-# Use direct backend to avoid libvirt/SELinux issues
-_GUESTFS_ENV = {**os.environ, "LIBGUESTFS_BACKEND": "direct"}
+def _guestfs_env() -> dict[str, str]:
+    """Build environment with direct libguestfs backend."""
+    return {**os.environ, "LIBGUESTFS_BACKEND": "direct"}
 
 
 def mount_vm_image(image_path: Path, mountpoint: Path) -> Path:
@@ -91,7 +92,7 @@ def mount_vm_image(image_path: Path, mountpoint: Path) -> Path:
         "-i",
         str(mountpoint),
     ]
-    _run(cmd, env=_GUESTFS_ENV)
+    _run(cmd, env=_guestfs_env())
     return mountpoint
 
 

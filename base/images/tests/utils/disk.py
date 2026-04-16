@@ -4,11 +4,10 @@
 from __future__ import annotations
 
 import logging
-import os
-import subprocess
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from .extract import _guestfs_env, _run
 from .tools import NativeTool
 from .types import DiskInfo, PartitionInfo
 
@@ -23,15 +22,13 @@ REQUIRED_TOOLS = [
     ),
 ]
 
-# Use direct backend to avoid libvirt/SELinux issues
-_GUESTFS_ENV = {**os.environ, "LIBGUESTFS_BACKEND": "direct"}
-
 
 def inspect_disk(image_path: Path) -> DiskInfo:
     """Run ``virt-inspector`` on a VM image and return structured disk info."""
-    cmd = ["virt-inspector", "-a", str(image_path)]
-    logger.info("Inspecting disk: %s", " ".join(cmd))
-    result = subprocess.run(cmd, check=True, capture_output=True, text=True, env=_GUESTFS_ENV)
+    result = _run(
+        ["virt-inspector", "-a", str(image_path)],
+        env=_guestfs_env(),
+    )
     return _parse_virt_inspector(result.stdout)
 
 

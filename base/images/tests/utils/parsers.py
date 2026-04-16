@@ -119,8 +119,44 @@ def parse_grub_defaults(content: str) -> dict[str, str]:
     return result
 
 
+def find_kernel_cmdline(rootfs: Path) -> str:
+    """Extract the default kernel command line from a mounted rootfs.
+
+    Tries ``/etc/default/grub`` first, then falls back to parsing
+    ``grub.cfg`` for a ``linux`` line.  Returns ``""`` if nothing found.
+    """
+    grub_defaults = rootfs / "etc" / "default" / "grub"
+    if grub_defaults.exists():
+        logger.debug("Parsing GRUB defaults from %s", grub_defaults)
+        parsed = parse_grub_defaults(grub_defaults.read_text())
+        cmdline = parsed.get("GRUB_CMDLINE_LINUX_DEFAULT", "")
+        if cmdline:
+            logger.debug("Kernel cmdline (from defaults): %s", cmdline)
+            return cmdline
+
+    for grub_cfg_path in [
+        rootfs / "boot" / "grub2" / "grub.cfg",
+        rootfs / "boot" / "grub" / "grub.cfg",
+    ]:
+        if grub_cfg_path.exists():
+            logger.debug("Parsing grub.cfg from %s", grub_cfg_path)
+            for line in grub_cfg_path.read_text().splitlines():
+                stripped = line.strip()
+                if stripped.startswith("linux") and "root=" in stripped:
+                    parts = stripped.split(maxsplit=2)
+                    if len(parts) >= 3:
+                        logger.debug("Kernel cmdline (from grub.cfg): %s", parts[2])
+                        return parts[2]
+
+    logger.debug("No kernel cmdline found in image")
+    return ""
+
+
 def query_rpm_packages(rootfs: Path) -> set[str]:
-    """Query installed RPM packages via ``rpm --root``."""
+    """Query installed RPM packages via ``rpm --root``.
+
+    Raises :class:`RuntimeError` if the query fails (e.g. missing rpmdb).
+    """
     cmd = ["rpm", "--root", str(rootfs), "-qa", "--qf", "%{NAME}\n"]
     logger.debug("Running: %s", " ".join(cmd))
     result = subprocess.run(
@@ -130,8 +166,9 @@ def query_rpm_packages(rootfs: Path) -> set[str]:
         check=False,
     )
     if result.returncode != 0:
-        logger.warning("rpm query failed (rc=%d): %s", result.returncode, result.stderr)
-        return set()
+        raise RuntimeError(
+            f"rpm query failed (rc={result.returncode}): {result.stderr.strip()}"
+        )
     pkgs = {line.strip() for line in result.stdout.splitlines() if line.strip()}
     logger.debug("rpm query returned %d packages", len(pkgs))
     return pkgs

@@ -22,7 +22,3 @@ log_cli = true
 log_cli_level = "INFO"
 log_cli_format = "%(asctime)s %(levelname)-5s %(name)s: %(message)s"
 log_cli_date_format = "%H:%M:%S"
-markers = [
-    "vm_only: test only runs for VM images",
-    "container_only: test only runs for container images",
-]

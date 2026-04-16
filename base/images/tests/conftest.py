@@ -8,6 +8,7 @@ registered in :mod:`utils.pytest_plugin` (loaded early via entry point).
 from __future__ import annotations
 
 import logging
+import tempfile
 from pathlib import Path
 from typing import Callable
 
@@ -22,7 +23,7 @@ from utils.extract import (
 )
 from utils.parsers import (
     file_stat as _file_stat,
-    parse_grub_defaults,
+    find_kernel_cmdline,
     parse_os_release,
     parse_repo_files,
     parse_systemd_enabled,
@@ -73,9 +74,9 @@ def workdir(request: pytest.FixtureRequest) -> Path:
     explicit = request.config.getoption("--workdir")
     if explicit:
         p = Path(explicit).resolve()
+        p.mkdir(parents=True, exist_ok=True)
     else:
-        p = Path(__file__).resolve().parent / ".workdir"
-    p.mkdir(parents=True, exist_ok=True)
+        p = Path(tempfile.mkdtemp(prefix="azl-image-tests-"))
     logger.debug("Work dir: %s", p)
     return p
 
@@ -178,33 +179,9 @@ def kernel_cmdline(rootfs: Path, image_type: str) -> str:
     """Default kernel command line from GRUB config — auto-skips for containers."""
     if image_type != "vm":
         pytest.skip("kernel_cmdline not applicable to container images")
-
-    grub_defaults = rootfs / "etc" / "default" / "grub"
-    if grub_defaults.exists():
-        logger.debug("Parsing GRUB defaults from %s", grub_defaults)
-        parsed = parse_grub_defaults(grub_defaults.read_text())
-        cmdline = parsed.get("GRUB_CMDLINE_LINUX_DEFAULT", "")
-        logger.info("Kernel cmdline (from defaults): %s", cmdline)
-        return cmdline
-
-    # Fallback: try grub.cfg directly
-    for grub_cfg_path in [
-        rootfs / "boot" / "grub2" / "grub.cfg",
-        rootfs / "boot" / "grub" / "grub.cfg",
-    ]:
-        if grub_cfg_path.exists():
-            logger.debug("Parsing grub.cfg from %s", grub_cfg_path)
-            content = grub_cfg_path.read_text()
-            for line in content.splitlines():
-                stripped = line.strip()
-                if stripped.startswith("linux") and "root=" in stripped:
-                    parts = stripped.split(maxsplit=2)
-                    if len(parts) >= 3:
-                        logger.info("Kernel cmdline (from grub.cfg): %s", parts[2])
-                        return parts[2]
-
-    logger.warning("No kernel cmdline found in image")
-    return ""
+    cmdline = find_kernel_cmdline(rootfs)
+    logger.info("Kernel cmdline: %s", cmdline or "(empty)")
+    return cmdline
 
 
 @pytest.fixture(scope="session")

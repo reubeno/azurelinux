@@ -81,16 +81,24 @@ def _guestfs_env() -> dict[str, str]:
 def mount_vm_image(image_path: Path, mountpoint: Path) -> Path:
     """Mount a VM image read-only via ``guestmount``.
 
+    Enables aggressive FUSE kernel caching since the mount is read-only
+    and the image never changes during the test session.
+
     Returns the *mountpoint* path on success.
     """
     mountpoint.mkdir(parents=True, exist_ok=True)
     cmd = [
         "guestmount",
         "--ro",
-        "-a",
-        str(image_path),
-        "-i",
-        str(mountpoint),
+        "-a", str(image_path),
+        "-i", str(mountpoint),
+        # Aggressive caching — safe because the mount is read-only.
+        "-o", "kernel_cache",
+        "-o", "entry_timeout=3600",
+        "-o", "attr_timeout=3600",
+        "-o", "negative_timeout=3600",
+        "-o", "noforget",
+        "--dir-cache-timeout", "3600",
     ]
     _run(cmd, env=_guestfs_env())
     return mountpoint

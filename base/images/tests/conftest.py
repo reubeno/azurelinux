@@ -24,9 +24,10 @@ from utils.extract import (
 from utils.parsers import (
     file_stat as _file_stat,
     find_kernel_cmdline,
+    is_service_enabled as _is_service_enabled,
     parse_os_release,
     parse_repo_files,
-    parse_systemd_enabled,
+    query_enabled_services,
     query_rpm_packages,
 )
 from utils.pytest_plugin import detect_image_type
@@ -152,12 +153,29 @@ def yum_repos(rootfs: Path) -> list[RepoInfo]:
 
 @pytest.fixture(scope="session")
 def enabled_services(rootfs: Path) -> set[str]:
-    """Systemd services enabled via ``*.wants/`` symlinks."""
-    systemd_dir = rootfs / "etc" / "systemd"
-    logger.debug("Scanning systemd enabled services in %s", systemd_dir)
-    services = parse_systemd_enabled(systemd_dir)
-    logger.info("Found %d enabled services: %s", len(services), sorted(services))
+    """Systemd units in ``enabled`` state via ``systemctl --root``.
+
+    .. note:: This scans all unit files and can be slow on FUSE mounts.
+       For checking individual units, prefer the ``is_service_enabled`` fixture.
+    """
+    services = query_enabled_services(rootfs)
+    logger.info("Found %d enabled services", len(services))
+    logger.debug("Enabled services: %s", sorted(services))
     return services
+
+
+@pytest.fixture(scope="session")
+def is_service_enabled(rootfs: Path) -> Callable[[str], bool]:
+    """Fast per-unit check: ``is_service_enabled("sshd.service")`` → bool.
+
+    Uses ``systemctl --root is-enabled`` which resolves only the target
+    unit — much faster than the ``enabled_services`` fixture on FUSE mounts.
+    """
+
+    def _check(unit: str) -> bool:
+        return _is_service_enabled(rootfs, unit)
+
+    return _check
 
 
 @pytest.fixture(scope="session")

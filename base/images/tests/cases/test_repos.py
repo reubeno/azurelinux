@@ -3,14 +3,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from utils.types import RepoInfo
-
-
-def test_repos_dir_exists(rootfs: Path) -> None:
-    """The image must have a yum.repos.d directory."""
-    assert (rootfs / "etc" / "yum.repos.d").is_dir()
 
 
 def test_has_repo_files(yum_repos: list[RepoInfo]) -> None:

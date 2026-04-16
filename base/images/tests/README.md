@@ -30,7 +30,7 @@ uv run pytest cases/ --image-path /path/to/image.raw
 # Explicit image type (overrides auto-detection from file extension)
 uv run pytest cases/ --image-path /path/to/image --image-type vm
 
-# Custom workdir for mounts/extractions (default: .workdir/)
+# Custom workdir for mounts/extractions (default: system temp dir)
 uv run pytest cases/ --image-path /path/to/image.raw --workdir /tmp/my-workdir
 
 # Verbose debug logging
@@ -67,7 +67,6 @@ base/images/
         ├── test_os_release.py           # Shared: /etc/os-release validation
         ├── test_repos.py                # Shared: yum repo validation
         ├── test_packages.py             # Shared: package validation
-        ├── test_services.py             # Shared: systemd service validation
         ├── test_filesystem.py           # Shared: file permissions validation
         ├── vm-base/                     # VM-specific tests
         │   ├── test_partitions.py
@@ -105,7 +104,7 @@ Add to `cases/<image-name>/`. These only run when the caller includes that direc
 |--------|----------|-------------|
 | `--image-path` | Yes | Path to the built image artifact |
 | `--image-type` | No | `vm` or `container` (auto-detected from extension) |
-| `--workdir` | No | Working directory for mounts/extractions (default: `.workdir/`) |
+| `--workdir` | No | Working directory for mounts/extractions (default: temp dir) |
 
 ## Available Fixtures
 

@@ -29,11 +29,12 @@ def test_root_filesystem_type(partition_table: list[PartitionInfo]) -> None:
 
 def test_has_efi_partition(partition_table: list[PartitionInfo]) -> None:
     """UEFI images must have a vfat EFI system partition."""
+    efi_mountpoints = {"/boot/efi", "/efi"}
     efi_parts = [
         p
         for p in partition_table
-        if p.type == "vfat"
-        or (p.mountpoint and "/efi" in p.mountpoint.lower())
-        or (p.mountpoint and "/boot/efi" in p.mountpoint.lower())
+        if p.mountpoint in efi_mountpoints and p.type == "vfat"
     ]
-    assert len(efi_parts) >= 1, "No EFI partition found"
+    assert len(efi_parts) >= 1, (
+        "No vfat EFI partition found (expected mountpoint: /boot/efi or /efi)"
+    )

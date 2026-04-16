@@ -5,8 +5,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 
 def test_serial_console_configured(kernel_cmdline: str) -> None:
     """VM images should have serial console enabled for Azure."""
@@ -15,12 +13,11 @@ def test_serial_console_configured(kernel_cmdline: str) -> None:
     )
 
 
-def test_kernel_installed(rootfs: Path, image_type: str) -> None:
-    if image_type != "vm":
-        pytest.skip("Not a VM image")
-    modules_dir = rootfs / "lib" / "modules"
+def test_kernel_installed(rootfs: Path) -> None:
+    """Image must have at least one kernel version installed."""
+    modules_dir = rootfs / "usr" / "lib" / "modules"
     if not modules_dir.exists():
-        modules_dir = rootfs / "usr" / "lib" / "modules"
+        modules_dir = rootfs / "lib" / "modules"
     assert modules_dir.exists(), "No kernel modules directory found"
     versions = [d.name for d in modules_dir.iterdir() if d.is_dir()]
     assert len(versions) >= 1, "No kernel version directories found"

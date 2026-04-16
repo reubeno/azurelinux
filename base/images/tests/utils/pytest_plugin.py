@@ -9,6 +9,8 @@ positional test-path argument.
 
 from __future__ import annotations
 
+import pytest
+
 # Map file-extension suffixes to image types for auto-detection.
 _EXT_TO_TYPE: dict[str, str] = {
     ".raw": "vm",
@@ -54,7 +56,7 @@ def pytest_addoption(parser) -> None:  # type: ignore[no-untyped-def]
         default=None,
         help=(
             "Working directory for temporary files (mounts, extractions). "
-            "Defaults to .workdir/ next to conftest.py."
+            "Defaults to a temporary directory."
         ),
     )
 
@@ -78,7 +80,7 @@ def pytest_configure(config) -> None:  # type: ignore[no-untyped-def]
             f"  - {t.name}: {t.reason} (install: {t.package_hint})"
             for t in missing
         )
-        raise config.Error(
+        raise pytest.UsageError(
             f"Missing required native tool(s): {names}\n{hints}\n\n"
             "Run 'uv run python -m utils.tools' for a full status check."
         )

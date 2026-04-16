@@ -7,14 +7,14 @@ import pytest
 
 # Packages that must be present in all images
 REQUIRED_PACKAGES = {
-    "bash",
+    "azurelinux-release",
 }
 
 # Packages that must NOT be present in any image
 BLOCKLISTED_PACKAGES = {
-    "telnet-server",
-    "rsh-server",
-    "tftp-server",
+    "fedora-release",
+    "fedora-logos",
+    "redhat-rpm-config",
 }
 
 

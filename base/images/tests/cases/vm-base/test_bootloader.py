@@ -5,12 +5,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 
-
-def test_grub_config_exists(rootfs: Path, image_type: str) -> None:
-    if image_type != "vm":
-        pytest.skip("Not a VM image")
+def test_grub_config_exists(rootfs: Path) -> None:
+    """Image must have GRUB configuration."""
     candidates = [
         rootfs / "boot" / "grub2" / "grub.cfg",
         rootfs / "boot" / "grub" / "grub.cfg",
@@ -21,12 +18,9 @@ def test_grub_config_exists(rootfs: Path, image_type: str) -> None:
     )
 
 
-def test_efi_bootloader_present(rootfs: Path, image_type: str) -> None:
+def test_efi_bootloader_present(rootfs: Path) -> None:
     """UEFI images should have an EFI boot directory."""
-    if image_type != "vm":
-        pytest.skip("Not a VM image")
     efi_dir = rootfs / "boot" / "efi"
     if not efi_dir.exists():
-        # Some images use /efi directly
         efi_dir = rootfs / "efi"
     assert efi_dir.exists(), "No EFI boot directory found"

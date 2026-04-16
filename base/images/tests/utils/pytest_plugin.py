@@ -24,6 +24,12 @@ _EXT_TO_TYPE: dict[str, str] = {
     ".tar": "container",
 }
 
+# Capabilities that imply an image type.
+_CAPABILITY_TO_TYPE: dict[str, str] = {
+    "machine-bootable": "vm",
+    "container-runnable": "container",
+}
+
 
 def detect_image_type(image_path: str) -> str | None:
     """Guess image type from *image_path* file extension."""
@@ -35,6 +41,21 @@ def detect_image_type(image_path: str) -> str | None:
     return None
 
 
+def derive_image_type_from_capabilities(capabilities: set[str]) -> str | None:
+    """Infer image type from capability set."""
+    for cap, itype in _CAPABILITY_TO_TYPE.items():
+        if cap in capabilities:
+            return itype
+    return None
+
+
+def parse_capabilities(raw: str | None) -> set[str]:
+    """Parse a comma-separated capabilities string into a set."""
+    if not raw:
+        return set()
+    return {c.strip() for c in raw.split(",") if c.strip()}
+
+
 def pytest_addoption(parser) -> None:  # type: ignore[no-untyped-def]
     group = parser.getgroup("image", "Azure Linux image validation")
     group.addoption(
@@ -43,12 +64,27 @@ def pytest_addoption(parser) -> None:  # type: ignore[no-untyped-def]
         help="Path to the built image artifact (VHD, raw, OCI tar.xz, etc.)",
     )
     group.addoption(
+        "--image-name",
+        default=None,
+        help="Image name (e.g. vm-base, container-base). Used for logging.",
+    )
+    group.addoption(
         "--image-type",
         choices=("vm", "container"),
         default=None,
         help=(
             "Image type: 'vm' or 'container'. "
-            "If omitted, auto-detected from --image-path extension."
+            "If omitted, derived from --capabilities or --image-path extension."
+        ),
+    )
+    group.addoption(
+        "--capabilities",
+        default=None,
+        help=(
+            "Comma-separated image capabilities "
+            "(e.g. 'systemd,runtime-package-management,machine-bootable'). "
+            "Tests marked with @pytest.mark.require_capability are skipped "
+            "when the required capability is absent."
         ),
     )
     group.addoption(
@@ -62,12 +98,25 @@ def pytest_addoption(parser) -> None:  # type: ignore[no-untyped-def]
 
 
 def pytest_configure(config) -> None:  # type: ignore[no-untyped-def]
-    """Fail fast if required native tools are missing."""
+    """Register markers and fail fast if required native tools are missing."""
+    config.addinivalue_line(
+        "markers",
+        "require_capability(name): skip test unless the image has the named capability",
+    )
+    config.addinivalue_line(
+        "markers",
+        "image(name): only run this test when --image-name matches",
+    )
+
     from utils.tools import check_tools
 
     # Determine image type early (before fixtures) so we only check
     # the tools that are actually needed for this run.
     image_type = config.getoption("--image-type", default=None)
+    if image_type is None:
+        caps = parse_capabilities(config.getoption("--capabilities", default=None))
+        if caps:
+            image_type = derive_image_type_from_capabilities(caps)
     if image_type is None:
         image_path = config.getoption("--image-path", default=None)
         if image_path:
@@ -84,3 +133,20 @@ def pytest_configure(config) -> None:  # type: ignore[no-untyped-def]
             f"Missing required native tool(s): {names}\n{hints}\n\n"
             "Run 'uv run python -m utils.tools' for a full status check."
         )
+
+
+def pytest_runtest_setup(item: pytest.Item) -> None:
+    """Skip tests whose marks are not satisfied."""
+    # require_capability: skip if image doesn't have the required capability.
+    caps = parse_capabilities(item.config.getoption("--capabilities", default=None))
+    for marker in item.iter_markers("require_capability"):
+        required = marker.args[0] if marker.args else None
+        if required and required not in caps:
+            pytest.skip(f"requires capability '{required}' (not in: {sorted(caps)})")
+
+    # image: skip if --image-name doesn't match.
+    image_name = item.config.getoption("--image-name", default=None)
+    for marker in item.iter_markers("image"):
+        expected = marker.args[0] if marker.args else None
+        if expected and image_name != expected:
+            pytest.skip(f"test is specific to image '{expected}' (running: '{image_name}')")

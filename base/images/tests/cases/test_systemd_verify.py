@@ -98,6 +98,7 @@ def _discover_units(rootfs: Path) -> list[str]:
     return sorted(units)
 
 
+@pytest.mark.require_capability("systemd")
 def test_systemd_units_verify(rootfs: Path) -> None:
     """All systemd units in the image must pass ``systemd-analyze verify``."""
     units = _discover_units(rootfs)

@@ -30,7 +30,11 @@ from utils.parsers import (
     query_enabled_services,
     query_rpm_packages,
 )
-from utils.pytest_plugin import detect_image_type
+from utils.pytest_plugin import (
+    derive_image_type_from_capabilities,
+    detect_image_type,
+    parse_capabilities,
+)
 from utils.types import DiskInfo, PartitionInfo, RepoInfo, StatResult
 
 logger = logging.getLogger(__name__)
@@ -39,6 +43,23 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Core fixtures (session-scoped)
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session")
+def image_name(request: pytest.FixtureRequest) -> str | None:
+    """Image name from ``--image-name`` (or ``None`` if not provided)."""
+    name = request.config.getoption("--image-name")
+    if name:
+        logger.info("Image name: %s", name)
+    return name
+
+
+@pytest.fixture(scope="session")
+def capabilities(request: pytest.FixtureRequest) -> set[str]:
+    """Image capabilities from ``--capabilities``."""
+    caps = parse_capabilities(request.config.getoption("--capabilities"))
+    logger.info("Capabilities: %s", sorted(caps) if caps else "(none)")
+    return caps
 
 
 @pytest.fixture(scope="session")
@@ -52,20 +73,27 @@ def image_path(request: pytest.FixtureRequest) -> Path:
 
 
 @pytest.fixture(scope="session")
-def image_type(request: pytest.FixtureRequest, image_path: Path) -> str:
-    """``'vm'`` or ``'container'`` — from ``--image-type`` or auto-detected."""
+def image_type(
+    request: pytest.FixtureRequest, capabilities: set[str], image_path: Path,
+) -> str:
+    """``'vm'`` or ``'container'`` — from ``--image-type``, capabilities, or file extension."""
     explicit = request.config.getoption("--image-type")
     if explicit:
         logger.info("Image type (explicit): %s", explicit)
         return explicit
 
+    from_caps = derive_image_type_from_capabilities(capabilities)
+    if from_caps:
+        logger.info("Image type (from capabilities): %s", from_caps)
+        return from_caps
+
     detected = detect_image_type(str(image_path))
     if detected is None:
         pytest.fail(
             f"Cannot detect image type from extension of {image_path.name}. "
-            "Pass --image-type explicitly."
+            "Pass --image-type or --capabilities explicitly."
         )
-    logger.info("Image type (auto-detected): %s", detected)
+    logger.info("Image type (auto-detected from extension): %s", detected)
     return detected
 
 

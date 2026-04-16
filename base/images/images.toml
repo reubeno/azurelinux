@@ -1,6 +1,7 @@
 [images.vm-base]
 description = "VM Base Image"
 definition = { type = "kiwi", path = "vm-base/vm-base.kiwi" }
+tests.test-suites = [{ name = "static-image-checks" }]
 
 [images.vm-base.capabilities]
 machine-bootable = true
@@ -8,15 +9,10 @@ container-runnable = false
 systemd = true
 runtime-package-management = true
 
-[images.vm-base.tests]
-test-suites = [
-    { name = "common-vm-checks" },
-    { name = "vm-base-checks" },
-]
-
 [images.container-base]
 description = "Container Base Image"
 definition = { type = "kiwi", path = "container-base/container-base.kiwi", profile = "core" }
+tests.test-suites = [{ name = "static-image-checks" }]
 
 [images.container-base.capabilities]
 machine-bootable = false
@@ -24,15 +20,10 @@ container-runnable = true
 systemd = false
 runtime-package-management = true
 
-[images.container-base.tests]
-test-suites = [
-    { name = "common-container-checks" },
-    { name = "container-base-checks" },
-]
-
 [images.container-distroless-minimal]
 description = "Container Distroless Minimal Image"
 definition = { type = "kiwi", path = "container-base/container-base.kiwi", profile = "distroless-minimal" }
+tests.test-suites = [{ name = "static-image-checks" }]
 
 [images.container-distroless-minimal.capabilities]
 machine-bootable = false
@@ -43,6 +34,7 @@ runtime-package-management = false
 [images.container-distroless-base]
 description = "Container Distroless Base Image"
 definition = { type = "kiwi", path = "container-base/container-base.kiwi", profile = "distroless-base" }
+tests.test-suites = [{ name = "static-image-checks" }]
 
 [images.container-distroless-base.capabilities]
 machine-bootable = false
@@ -50,15 +42,10 @@ container-runnable = true
 systemd = false
 runtime-package-management = false
 
-[images.container-distroless-base.tests]
-test-suites = [
-    { name = "common-container-checks" },
-    { name = "container-base-checks" },
-]
-
 [images.container-distroless-debug]
 description = "Container Distroless Debug Image"
 definition = { type = "kiwi", path = "container-base/container-base.kiwi", profile = "distroless-debug" }
+tests.test-suites = [{ name = "static-image-checks" }]
 
 [images.container-distroless-debug.capabilities]
 machine-bootable = false
@@ -68,51 +55,18 @@ runtime-package-management = false
 
 # ---- Test suites ----
 
-# Shared checks applicable to all VM images (OS release, packages, repos, services, filesystem).
-[test-suites.common-vm-checks]
+# Single test suite shared by all images.  Capability marks and image marks
+# on individual tests handle filtering — azldev passes --capabilities and
+# --image-name so tests self-select.
+[test-suites.static-image-checks]
 type = "pytest"
-description = "Common offline validation checks for VM images"
+description = "Offline image validation (shared + image-specific tests)"
 
-[test-suites.common-vm-checks.pytest]
+[test-suites.static-image-checks.pytest]
 working-dir = "tests"
-test-paths = ["cases/test_*.py"]
-extra-args = ["--image-path", "{image-path}"]
-
-# VM-base specific checks (partitions, bootloader, kernel).
-[test-suites.vm-base-checks]
-type = "pytest"
-description = "VM base image specific checks"
-
-[test-suites.vm-base-checks.pytest]
-working-dir = "tests"
-test-paths = ["cases/vm-base/"]
-extra-args = ["--image-path", "{image-path}"]
-
-# Shared checks applicable to all container images.
-[test-suites.common-container-checks]
-type = "pytest"
-description = "Common offline validation checks for container images"
-
-[test-suites.common-container-checks.pytest]
-working-dir = "tests"
-test-paths = ["cases/test_*.py"]
-extra-args = ["--image-path", "{image-path}"]
-
-# Container-base specific checks.
-[test-suites.container-base-checks]
-type = "pytest"
-description = "Container base image specific checks"
-
-[test-suites.container-base-checks.pytest]
-working-dir = "tests"
-test-paths = ["cases/container-base/"]
-extra-args = ["--image-path", "{image-path}"]
-
-# NOTE:
-# sudo dnf install -y kiwi-cli
-# sudo kiwi --loglevel 10 \
-#     --kiwi-file container-base.kiwi \
-#     system build \
-#     --description ./container-base \
-#     --target-dir <output_dir> \
-#     --add-repo='file:///home/username/some/dir/with/private/rpms,rpm-md,azl,1
+test-paths = ["cases/"]
+extra-args = [
+    "--image-path", "{image-path}",
+    "--image-name", "{image-name}",
+    "--capabilities", "{capabilities}"
+]

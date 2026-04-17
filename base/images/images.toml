@@ -1,7 +1,10 @@
 [images.vm-base]
 description = "VM Base Image"
 definition = { type = "kiwi", path = "vm-base/vm-base.kiwi" }
-tests.test-suites = [{ name = "static-image-checks" }]
+tests.test-suites = [
+    { name = "static-image-checks" },
+    { name = "lisa-qemu" },
+]
 
 [images.vm-base.capabilities]
 machine-bootable = true
@@ -70,3 +73,23 @@ extra-args = [
     "--image-name", "{image-name}",
     "--capabilities", "{capabilities}"
 ]
+
+# LISA live VM tests using QEMU.
+# Framework pinned to release 20260330.1.
+[test-suites.lisa-qemu]
+type = "lisa"
+description = "LISA live VM tests via QEMU"
+
+[test-suites.lisa-qemu.lisa]
+pip-pre-install = ["libvirt-python"]
+pip-extras = ["azure"]
+extra-args = ["-v", "qcow2:{image-path}", "-v", "admin_private_key_file:{admin-key-path}", "-v", "network_boot_timeout:120"]
+
+[test-suites.lisa-qemu.lisa.framework]
+git-url = "https://github.com/microsoft/lisa.git"
+ref = "fba8a88f0b346fdcafb4a9884f0f17a86c92303b"
+
+[test-suites.lisa-qemu.lisa.runbook]
+git-url = "https://github.com/microsoft/lisa.git"
+ref = "fba8a88f0b346fdcafb4a9884f0f17a86c92303b"
+path = "lisa/microsoft/runbook/qemu/CBL-Mariner.yml"

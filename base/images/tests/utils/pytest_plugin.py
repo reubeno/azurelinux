@@ -27,7 +27,7 @@ _EXT_TO_TYPE: dict[str, str] = {
 # Capabilities that imply an image type.
 _CAPABILITY_TO_TYPE: dict[str, str] = {
     "machine-bootable": "vm",
-    "container-runnable": "container",
+    "container": "container",
 }
 
 

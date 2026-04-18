@@ -8,7 +8,7 @@ tests.test-suites = [
 
 [images.vm-base.capabilities]
 machine-bootable = true
-container-runnable = false
+container = false
 systemd = true
 runtime-package-management = true
 
@@ -19,7 +19,7 @@ tests.test-suites = [{ name = "static-image-checks" }]
 
 [images.container-base.capabilities]
 machine-bootable = false
-container-runnable = true
+container = true
 systemd = false
 runtime-package-management = true
 
@@ -30,7 +30,7 @@ tests.test-suites = [{ name = "static-image-checks" }]
 
 [images.container-distroless-minimal.capabilities]
 machine-bootable = false
-container-runnable = true
+container = true
 systemd = false
 runtime-package-management = false
 
@@ -41,7 +41,7 @@ tests.test-suites = [{ name = "static-image-checks" }]
 
 [images.container-distroless-base.capabilities]
 machine-bootable = false
-container-runnable = true
+container = true
 systemd = false
 runtime-package-management = false
 
@@ -52,7 +52,7 @@ tests.test-suites = [{ name = "static-image-checks" }]
 
 [images.container-distroless-debug.capabilities]
 machine-bootable = false
-container-runnable = true
+container = true
 systemd = false
 runtime-package-management = false
 
@@ -69,6 +69,7 @@ description = "Offline image validation (shared + image-specific tests)"
 working-dir = "tests"
 test-paths = ["cases/"]
 extra-args = [
+    "-vv",
     "--image-path", "{image-path}",
     "--image-name", "{image-name}",
     "--capabilities", "{capabilities}"

@@ -84,7 +84,7 @@ description = "LISA live VM tests via QEMU"
 [test-suites.lisa-qemu.lisa]
 pip-pre-install = ["libvirt-python"]
 pip-extras = ["azure"]
-extra-args = ["-v", "qcow2:{image-path}", "-v", "admin_private_key_file:{admin-key-path}", "-v", "network_boot_timeout:120"]
+extra-args = ["-v", "qcow2:{image-path}", "-v", "admin_private_key_file:{admin-key-path}", "-v", "network_boot_timeout:120", "-v", "tier:1"]
 
 [test-suites.lisa-qemu.lisa.framework]
 git-url = "https://github.com/microsoft/lisa.git"

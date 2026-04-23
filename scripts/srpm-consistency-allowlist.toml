@@ -24,3 +24,239 @@
 # expected_channel = "base"
 # allowed_in_other = ["examplepkg-doc", "examplepkg-test"]
 # reason           = "Doc and test sub-packages intentionally kept out of base."
+
+# ---------------------------------------------------------------------------
+# mingw / Windows cross-compile carve-outs from base SRPMs.
+# Each of these SRPMs has its main Linux sub-packages in `base`, while its
+# Windows cross-compile sub-packages publish to `sdk` (and live in
+# `base/packages/exceptions.packages.toml`). These are not part of a
+# supported Linux runtime.
+# ---------------------------------------------------------------------------
+
+[[exception]]
+srpm             = "check"
+expected_channel = "base"
+allowed_in_other = ["mingw32-check", "mingw64-check"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "dtc"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libfdt", "mingw64-libfdt", "mingw32-libfdt-static", "mingw64-libfdt-static"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "eigen3"
+expected_channel = "base"
+allowed_in_other = ["mingw32-eigen3", "mingw64-eigen3"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "enchant2"
+expected_channel = "base"
+allowed_in_other = ["mingw32-enchant2", "mingw64-enchant2"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "freexl"
+expected_channel = "base"
+allowed_in_other = ["mingw32-freexl", "mingw64-freexl"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "gcab"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libgcab1", "mingw64-libgcab1"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "geos"
+expected_channel = "base"
+allowed_in_other = ["mingw32-geos", "mingw64-geos"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "giflib"
+expected_channel = "base"
+allowed_in_other = ["mingw32-giflib", "mingw32-giflib-tools", "mingw64-giflib", "mingw64-giflib-tools"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "gnutls"
+expected_channel = "base"
+allowed_in_other = ["mingw32-gnutls", "mingw64-gnutls"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "hidapi"
+expected_channel = "base"
+allowed_in_other = ["mingw32-hidapi", "mingw64-hidapi"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "inih"
+expected_channel = "base"
+allowed_in_other = ["mingw32-inih", "mingw64-inih"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "json-c"
+expected_channel = "base"
+allowed_in_other = ["mingw32-json-c", "mingw64-json-c"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "leptonica"
+expected_channel = "base"
+allowed_in_other = ["mingw32-leptonica", "mingw64-leptonica"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libgeotiff"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libgeotiff", "mingw32-libgeotiff-tools", "mingw64-libgeotiff", "mingw64-libgeotiff-tools"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libgsf"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libgsf", "mingw64-libgsf"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libkml"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libkml", "mingw32-python3-libkml", "mingw64-libkml", "mingw64-python3-libkml"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "liblerc"
+expected_channel = "base"
+allowed_in_other = ["mingw32-liblerc", "mingw64-liblerc"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libosinfo"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libosinfo", "mingw64-libosinfo"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "librttopo"
+expected_channel = "base"
+allowed_in_other = ["mingw32-librttopo", "mingw64-librttopo"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libsodium"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libsodium", "mingw64-libsodium"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libspatialite"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libspatialite", "mingw64-libspatialite"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libusb1"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libusb1", "mingw64-libusb1"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libvirt"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libvirt", "mingw64-libvirt"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libvirt-glib"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libvirt-gconfig", "mingw32-libvirt-glib", "mingw32-libvirt-gobject", "mingw64-libvirt-gconfig", "mingw64-libvirt-glib", "mingw64-libvirt-gobject"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libwebp"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libwebp", "mingw64-libwebp"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libxmlb"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libxmlb", "mingw64-libxmlb"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libyaml"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libyaml", "mingw64-libyaml"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "nbdkit"
+expected_channel = "base"
+allowed_in_other = ["mingw32-nbdkit", "mingw64-nbdkit"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "openjpeg"
+expected_channel = "base"
+allowed_in_other = ["mingw32-openjpeg", "mingw32-openjpeg-tools", "mingw64-openjpeg", "mingw64-openjpeg-tools"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "opus"
+expected_channel = "base"
+allowed_in_other = ["mingw32-opus", "mingw64-opus"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "osinfo-db-tools"
+expected_channel = "base"
+allowed_in_other = ["mingw32-osinfo-db-tools", "mingw64-osinfo-db-tools"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "p11-kit"
+expected_channel = "base"
+allowed_in_other = ["mingw32-p11-kit", "mingw64-p11-kit"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "proj"
+expected_channel = "base"
+allowed_in_other = ["mingw32-proj", "mingw64-proj"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "rust"
+expected_channel = "base"
+allowed_in_other = ["rust-std-static-i686-pc-windows-gnu", "rust-std-static-x86_64-pc-windows-gnu"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "shapelib"
+expected_channel = "base"
+allowed_in_other = ["mingw32-shapelib", "mingw32-shapelib-tools", "mingw64-shapelib", "mingw64-shapelib-tools", "mingw32-shapelib-static", "mingw64-shapelib-static"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "uriparser"
+expected_channel = "base"
+allowed_in_other = ["mingw32-uriparser", "mingw64-uriparser"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "xerces-c"
+expected_channel = "base"
+allowed_in_other = ["mingw32-xerces-c", "mingw64-xerces-c"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "osinfo-db"
+expected_channel = "base"
+allowed_in_other = ["mingw32-osinfo-db", "mingw64-osinfo-db"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."

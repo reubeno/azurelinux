@@ -1,0 +1,28 @@
+# Allowlist of intentionally-unresolved dependencies for repoclosure.
+#
+# Each [[ignore]] entry suppresses a single (consumer package, missing
+# requirement) pair from the filtered repoclosure report. The "raw" report
+# is always preserved unfiltered, and a "hits" report records which entries
+# matched (so we can spot stale entries).
+#
+# Fields:
+#   package     Consumer package name. Glob patterns supported (fnmatch).
+#               This is the package whose unresolved dependency we accept.
+#   requires    The exact unresolved requirement string as printed by
+#               `dnf repoclosure` (e.g. "libfoo.so.1()(64bit)" or
+#               "perl(Some::Module)"). Glob patterns supported.
+#   scope       Which repoclosure run this applies to:
+#                 "base"     - base-only run
+#                 "base+sdk" - base + sdk run
+#                 "any"      - both (default)
+#   reason      Free-form rationale.
+#   confidence  "high" | "medium" | "low" - our confidence that dropping
+#               this dependency is safe.
+
+# Example (commented out):
+# [[ignore]]
+# package    = "examplepkg"
+# requires   = "libexample.so.1()(64bit)"
+# scope      = "base"
+# reason     = "Pulled in only by an optional plugin we do not ship."
+# confidence = "high"

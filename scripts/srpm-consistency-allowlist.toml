@@ -1,0 +1,26 @@
+# Allowlist of accepted per-SRPM channel exceptions.
+#
+# Policy: every binary RPM produced by an SRPM must publish to the same
+# channel (rpm-base or rpm-sdk). The split-repo-by-channel.py script flags
+# any SRPM whose binary RPMs span multiple channels.
+#
+# Each [[exception]] entry below documents an *intentional* deviation:
+#
+#   srpm              The SRPM name.
+#   expected_channel  The channel the bulk of this SRPM's binary RPMs
+#                     publish to ("base" or "sdk"). All non-matching pkgs
+#                     must be covered by allowed_in_other.
+#   allowed_in_other  A list of binary-RPM-name patterns (fnmatch globs)
+#                     allowed to publish to a *different* channel from
+#                     expected_channel.
+#   reason            Why this exception exists.
+#
+# Any SRPM not listed here whose binaries span channels is a hard violation
+# and the script exits non-zero.
+
+# Example (commented out):
+# [[exception]]
+# srpm             = "examplepkg"
+# expected_channel = "base"
+# allowed_in_other = ["examplepkg-doc", "examplepkg-test"]
+# reason           = "Doc and test sub-packages intentionally kept out of base."

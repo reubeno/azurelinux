@@ -39,3 +39,26 @@ Options to evaluate:
   sub-pkgs would have to be demoted along with it.
 - **Keep as-is.** Accept OCaml dune + its 2 small dep SRPMs in base if there
   is a concrete base consumer we want to support.
+
+## Revisit ffmpeg removal
+
+`ffmpeg` (`ffmpeg-free` SRPM, 18 sub-pkgs incl. `libavcodec-free`,
+`libavformat-free`, etc.) was demoted from `rpm-base` to `rpm-sdk` to close 22
+base repoclosure violations. The original intent was to remove ffmpeg from
+the distro entirely, but doing so cascades: many *other* packages in both base
+and sdk runtime-link against `libav*` / `libsw*` / `libpostproc`. Concretely,
+removal would create:
+
+- 26 new base unresolveds in `chromaprint` (10), `qt6-qtmultimedia` (10), and
+  `qt6-qtwebengine` (6).
+- 100+ new base+sdk unresolveds across `chromium`, `notcurses`, `neatvnc`,
+  `tigervnc`, `kpipewire`, `libvncserver`, `opencv`, `xine-lib`,
+  `kf6-kfilemetadata`, …
+
+Options to evaluate:
+
+- **Full removal.** Demote/remove the cascading consumers (`chromaprint`,
+  `qt6-qtmultimedia`, `qt6-qtwebengine` from base; the long sdk-side tail can
+  follow). Bigger surgery; needs a separate pass.
+- **Keep in sdk only (current state).** Pragmatic compromise — base does not
+  publish ffmpeg, but it remains available for sdk consumers.

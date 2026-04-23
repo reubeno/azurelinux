@@ -302,3 +302,9 @@ srpm             = "thermald"
 expected_channel = "base"
 allowed_in_other = ["thermald-monitor"]
 reason           = "Qt5 GUI monitor sub-package carved out to sdk; thermald daemon (system-tier) remains in base."
+
+[[exception]]
+srpm             = "subversion"
+expected_channel = "base"
+allowed_in_other = ["subversion-kde"]
+reason           = "KDE Wallet integration sub-package carved out to sdk; svn CLI, libs, Apache modules, and Perl/Python/Ruby/Java bindings remain in base."

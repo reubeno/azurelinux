@@ -153,4 +153,6 @@ packages = [
     "erlang-wx",
     # Qt5 GUI for monitoring thermald daemon; pulls qt5-qtbase + qcustomplot.
     "thermald-monitor",
+    # KDE/Plasma wallet integration; pulls kf5-kcoreaddons, kf5-ki18n, kf5-kwallet.
+    "subversion-kde",
 ]

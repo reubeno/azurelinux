@@ -7594,7 +7594,6 @@ packages = [
     "subversion-devel",
     "subversion-gnome",
     "subversion-javahl",
-    "subversion-kde",
     "subversion-libs",
     "subversion-perl",
     "subversion-ruby",

@@ -62,3 +62,23 @@ Options to evaluate:
   follow). Bigger surgery; needs a separate pass.
 - **Keep in sdk only (current state).** Pragmatic compromise — base does not
   publish ffmpeg, but it remains available for sdk consumers.
+
+## Revisit libcanberra removal
+
+`libcanberra` (5 sub-pkgs) is the legacy XDG sound-event library, deprecated
+upstream in favour of `gsound`. The intent was to remove it entirely from the
+distro, but a reverse-dep audit shows ~18 distinct `rpm-sdk` consumers
+(`kf5-knotifications`, `kf6-knotifications`, `kf6-knotifyconfig`, `mutter`,
+`muffin`, `marco-libs`, `kwin`, `plasma-desktop`, `plasma-workspace`,
+`cinnamon-session`, `cinnamon-settings-daemon`, `mate-control-center`,
+`mate-settings-daemon`, `gnome-settings-daemon`, `evolution-data-server`,
+`gsound`, `pipewire-module-x11`, `vim-X11` in base). Removing the SRPM would
+break all of those.
+
+Options to evaluate:
+
+- **Carve out the GTK2 binding only.** `libcanberra-gtk2` and
+  `libcanberra-devel` pull `gtk2` (sdk) and would close 5 base findings.
+  Core libcanberra + gtk3 binding stay in base. Low risk.
+- **Wait for upstream migration.** As consumers migrate to `gsound`, the set
+  of dependants will shrink and removal becomes feasible.

@@ -8011,7 +8011,6 @@ packages = [
     "whois-nls",
     "wireguard-tools",
     "wireless-regdb",
-    "wireshark",
     "wireshark-cli",
     "wireshark-devel",
     "woff2",

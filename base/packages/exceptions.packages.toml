@@ -141,4 +141,7 @@ packages = [
     "avahi-ui-sharp",
     "avahi-ui-sharp-devel",
     "avahi-ui-tools",
+
+    # Qt6 GUI app for wireshark; wireshark-cli (tshark/dumpcap) and wireshark-devel stay in base.
+    "wireshark",
 ]

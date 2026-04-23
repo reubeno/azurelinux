@@ -272,3 +272,9 @@ srpm             = "avahi"
 expected_channel = "base"
 allowed_in_other = ["avahi-qt3", "avahi-qt3-devel", "avahi-qt4", "avahi-qt4-devel", "avahi-qt5", "avahi-qt5-devel", "avahi-sharp", "avahi-ui", "avahi-ui-devel", "avahi-ui-gtk3", "avahi-ui-sharp", "avahi-ui-sharp-devel", "avahi-ui-tools"]
 reason           = "Qt/GTK/Mono GUI bindings (qt3/qt4/qt5/ui/sharp/gtk3 sub-packages) carved out to sdk; the core avahi daemon, libs, and dnsconfd remain in base."
+
+[[exception]]
+srpm             = "wireshark"
+expected_channel = "base"
+allowed_in_other = ["wireshark"]
+reason           = "Qt6 GUI app sub-package carved out to sdk; wireshark-cli (tshark/dumpcap) and wireshark-devel remain in base."

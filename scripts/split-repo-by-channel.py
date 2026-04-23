@@ -592,12 +592,21 @@ def run_repoclosure(
         "--no-plugins",
         "-q",
     ]
+    cache_dir = output_dir / f".dnf-cache-{scope_name}"
+    if cache_dir.exists():
+        shutil.rmtree(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
     for repo_id, repo_path in repos:
         cmd.append(f"--repofrompath={repo_id},{repo_path}")
         # repofrompath creates the repo disabled-by-default in some setups;
         # explicitly enable it via setopt.
         cmd.append(f"--setopt={repo_id}.enabled=1")
         cmd.append(f"--setopt={repo_id}.gpgcheck=0")
+    # Pin a fresh cache dir so dnf does not reuse stale metadata from a
+    # previous invocation of this script (the on-disk paths are stable but
+    # contents change).
+    cmd.append(f"--setopt=cachedir={cache_dir}")
     cmd += ["repoclosure", f"--check={','.join(check_repos)}"]
 
     print(f"    $ {' '.join(cmd)}")

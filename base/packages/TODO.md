@@ -24,3 +24,18 @@ Options to evaluate:
 Current state (recorded for context):
 - `langpacks` SRPM → 372 pkgs in base
 - `google-noto-fonts` SRPM → 317 pkgs in base (whole-SRPM promotion)
+
+## Revisit OCaml in base
+
+`ocaml-dune` (the OCaml build system, 29 sub-pkgs) lives in `rpm-base`, which
+in turn pulled `ocaml-pp` and `ocaml-csexp` (4 sub-pkgs total) into base via
+runtime deps. Build tools normally live in `rpm-sdk` (cf. cargo, mvn, gradle).
+
+Options to evaluate:
+
+- **Demote `ocaml-dune` to `rpm-sdk`.** Aligns with the build-tools-in-sdk
+  policy and would let us demote `ocaml-pp` / `ocaml-csexp` back too. Need
+  to first audit reverse-deps in base — anything else relying on dune
+  sub-pkgs would have to be demoted along with it.
+- **Keep as-is.** Accept OCaml dune + its 2 small dep SRPMs in base if there
+  is a concrete base consumer we want to support.

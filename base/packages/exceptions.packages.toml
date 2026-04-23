@@ -126,4 +126,19 @@ packages = [
     # Rust standard library precompiled for Windows-GNU targets; not for Linux runtime.
     "rust-std-static-i686-pc-windows-gnu",
     "rust-std-static-x86_64-pc-windows-gnu",
+
+    # Qt/GTK/Mono GUI bindings; pull qt5-qtbase, qt, qt3, gtk2, mono, gtk-sharp2 from sdk.
+    "avahi-qt3",
+    "avahi-qt3-devel",
+    "avahi-qt4",
+    "avahi-qt4-devel",
+    "avahi-qt5",
+    "avahi-qt5-devel",
+    "avahi-sharp",
+    "avahi-ui",
+    "avahi-ui-devel",
+    "avahi-ui-gtk3",
+    "avahi-ui-sharp",
+    "avahi-ui-sharp-devel",
+    "avahi-ui-tools",
 ]

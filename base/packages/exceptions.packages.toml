@@ -146,4 +146,7 @@ packages = [
     "wireshark",
     # LaTeX/PDF output backend; pulls full TeXLive (~6500 pkgs).
     "python3-sphinx-latex",
+    # Qt5 binding for poppler; pulls full Qt5 stack.
+    "poppler-qt5",
+    "poppler-qt5-devel",
 ]

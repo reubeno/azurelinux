@@ -5957,8 +5957,6 @@ packages = [
     "poppler-glib",
     "poppler-glib-devel",
     "poppler-glib-doc",
-    "poppler-qt5",
-    "poppler-qt5-devel",
     "poppler-qt6",
     "poppler-qt6-devel",
     "poppler-utils",

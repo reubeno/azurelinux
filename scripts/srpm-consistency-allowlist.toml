@@ -284,3 +284,9 @@ srpm             = "python-sphinx"
 expected_channel = "base"
 allowed_in_other = ["python3-sphinx-latex"]
 reason           = "LaTeX/PDF output backend pulls full TeXLive; core python3-sphinx and themes remain in base."
+
+[[exception]]
+srpm             = "poppler"
+expected_channel = "base"
+allowed_in_other = ["poppler-qt5", "poppler-qt5-devel"]
+reason           = "Qt5 binding sub-packages carved out to sdk; core poppler PDF library, glib binding, and utils remain in base."

@@ -2041,8 +2041,6 @@ packages = [
     "gpm-devel",
     "gpm-libs",
     "gpm-static",
-    "gpsbabel",
-    "gpsbabel-gui",
     "gpsd",
     "gpsd-clients",
     "gpsd-compat",

@@ -290,3 +290,9 @@ srpm             = "poppler"
 expected_channel = "base"
 allowed_in_other = ["poppler-qt5", "poppler-qt5-devel"]
 reason           = "Qt5 binding sub-packages carved out to sdk; core poppler PDF library, glib binding, and utils remain in base."
+
+[[exception]]
+srpm             = "erlang"
+expected_channel = "base"
+allowed_in_other = ["erlang-wx"]
+reason           = "wxWidgets-based Observer GUI carved out to sdk; Erlang runtime, OTP libraries, and other sub-packages remain in base."

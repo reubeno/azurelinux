@@ -149,4 +149,6 @@ packages = [
     # Qt5 binding for poppler; pulls full Qt5 stack.
     "poppler-qt5",
     "poppler-qt5-devel",
+    # wxWidgets-based 'Observer' GUI; pulls full wxGTK stack.
+    "erlang-wx",
 ]

@@ -308,3 +308,9 @@ srpm             = "subversion"
 expected_channel = "base"
 allowed_in_other = ["subversion-kde"]
 reason           = "KDE Wallet integration sub-package carved out to sdk; svn CLI, libs, Apache modules, and Perl/Python/Ruby/Java bindings remain in base."
+
+[[exception]]
+srpm             = "anaconda"
+expected_channel = "base"
+allowed_in_other = ["anaconda", "anaconda-gui", "anaconda-install-img-deps", "anaconda-live", "anaconda-widgets-devel"]
+reason           = "GUI/live/install-image/devel sub-packages carved out to sdk; anaconda-core/-tui/-widgets/-dracut/-install-env-deps remain in base for non-GUI installer flows."

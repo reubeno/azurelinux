@@ -9,7 +9,7 @@
 # selected for inclusion in `base`.
 [package-groups.base-sibling-packages]
 description = "base sibling packages"
-default-package-config.publish.channel = "rpm-sdk"
+default-package-config.publish.channel = "rpm-base"
 packages = [
     "DevIL-ILUT",
     "DevIL-ILUT-devel",

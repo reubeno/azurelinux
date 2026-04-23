@@ -151,4 +151,6 @@ packages = [
     "poppler-qt5-devel",
     # wxWidgets-based 'Observer' GUI; pulls full wxGTK stack.
     "erlang-wx",
+    # Qt5 GUI for monitoring thermald daemon; pulls qt5-qtbase + qcustomplot.
+    "thermald-monitor",
 ]

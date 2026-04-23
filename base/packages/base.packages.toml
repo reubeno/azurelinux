@@ -7723,7 +7723,6 @@ packages = [
     "tftp-server",
     "theora-tools",
     "thermald",
-    "thermald-monitor",
     "thrift",
     "thrift-devel",
     "thrift-glib",

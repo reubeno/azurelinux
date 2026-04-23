@@ -278,3 +278,9 @@ srpm             = "wireshark"
 expected_channel = "base"
 allowed_in_other = ["wireshark"]
 reason           = "Qt6 GUI app sub-package carved out to sdk; wireshark-cli (tshark/dumpcap) and wireshark-devel remain in base."
+
+[[exception]]
+srpm             = "python-sphinx"
+expected_channel = "base"
+allowed_in_other = ["python3-sphinx-latex"]
+reason           = "LaTeX/PDF output backend pulls full TeXLive; core python3-sphinx and themes remain in base."

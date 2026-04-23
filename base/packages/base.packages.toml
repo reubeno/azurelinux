@@ -6709,7 +6709,6 @@ packages = [
     "python3-solv",
     "python3-speechd",
     "python3-sphinx",
-    "python3-sphinx-latex",
     "python3-sphinx-theme-alabaster",
     "python3-sphinx_rtd_theme",
     "python3-sphinxcontrib-jquery",

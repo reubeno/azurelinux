@@ -144,4 +144,6 @@ packages = [
 
     # Qt6 GUI app for wireshark; wireshark-cli (tshark/dumpcap) and wireshark-devel stay in base.
     "wireshark",
+    # LaTeX/PDF output backend; pulls full TeXLive (~6500 pkgs).
+    "python3-sphinx-latex",
 ]

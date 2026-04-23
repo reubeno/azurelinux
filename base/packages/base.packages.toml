@@ -910,8 +910,6 @@ packages = [
     "double-conversion",
     "double-conversion-devel",
     "doxygen",
-    "doxygen-doxywizard",
-    "doxygen-latex",
     "doxygen2man",
     "dpdk",
     "dpdk-devel",

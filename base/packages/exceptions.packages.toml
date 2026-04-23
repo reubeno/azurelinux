@@ -24,6 +24,12 @@
 description = "curated per-SRPM channel-consistency exceptions"
 default-package-config.publish.channel = "rpm-sdk"
 packages = [
+    # Qt5 GUI for editing doxygen configs; pulls full Qt5 stack.
+    "doxygen-doxywizard",
+    # LaTeX/PDF output backend; pulls full TeXLive (~6500 pkgs).
+    "doxygen-latex",
+
+    # Windows (mingw) cross-compile artifacts; not part of the supported Linux runtime.
     "mingw32-check",
     "mingw32-eigen3",
     "mingw32-enchant2",
@@ -116,6 +122,8 @@ packages = [
     "mingw64-shapelib-tools",
     "mingw64-uriparser",
     "mingw64-xerces-c",
+
+    # Rust standard library precompiled for Windows-GNU targets; not for Linux runtime.
     "rust-std-static-i686-pc-windows-gnu",
     "rust-std-static-x86_64-pc-windows-gnu",
 ]

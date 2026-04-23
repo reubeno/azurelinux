@@ -260,3 +260,9 @@ srpm             = "osinfo-db"
 expected_channel = "base"
 allowed_in_other = ["mingw32-osinfo-db", "mingw64-osinfo-db"]
 reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "doxygen"
+expected_channel = "base"
+allowed_in_other = ["doxygen-doxywizard", "doxygen-latex"]
+reason           = "Optional add-on sub-packages: doxywizard is a Qt5 GUI; -latex pulls full TeXLive. Core doxygen CLI/library and js-doxygen remain in base."

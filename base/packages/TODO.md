@@ -24,6 +24,17 @@ Options to evaluate:
 Current state (recorded for context):
 - `langpacks` SRPM → 372 pkgs in base
 - `google-noto-fonts` SRPM → 317 pkgs in base (whole-SRPM promotion)
+- `google-noto-sans-cjk-vf-fonts`, `google-noto-serif-cjk-vf-fonts`,
+  `google-noto-emoji-fonts`, `stix-fonts`, `fontawesome-fonts` SRPMs (11 sub-pkgs
+  total) promoted to base purely to satisfy `langpacks` font-meta Requires
+  (`default-fonts-cjk-*`, `langpacks-fonts-{ja,ko,zh_CN,zh_HK,zh_TW}`,
+  `default-fonts-core-emoji`, `default-fonts-core-math`, `python-networkx-doc`).
+  No external base consumer pulls these via Requires/Recommends, so they only
+  enter an image when an image manifest explicitly opts in to one of the locale
+  meta-packages — but that means a CJK Noto Variable Font (~30-80 MB each)
+  lands per-locale once requested. Consider whether the langpack-fonts metas
+  themselves belong in base for a headless distro, which would let us demote
+  these fonts back to sdk.
 
 ## Revisit OCaml in base
 

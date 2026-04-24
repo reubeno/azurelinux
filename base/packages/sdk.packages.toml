@@ -24503,8 +24503,6 @@ packages = [
     "uhttpmock",
     "uhttpmock-devel",
     "uhttpmock-doc",
-    "umockdev",
-    "umockdev-devel",
     "unicode-emoji",
     "unifdef",
     "unity-gtk-module-common",

@@ -7866,6 +7866,8 @@ packages = [
     "udisks2-lvm2",
     "uid_wrapper",
     "uki-direct",
+    "umockdev",
+    "umockdev-devel",
     "unbound",
     "unbound-anchor",
     "unbound-devel",

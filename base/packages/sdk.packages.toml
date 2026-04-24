@@ -3709,7 +3709,6 @@ packages = [
     "lua5.1-lpeg",
     "luajit",
     "luajit-devel",
-    "luarocks",
     "lusol",
     "lusol-devel",
     "lutok",

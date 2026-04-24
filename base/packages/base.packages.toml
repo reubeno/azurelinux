@@ -4316,6 +4316,7 @@ packages = [
     "lua-rpm-macros",
     "lua-srpm-macros",
     "lua-static",
+    "luarocks",
     "lujavrite",
     "luksmeta",
     "lvm2",

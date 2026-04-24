@@ -666,5 +666,5 @@ reason           = "mariadb-sphinx-engine carved to sdk; sphinx search server st
 [[exception]]
 srpm             = "fence-agents"
 expected_channel = "base"
-allowed_in_other = ["fence-agents-all", "fence-agents-compute"]
-reason           = "fence-agents-compute carved to sdk; OpenStack stack stays sdk-only. fence-agents-all dragged along (meta-pkg)."
+allowed_in_other = ["fence-agents-all", "fence-agents-aws", "fence-agents-aws-vpc-net", "fence-agents-compute"]
+reason           = "fence-agents-compute carved to sdk (Nova-Pacemaker bridge; OpenStack sdk-only); fence-agents-aws and -aws-vpc-net carved to sdk (AWS fencing not core for Azure distro); fence-agents-all dragged along (meta-pkg Requires every individual fence agent)."

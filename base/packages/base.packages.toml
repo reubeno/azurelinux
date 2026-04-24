@@ -1081,8 +1081,6 @@ packages = [
     "fence-agents-amt-ws",
     "fence-agents-apc",
     "fence-agents-apc-snmp",
-    "fence-agents-aws",
-    "fence-agents-aws-vpc-net",
     "fence-agents-azure-arm",
     "fence-agents-bladecenter",
     "fence-agents-brocade",

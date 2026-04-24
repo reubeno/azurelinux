@@ -5320,7 +5320,6 @@ packages = [
     "ptscotch-openmpi-devel",
     "ptscotch-openmpi-devel-parmetis",
     "pulldown-cmark",
-    "pv",
     "pyjson5",
     "pyside6-tools",
     "python-Automat-doc",

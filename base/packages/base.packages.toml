@@ -6051,6 +6051,7 @@ packages = [
     "pulseaudio-module-x11",
     "pulseaudio-module-zeroconf",
     "pulseaudio-utils",
+    "pv",
     "py3c-devel",
     "py3c-doc",
     "pyOpenSSL-doc",

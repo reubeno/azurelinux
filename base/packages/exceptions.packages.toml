@@ -287,4 +287,8 @@ packages = [
     # Google Cloud Storage fsspec backends; carve to sdk (Azure-focused distro). Core python3-fsspec stays in base.
     "python3-fsspec+gcs",
     "python3-fsspec+gs",
+    # GCP nbdkit plugin (consumes python3-google-cloud-storage which is being demoted to sdk); carve along with the GCP Python SDK cluster.
+    "nbdkit-gcs-plugin",
+    # GCE Pacemaker fence agent; carve to sdk (Azure-focused distro), analogous to fence-agents-aws.
+    "fence-agents-gce",
 ]

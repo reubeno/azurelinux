@@ -115,3 +115,25 @@ reason             = "All such Requires are wx-conditional in the upstream spec;
 confidence         = "high"
 overlay            = "base/comps/erlang/erlang.comp.toml"
 verified_at_commit = "84390c4d7d"
+
+# ----------------------------------------------------------------------
+# openscap: drop the optional apt-libs Requires
+#
+# openscap's spec wraps `Requires: apt-libs` (and its apt-devel
+# BuildRequires) in `%if %{with apt}`; upstream is `%bcond_without apt`,
+# so AZL inherits the dep until we explicitly disable it. The dedicated
+# component override at base/comps/openscap/openscap.comp.toml sets
+# `build.without = ["apt"]`, which drops the apt-libs Requires from the
+# rebuilt openscap RPM (verified locally with `azldev component build
+# -p openscap` + `rpm -qpR`). Suppress the leftover finding against the
+# pre-overlay published snapshot until the next snapshot picks up the
+# new build; at that point this entry will go to zero hits and can be
+# deleted.
+[[ignore]]
+package            = "openscap"
+requires           = "apt-libs"
+scope              = "base"
+reason             = "build.without = [\"apt\"] in base/comps/openscap/openscap.comp.toml drops the optional apt integration at upstream-supported %bcond level; rebuilt openscap RPM no longer Requires apt-libs."
+confidence         = "high"
+overlay            = "base/comps/openscap/openscap.comp.toml"
+verified_at_commit = "0f614bd9c0"

@@ -125,30 +125,19 @@ Options to evaluate:
 - **Keep as-is.** Accept ffado + JACK in base as the cost of having the
   qemu emulator set in base.
 
-## Revisit apt demotion (and openscap apt-libs dep)
+## Post next-snapshot cleanup: openscap apt-libs allowlist entry
 
-`apt` (the Debian/Ubuntu package manager, 6 sub-pkgs incl. `apt`,
-`apt-libs`, `apt-utils`, `apt-devel`) lives in `rpm-base` today. It is for
-non-RPM systems (it manipulates `.deb` archives + APT repositories) and
-has no business being in a server-focused RPM-native base channel
-alongside the equally non-native `dpkg` SRPM (which already lives in
-sdk). The intent is to demote the entire apt SRPM to `rpm-sdk`.
+`openscap` got `build.without = ["apt"]` (via dedicated
+`base/comps/openscap/openscap.comp.toml`), which drops the
+`Requires: apt-libs` from rebuilt openscap RPMs (verified locally
+with `azldev component build -p openscap` + `rpm -qpR`). The
+`apt` SRPM (all 6 sub-pkgs) was simultaneously demoted to `sdk`.
 
-Blocker: `openscap` in base hard-Requires `apt-libs` so its OVAL/CVE
-scanner can probe `.deb` metadata when scanning a remote Debian/Ubuntu
-target. The other 8 openscap sub-pkgs (`openscap-scanner`, `-utils`,
-`-libs` via `openscap`, `-engine-sce`, `-python3`, `-perl`, etc.) are
-the ones we actually want in base for RPM-system compliance scanning.
-
-Plan:
-
-- **Rebuild openscap with `--without apt`** (i.e. add a `bcond_with apt`
-  to the openscap spec via overlay, default off in AZL). Upstream
-  openscap already conditionalizes the apt probe; we just need to flip
-  the build flag so the apt-libs link goes away.
-- Once openscap no longer pulls `apt-libs`, demote the entire apt SRPM
-  to sdk via `rebalance-channel.py demote apt apt-apidoc apt-devel apt-doc apt-libs apt-utils`.
-- No allowlist entry needed (whole-SRPM demote).
+Once the next published-RPM snapshot incorporates the new openscap
+build, the `[[ignore]]` block tagged
+`overlay = "base/comps/openscap/openscap.comp.toml"` in
+`scripts/repoclosure-allowlist.toml` will go to zero hits in
+`repoclosure-base.allowlist-hits.txt` and should be deleted.
 
 ## Revisit speech-dispatcher / brltty / orca (accessibility) demotion
 

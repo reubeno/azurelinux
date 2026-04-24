@@ -234,4 +234,6 @@ packages = [
     "ghostscript-tools-dvipdf",
     # Legacy CVS contrib scripts requiring perl(getopts.pl), removed from modern Perl. CVS itself is unmaintained legacy; contrib has no place in a base distro.
     "cvs-contrib",
+    # LaTeX/dblatex backend for asciidoc; pulls dblatex + texlive-dvipng-bin (sdk). Core asciidoc + asciidoc-doc stay in base.
+    "asciidoc-latex",
 ]

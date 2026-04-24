@@ -1651,7 +1651,6 @@ packages = [
     "glusterfs-events",
     "glusterfs-extra-xlators",
     "glusterfs-fuse",
-    "glusterfs-ganesha",
     "glusterfs-geo-replication",
     "glusterfs-resource-agents",
     "glusterfs-server",

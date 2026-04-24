@@ -274,4 +274,6 @@ packages = [
     "DevIL-ILUT-devel",
     # zypper package manager not in AZL base; carve kiwi zypper systemdeps to sdk.
     "kiwi-systemdeps-pkgmgr-zypper",
+    # nfs-ganesha (user-space NFS bridge for Ceph/Gluster) lives in sdk; glusterfs-ganesha is the gluster-side bridge and rides with ganesha.
+    "glusterfs-ganesha",
 ]

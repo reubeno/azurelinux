@@ -650,3 +650,9 @@ srpm             = "kiwi"
 expected_channel = "base"
 allowed_in_other = ["kiwi-systemdeps-pkgmgr-zypper"]
 reason           = "kiwi-systemdeps-pkgmgr-zypper requires zypper which is sdk-only."
+
+[[exception]]
+srpm             = "glusterfs"
+expected_channel = "base"
+allowed_in_other = ["glusterfs-ganesha"]
+reason           = "glusterfs-ganesha carved to sdk; nfs-ganesha stack is sdk-only, consistent with ceph stack."

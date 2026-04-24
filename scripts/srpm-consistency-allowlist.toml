@@ -572,3 +572,27 @@ srpm             = "texinfo"
 expected_channel = "base"
 allowed_in_other = ["texinfo-tex"]
 reason           = "GUI/extra texlive backend not appropriate for base; only texinfo CLI is in base"
+
+[[exception]]
+srpm             = "mythes-eo"
+expected_channel = "base"
+allowed_in_other = ["mythes-eo"]
+reason           = "Locale-specific LO thesaurus data; the rest of mythes ecosystem (mythes core lib) lives in sdk"
+
+[[exception]]
+srpm             = "hunspell-lb"
+expected_channel = "base"
+allowed_in_other = ["mythes-lb"]
+reason           = "Locale-specific MyThes data; needs mythes core which lives in sdk"
+
+[[exception]]
+srpm             = "openoffice-lv"
+expected_channel = "base"
+allowed_in_other = ["mythes-lv"]
+reason           = "Locale-specific MyThes data; needs mythes core which lives in sdk"
+
+[[exception]]
+srpm             = "hunspell-no"
+expected_channel = "base"
+allowed_in_other = ["mythes-nb", "mythes-nn"]
+reason           = "Locale-specific MyThes data; needs mythes core which lives in sdk"

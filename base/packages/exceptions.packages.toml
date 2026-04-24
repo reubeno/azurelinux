@@ -243,4 +243,13 @@ packages = [
     "emacs-pgtk",
     # texinfo-tex: TeX backend (needs full texlive toolchain incl. /usr/bin/texconfig-sys, epsf.tex); base ships only the texinfo command-line tool
     "texinfo-tex",
+    # mythes-eo: Esperanto thesaurus (LibreOffice MyThes); locale-specific, not core base content
+    "mythes-eo",
+    # mythes-lb: Luxembourgish thesaurus (LibreOffice MyThes); needs mythes core (sdk-only); locale-specific
+    "mythes-lb",
+    # mythes-lv: Latvian thesaurus (LibreOffice MyThes); needs mythes core (sdk-only); locale-specific
+    "mythes-lv",
+    # mythes-nb/-nn: Norwegian Bokmal/Nynorsk thesauri (LibreOffice MyThes); need mythes core (sdk-only); locale-specific
+    "mythes-nb",
+    "mythes-nn",
 ]

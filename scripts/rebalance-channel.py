@@ -708,9 +708,53 @@ def _snapshot_path(split_dir: Path, label: str) -> Path:
 
 
 def _load_base_findings(split_dir: Path) -> list[dict]:
+    """Raw base-channel findings, as written by the pipeline."""
     return json.loads(
         (split_dir / "repoclosure-base.findings.json").read_text()
     )["findings"]
+
+
+def _filter_through_allowlist(findings: list[dict]) -> list[dict]:
+    """Drop findings that the *current* allowlist suppresses for scope=base.
+
+    We re-apply the allowlist to both sides of a diff so that snapshots
+    taken before an allowlist edit (i.e. raw-finding snapshots from prior
+    pipeline runs) don't show as either spurious-NEW or spurious-resolved
+    when an entry is added/removed between snapshot and now.
+
+    This is critical for the overlay-pending workflow: a single overlay can
+    introduce a wave of cascade findings (consumers pointing at a sub-pkg
+    we removed because the overlay also stops producing it). One
+    consolidated allowlist entry suppresses both the original wave and the
+    cascade; without symmetric filtering the diff would falsely flag the
+    cascade as NEW vs an old snapshot.
+    """
+    sys.path.insert(
+        0, str(REPO_ROOT / "scripts")
+    )
+    try:
+        from importlib import import_module
+        mod = import_module("split-repo-by-channel".replace("-", "_"))
+    except ModuleNotFoundError:
+        # Module name with hyphens isn't importable; load by file path.
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "split_repo_by_channel",
+            REPO_ROOT / "scripts" / "split-repo-by-channel.py",
+        )
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+
+    entries = mod.load_allowlist(mod.DEFAULT_ALLOWLIST)
+    out: list[dict] = []
+    for f in findings:
+        if any(
+            mod._entry_matches(e, "base", f["consumer_name"], f["requires"])
+            for e in entries
+        ):
+            continue
+        out.append(f)
+    return out
 
 
 def _finding_key(f: dict) -> tuple[str, str]:
@@ -737,8 +781,10 @@ def cmd_diff(args: argparse.Namespace) -> int:
         print(f"ERROR: no snapshot named '{args.label}' at {snap}",
               file=sys.stderr)
         return 1
-    old = json.loads(snap.read_text())
-    new = _load_base_findings(split_dir)
+    # Re-apply current allowlist to BOTH sides — see _filter_through_allowlist
+    # docstring for why this matters (overlay-pending cascade suppression).
+    old = _filter_through_allowlist(json.loads(snap.read_text()))
+    new = _filter_through_allowlist(_load_base_findings(split_dir))
     old_keys = {_finding_key(f): f for f in old}
     new_keys = {_finding_key(f): f for f in new}
 

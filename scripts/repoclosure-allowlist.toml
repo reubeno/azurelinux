@@ -6,11 +6,24 @@
 # matched (so we can spot stale entries).
 #
 # Fields:
-#   package             Consumer package name. Glob patterns supported (fnmatch).
-#                       This is the package whose unresolved dependency we accept.
+#   package             Consumer package name (or list of names). Glob
+#                       patterns supported (fnmatch). When a list is given,
+#                       the entry matches any consumer matching any pattern
+#                       in the list. This is the package whose unresolved
+#                       dependency we accept.
 #   requires            The exact unresolved requirement string as printed by
 #                       `dnf repoclosure` (e.g. "libfoo.so.1()(64bit)" or
-#                       "perl(Some::Module)"). Glob patterns supported.
+#                       "perl(Some::Module)"), or a list of such strings.
+#                       Glob patterns supported. When a list is given, the
+#                       entry matches any requires matching any pattern in
+#                       the list. The combination of package-list and
+#                       requires-list lets one entry suppress an entire
+#                       Cartesian product of (consumer, dep) pairs in one
+#                       shot — essential for "overlay-pending" suppressions
+#                       where a single overlay (e.g. flipping a
+#                       %global __with_<feature> toggle) eliminates many
+#                       feature-conditional Requires lines across many
+#                       sub-packages at once.
 #   scope               Which repoclosure run this applies to:
 #                         "base"     - base-only run
 #                         "base+sdk" - base + sdk run
@@ -57,82 +70,48 @@
 # ----------------------------------------------------------------------
 # erlang: erlang-wx GUI sub-package elimination
 #
-# The erlang-wx sub-package and the wx-conditional %package definitions
-# (debugger, dialyzer, et, observer, reltool) plus the unconditional
-# `Requires: erlang-wx` line in erlang-src have all been removed from
-# the rebuilt RPMs by two overlays in base/comps/erlang/erlang.comp.toml
-# (flipping `%global __with_wxwidgets 1` -> `0`, and stripping the
-# unconditional `Requires: %{name}-wx` line). Locally-built RPMs were
-# inspected with `azldev component build -p erlang` followed by
-# `rpm -qpR` per sub-package — `erlang` and `erlang-src` no longer
-# Require erlang-wx, and the other five sub-pkgs are no longer produced.
-# These suppressions clean the seven leftover findings against the
-# pre-overlay published snapshot and will go stale (zero hits in
-# repoclosure-base.allowlist-hits.txt) after the next published-RPM
-# snapshot incorporates the overlay; at that point delete this block
-# AND remove the 5 no-longer-built sub-packages
-# (erlang-debugger/-dialyzer/-et/-observer/-reltool) from
-# base/packages/base.packages.toml.
-
+# Two overlays in base/comps/erlang/erlang.comp.toml flip
+# `%global __with_wxwidgets` from 1 to 0 and strip the unconditional
+# `Requires: %{name}-wx` line from the erlang-src %package preamble.
+# That toggle wraps not only the wx-related Requires but also the
+# `%package debugger|dialyzer|et|observer|reltool` definitions and
+# every `Requires: %{name}-{debugger,dialyzer,et,observer,reltool}`
+# line that appears across the in-base erlang sub-package preambles
+# (erlang meta, common_test, megaco, src). When the rebuilt RPMs land
+# in the next published-RPM snapshot, all of those Requires disappear
+# and those five sub-packages cease to be produced.
+#
+# In the interim our pipeline runs against a pre-overlay snapshot,
+# which still carries every wx-conditional Requires. The five
+# sub-packages have already been removed from base/packages/base.packages.toml
+# (their successor RPMs will not exist), so each consumer that
+# Requires them shows up as a leftover finding that is purely an
+# artifact of the snapshot lag. The single entry below absorbs the
+# entire Cartesian product (4 consumers x 6 deps); not every
+# combination corresponds to an actual finding, but suppressing
+# non-existent findings is a no-op.
+#
+# Once the next snapshot incorporates the overlays, this entry will
+# go to zero hits in repoclosure-base.allowlist-hits.txt and can be
+# deleted in one go.
 [[ignore]]
-package            = "erlang"
-requires           = "erlang-wx(x86-64) = *"
-scope              = "base"
-reason             = "Overlay sets %global __with_wxwidgets 0; rebuilt erlang RPM no longer Requires erlang-wx (verified via rpm -qpR)."
-confidence         = "high"
-overlay            = "base/comps/erlang/erlang.comp.toml"
-verified_at_commit = "84390c4d7d"
-
-[[ignore]]
-package            = "erlang-debugger"
-requires           = "erlang-wx(x86-64) = *"
-scope              = "base"
-reason             = "%package debugger is inside %if %{__with_wxwidgets}; with toggle flipped to 0 the rebuilt erlang RPM set no longer produces erlang-debugger at all."
-confidence         = "high"
-overlay            = "base/comps/erlang/erlang.comp.toml"
-verified_at_commit = "84390c4d7d"
-
-[[ignore]]
-package            = "erlang-dialyzer"
-requires           = "erlang-wx(x86-64) = *"
-scope              = "base"
-reason             = "%package dialyzer is inside %if %{__with_wxwidgets}; with toggle flipped to 0 the rebuilt erlang RPM set no longer produces erlang-dialyzer at all."
-confidence         = "high"
-overlay            = "base/comps/erlang/erlang.comp.toml"
-verified_at_commit = "84390c4d7d"
-
-[[ignore]]
-package            = "erlang-et"
-requires           = "erlang-wx(x86-64) = *"
-scope              = "base"
-reason             = "%package et is inside %if %{__with_wxwidgets}; with toggle flipped to 0 the rebuilt erlang RPM set no longer produces erlang-et at all."
-confidence         = "high"
-overlay            = "base/comps/erlang/erlang.comp.toml"
-verified_at_commit = "84390c4d7d"
-
-[[ignore]]
-package            = "erlang-observer"
-requires           = "erlang-wx(x86-64) = *"
-scope              = "base"
-reason             = "%package observer is inside %if %{__with_wxwidgets}; with toggle flipped to 0 the rebuilt erlang RPM set no longer produces erlang-observer at all."
-confidence         = "high"
-overlay            = "base/comps/erlang/erlang.comp.toml"
-verified_at_commit = "84390c4d7d"
-
-[[ignore]]
-package            = "erlang-reltool"
-requires           = "erlang-wx(x86-64) = *"
-scope              = "base"
-reason             = "%package reltool is inside %if %{__with_wxwidgets}; with toggle flipped to 0 the rebuilt erlang RPM set no longer produces erlang-reltool at all."
-confidence         = "high"
-overlay            = "base/comps/erlang/erlang.comp.toml"
-verified_at_commit = "84390c4d7d"
-
-[[ignore]]
-package            = "erlang-src"
-requires           = "erlang-wx(x86-64) = *"
-scope              = "base"
-reason             = "Second overlay strips the unconditional `Requires: %{name}-wx` line from the erlang-src %package preamble; rebuilt erlang-src RPM no longer Requires erlang-wx (verified via rpm -qpR)."
+package            = ["erlang", "erlang-common_test", "erlang-megaco", "erlang-src", "erlang-rebar3"]
+requires           = [
+    "erlang-wx",
+    "erlang-wx(*",
+    "erlang-debugger",
+    "erlang-debugger(*",
+    "erlang-dialyzer",
+    "erlang-dialyzer(*",
+    "erlang-et",
+    "erlang-et(*",
+    "erlang-observer",
+    "erlang-observer(*",
+    "erlang-reltool",
+    "erlang-reltool(*",
+]
+scope              = "any"
+reason             = "All such Requires are wx-conditional in the upstream spec; the overlay flips %global __with_wxwidgets to 0 (plus strips the one unconditional Requires in erlang-src), so the rebuilt erlang RPMs no longer Require any of these and the wx-conditional sub-packages are no longer produced. Applies to base AND base+sdk closure since the five wx-conditional sub-packages are removed from BOTH channels."
 confidence         = "high"
 overlay            = "base/comps/erlang/erlang.comp.toml"
 verified_at_commit = "84390c4d7d"

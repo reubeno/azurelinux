@@ -570,15 +570,32 @@ def load_allowlist(path: Path) -> list[dict]:
         #                        RPM that no longer carries the dep.
         entry.setdefault("overlay", "")
         entry.setdefault("verified_at_commit", "")
+        # Normalize package / requires to always be a list of glob patterns,
+        # so an entry can suppress a Cartesian product of (consumer, dep)
+        # pairs in one shot. This is essential for "overlay-pending"
+        # suppressions where a single overlay (e.g. flipping a
+        # %global __with_<feature> toggle) eliminates many wx-/feature-
+        # conditional Requires lines across many sub-packages at once.
+        for field in ("package", "requires"):
+            value = entry.get(field, "")
+            if isinstance(value, str):
+                entry[field] = [value]
+            elif isinstance(value, list):
+                entry[field] = list(value)
+            else:
+                raise ValueError(
+                    f"allowlist entry field '{field}' must be a string or "
+                    f"list of strings, got {type(value).__name__}"
+                )
     return entries
 
 
 def _entry_matches(entry: dict, scope: str, pkg_name: str, requires: str) -> bool:
     if entry["scope"] not in ("any", scope):
         return False
-    if not fnmatch.fnmatchcase(pkg_name, entry["package"]):
+    if not any(fnmatch.fnmatchcase(pkg_name, p) for p in entry["package"]):
         return False
-    if not fnmatch.fnmatchcase(requires, entry["requires"]):
+    if not any(fnmatch.fnmatchcase(requires, r) for r in entry["requires"]):
         return False
     return True
 
@@ -673,9 +690,14 @@ def run_repoclosure(
                 f"suppressed by allowlist.\n"
             )
             for f, entry in suppressed:
+                pkg_patterns = entry["package"]
+                pkg_disp = (
+                    pkg_patterns[0] if len(pkg_patterns) == 1
+                    else f"[{', '.join(pkg_patterns)}]"
+                )
                 fh.write(
                     f"\nPackage {f['consumer_nevra']}  "
-                    f"(matched package={entry['package']})\n"
+                    f"(matched package={pkg_disp})\n"
                     f"  unresolved dependency: {f['requires']}\n"
                     f"  reason     : {entry.get('reason', '')}\n"
                     f"  confidence : {entry.get('confidence', '')}\n"

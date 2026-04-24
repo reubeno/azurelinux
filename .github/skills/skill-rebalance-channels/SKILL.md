@@ -365,20 +365,30 @@ Workflow:
    plan to remove them from `base.packages.toml` after the next snapshot
    (record in `base/packages/TODO.md`).
 
-5. **Add allowlist entries** to `scripts/repoclosure-allowlist.toml`,
-   one per (consumer pkg, missing dep) pair, including the optional
-   provenance fields:
+5. **Add allowlist entries** to `scripts/repoclosure-allowlist.toml`. Both
+   `package` and `requires` accept either a single string or a list of
+   glob patterns; when both are lists, the entry suppresses the entire
+   Cartesian product of (consumer × dep) pairs. This is essential when a
+   single overlay (e.g. flipping a `%global __with_<feature>` toggle)
+   eliminates many feature-conditional Requires lines across many
+   sub-packages — one consolidated entry covers it all and cleanly
+   "goes to zero hits" once the snapshot incorporates the overlay:
 
    ```toml
    [[ignore]]
-   package            = "<consumer>"
-   requires           = "<the dep, glob-wildcards welcome>"
-   scope              = "base"
+   package            = ["<consumer1>", "<consumer2>", ...]
+   requires           = ["<dep1>", "<dep1>(*", "<dep2>", "<dep2>(*", ...]
+   scope              = "any"   # use "base" if the missing dep is in sdk
    reason             = "<one line — what the overlay does, how verified>"
    confidence         = "high"
    overlay            = "base/comps/<srpm>/<srpm>.comp.toml"
    verified_at_commit = "<git short-sha at which step 4 was run>"
    ```
+
+   Tip: include both bare-name (`erlang-foo`) and arch-tagged
+   (`erlang-foo(*`) patterns since Requires strings vary across consumers.
+   Use `scope = "any"` when the removed sub-pkgs are absent from BOTH
+   channels (so the `base+sdk` closure run also needs the suppression).
 
    The `verified_at_commit` SHA acts as a high-water mark: if anyone
    touches the overlay or its underlying upstream spec later, the SHA

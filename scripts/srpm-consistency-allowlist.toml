@@ -612,14 +612,8 @@ reason           = "Sub-pkg pulls flexmark-java (54 sub-pkgs); markdown renderin
 [[exception]]
 srpm             = "graphviz"
 expected_channel = "base"
-allowed_in_other = ["graphviz-sharp"]
-reason           = "C#/Mono language binding; mono runtime lives in sdk"
-
-[[exception]]
-srpm             = "graphviz"
-expected_channel = "base"
-allowed_in_other = ["graphviz-guile"]
-reason           = "Guile language bindings carved out to sdk; rest of graphviz (core libs, devel, plugins) remains in base."
+allowed_in_other = ["graphviz-sharp", "graphviz-guile"]
+reason           = "Niche language bindings carved to sdk: graphviz-sharp (C#/Mono runtime in sdk), graphviz-guile (libgc + libguile-3.0 in sdk)."
 
 [[exception]]
 srpm             = "docbook-utils"

@@ -82,3 +82,21 @@ Options to evaluate:
   Core libcanberra + gtk3 binding stay in base. Low risk.
 - **Wait for upstream migration.** As consumers migrate to `gsound`, the set
   of dependants will shrink and removal becomes feasible.
+
+## Revisit gpsd removal
+
+`gpsd` (the GPS daemon and its bindings) was demoted from base to sdk in
+this pass — it is hardware-specific (consumer GPS receivers, AIS) and not
+appropriate for a server-focused production-supported channel.
+
+The longer-term intent is to **remove gpsd entirely from the distro**.
+Defer pending:
+
+- A reverse-dep audit on the sdk side (`consumers_of gpsd-libs` etc.) to
+  confirm no widely-used sdk consumer pulls it. A quick scan suggests
+  small consumers like `gpsbabel` (already demoted) and a few mapping
+  tools — likely removable.
+- Confirmation that no Azure Linux image / appliance pulls `gpsd*`.
+
+Once those are clear, drop the SRPM via `rebalance-channel.py remove gpsd`
+and delete `[components.gpsd]` from `base/comps/components.toml`.

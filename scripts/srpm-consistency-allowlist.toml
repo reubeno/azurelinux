@@ -632,3 +632,9 @@ srpm             = "net-snmp"
 expected_channel = "base"
 allowed_in_other = ["net-snmp-gui"]
 reason           = "Tk GUI monitoring sub-package carved out to sdk; core net-snmp stack remains in base."
+
+[[exception]]
+srpm             = "crun"
+expected_channel = "base"
+allowed_in_other = ["crun-krun", "crun-wasm"]
+reason           = "libkrun + wasmedge runtime variants of crun carved to sdk; core crun + crun-criu remain in base."

@@ -266,4 +266,7 @@ packages = [
     "policycoreutils-sandbox",
     # Tk-based SNMP monitoring GUI (tkmib); requires perl-Tk which is now in sdk. The rest of net-snmp (libs, agent, devel, perl, python3, utils) remains in base for headless SNMP.
     "net-snmp-gui",
+    # crun-krun (libkrun microvm runtime) and crun-wasm (wasm-library / wasmedge runtime) are exotic OCI-runtime variants for microvm and WebAssembly workloads. The core crun OCI runtime stays in base; only these specialty backends move to sdk.
+    "crun-krun",
+    "crun-wasm",
 ]

@@ -667,8 +667,6 @@ packages = [
     "cronie-noanacron",
     "crontabs",
     "crun",
-    "crun-krun",
-    "crun-wasm",
     "crypto-policies",
     "crypto-policies-scripts",
     "cryptsetup",

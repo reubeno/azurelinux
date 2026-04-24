@@ -163,4 +163,6 @@ packages = [
     "anaconda-widgets-devel",
     # Qt5 binding pulls qt5-qtbase (sdk); core thrift + glib binding stay in base.
     "thrift-qt",
+    # vala-doc requires devhelp (sdk-only, GUI doc browser); CLI vala compiler stays in base.
+    "vala-doc",
 ]

@@ -320,3 +320,9 @@ srpm             = "thrift"
 expected_channel = "base"
 allowed_in_other = ["thrift-qt"]
 reason           = "thrift-qt is a Qt5 GUI binding; CLI/glib bindings supported in base."
+
+[[exception]]
+srpm             = "vala"
+expected_channel = "base"
+allowed_in_other = ["vala-doc"]
+reason           = "vala-doc is a GUI doc-browser integration; vala compiler/runtime supported in base."

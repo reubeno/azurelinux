@@ -7862,7 +7862,6 @@ packages = [
     "v8-12.4-devel",
     "v8-13.6-devel",
     "vala",
-    "vala-doc",
     "valadoc",
     "valadoc-devel",
     "valgrind",

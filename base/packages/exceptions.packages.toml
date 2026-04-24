@@ -272,4 +272,6 @@ packages = [
     # DevIL ILUT bindings link against Allegro 4 (sdk-only); keep core DevIL libs in base.
     "DevIL-ILUT",
     "DevIL-ILUT-devel",
+    # zypper package manager not in AZL base; carve kiwi zypper systemdeps to sdk.
+    "kiwi-systemdeps-pkgmgr-zypper",
 ]

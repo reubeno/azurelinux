@@ -2742,7 +2742,6 @@ packages = [
     "kiwi-systemdeps-filesystems",
     "kiwi-systemdeps-image-validation",
     "kiwi-systemdeps-iso-media",
-    "kiwi-systemdeps-pkgmgr-zypper",
     "kmod",
     "kmod-devel",
     "kmod-libs",

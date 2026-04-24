@@ -644,3 +644,9 @@ srpm             = "DevIL"
 expected_channel = "base"
 allowed_in_other = ["DevIL-ILUT", "DevIL-ILUT-devel"]
 reason           = "DevIL-ILUT/-devel carved to sdk; Allegro 4 not in base."
+
+[[exception]]
+srpm             = "kiwi"
+expected_channel = "base"
+allowed_in_other = ["kiwi-systemdeps-pkgmgr-zypper"]
+reason           = "kiwi-systemdeps-pkgmgr-zypper requires zypper which is sdk-only."

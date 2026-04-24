@@ -1382,7 +1382,6 @@ packages = [
     "ghostscript",
     "ghostscript-doc",
     "ghostscript-gtk",
-    "ghostscript-tools-dvipdf",
     "ghostscript-tools-fontutils",
     "ghostscript-tools-printing",
     "giflib",

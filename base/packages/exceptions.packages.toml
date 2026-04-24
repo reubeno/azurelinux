@@ -230,4 +230,6 @@ packages = [
     "vim-X11",
     # GTK desktop VM management GUI; virt-install (CLI) and virt-manager-common (shared bits) stay in base.
     "virt-manager",
+    # ghostscript dvipdf wrapper script; hard-requires /usr/bin/dvips from texlive (sdk). Core ghostscript + libgs + other tool sub-pkgs stay in base.
+    "ghostscript-tools-dvipdf",
 ]

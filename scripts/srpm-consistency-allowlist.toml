@@ -536,3 +536,9 @@ srpm             = "virt-manager"
 expected_channel = "base"
 allowed_in_other = ["virt-manager"]
 reason           = "GTK GUI sub-pkg only; CLI virt-install + shared virt-manager-common stay in base."
+
+[[exception]]
+srpm             = "ghostscript"
+expected_channel = "base"
+allowed_in_other = ["ghostscript-tools-dvipdf"]
+reason           = "ghostscript dvipdf tool requires /usr/bin/dvips from texlive (sdk); core ghostscript stays in base."

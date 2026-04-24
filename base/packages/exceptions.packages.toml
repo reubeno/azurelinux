@@ -228,4 +228,6 @@ packages = [
     "pcp-testsuite",
     # X11 GUI vim — pulls libcanberra (sdk-only)/Xorg/GTK stack; CLI/enhanced/minimal vim stay in base.
     "vim-X11",
+    # GTK desktop VM management GUI; virt-install (CLI) and virt-manager-common (shared bits) stay in base.
+    "virt-manager",
 ]

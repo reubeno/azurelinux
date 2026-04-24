@@ -7960,7 +7960,6 @@ packages = [
     "virglrenderer-devel",
     "virglrenderer-test-server",
     "virt-install",
-    "virt-manager",
     "virt-manager-common",
     "virt-sb-certs",
     "virt-what",

@@ -530,3 +530,9 @@ srpm             = "vim"
 expected_channel = "base"
 allowed_in_other = ["vim-X11"]
 reason           = "X11 GUI vim sub-pkg pulls libcanberra/X11 stack; CLI/enhanced/minimal vim stay in base."
+
+[[exception]]
+srpm             = "virt-manager"
+expected_channel = "base"
+allowed_in_other = ["virt-manager"]
+reason           = "GTK GUI sub-pkg only; CLI virt-install + shared virt-manager-common stay in base."

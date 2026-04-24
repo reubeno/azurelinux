@@ -264,4 +264,6 @@ packages = [
     "docbook-utils-pdf",
     # SELinux GUI sandbox; uses xorg-x11-server-Xephyr (nested X server) to confine X11 apps. xorg-x11-server SRPM is in sdk; the rest of policycoreutils (core SELinux tooling, dbus, devel, gui, newrole, python-utils, restorecond) remains in base.
     "policycoreutils-sandbox",
+    # Tk-based SNMP monitoring GUI (tkmib); requires perl-Tk which is now in sdk. The rest of net-snmp (libs, agent, devel, perl, python3, utils) remains in base for headless SNMP.
+    "net-snmp-gui",
 ]

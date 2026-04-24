@@ -626,3 +626,9 @@ srpm             = "policycoreutils"
 expected_channel = "base"
 allowed_in_other = ["policycoreutils-sandbox"]
 reason           = "GUI sandbox sub-package carved out to sdk; core SELinux policycoreutils tooling remains in base."
+
+[[exception]]
+srpm             = "net-snmp"
+expected_channel = "base"
+allowed_in_other = ["net-snmp-gui"]
+reason           = "Tk GUI monitoring sub-package carved out to sdk; core net-snmp stack remains in base."

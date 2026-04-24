@@ -203,4 +203,29 @@ packages = [
     "perl-XML-XPath-tests",
     "perl-bignum-tests",
     "perl-libwww-perl-tests",
+    # Qt5 binding for gpgme + its devel; gpgme C library and CLI tools stay in base.
+    "qgpgme-qt5",
+    "qgpgme-qt5-devel",
+    # Qt6 PIN-entry GUI for GnuPG; pinentry-curses/-tty stay in base.
+    "pinentry-qt",
+    # GTK2 GUI for usermode; CLI usermode/userhelper stay in base.
+    "usermode-gtk",
+    # GTK2 PostGIS shapefile loader GUI; PostGIS server/CLI tools stay in base.
+    "postgis-gui",
+    # Qt6 SELinux policy analysis GUI + setools meta-pkg (Requires gui); setools-console* CLI tools stay in base.
+    "setools-gui",
+    "setools",
+    # Qt5 PulseAudio equalizer GUI; pulseaudio daemon/utils stay in base.
+    "pulseaudio-qpaeq",
+    # PyQt6 firewall tray applet; firewalld daemon/CLI tools stay in base.
+    "firewall-applet",
+    # GTK source-view demo program; librest library stays in base.
+    "rest-demo",
+    # Optional PyQt4/PyQt5 event-loop integration sub-pkgs; pyudev core stays in base.
+    "python3-pyudev-qt4",
+    "python3-pyudev-qt5",
+    # Testsuite sub-pkg hard-requires setools meta (carved); testsuites belong in sdk.
+    "pcp-testsuite",
+    # X11 GUI vim — pulls libcanberra (sdk-only)/Xorg/GTK stack; CLI/enhanced/minimal vim stay in base.
+    "vim-X11",
 ]

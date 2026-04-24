@@ -464,3 +464,69 @@ srpm             = "perl-libwww-perl"
 expected_channel = "base"
 allowed_in_other = ["perl-libwww-perl-tests"]
 reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "gpgme"
+expected_channel = "base"
+allowed_in_other = ["qgpgme-qt5", "qgpgme-qt5-devel"]
+reason           = "Optional Qt5 binding sub-pkg; pulls qt5-qtbase from sdk."
+
+[[exception]]
+srpm             = "pinentry"
+expected_channel = "base"
+allowed_in_other = ["pinentry-qt"]
+reason           = "GUI sub-pkg; pulls KF6 (kf6-kguiaddons, kf6-kwindowsystem) from sdk."
+
+[[exception]]
+srpm             = "usermode"
+expected_channel = "base"
+allowed_in_other = ["usermode-gtk"]
+reason           = "GTK GUI sub-pkg; pulls gtk2 from sdk."
+
+[[exception]]
+srpm             = "postgresql18-postgis"
+expected_channel = "base"
+allowed_in_other = ["postgis-gui"]
+reason           = "GUI sub-pkg; pulls gtk2 from sdk."
+
+[[exception]]
+srpm             = "setools"
+expected_channel = "base"
+allowed_in_other = ["setools-gui", "setools"]
+reason           = "GUI sub-pkg; pulls python3-pyqt6 from sdk."
+
+[[exception]]
+srpm             = "pulseaudio"
+expected_channel = "base"
+allowed_in_other = ["pulseaudio-qpaeq"]
+reason           = "GUI sub-pkg; pulls python3-qt5-base from sdk."
+
+[[exception]]
+srpm             = "firewalld"
+expected_channel = "base"
+allowed_in_other = ["firewall-applet"]
+reason           = "GUI sub-pkg; pulls python3-pyqt6-base from sdk."
+
+[[exception]]
+srpm             = "rest"
+expected_channel = "base"
+allowed_in_other = ["rest-demo"]
+reason           = "Demo GUI sub-pkg; pulls libgtksourceview5 from sdk."
+
+[[exception]]
+srpm             = "python-pyudev"
+expected_channel = "base"
+allowed_in_other = ["python3-pyudev-qt4", "python3-pyudev-qt5"]
+reason           = "Optional Qt event-loop bindings sub-pkgs; pull PyQt4/python3-qt5 from sdk."
+
+[[exception]]
+srpm             = "pcp"
+expected_channel = "base"
+allowed_in_other = ["pcp-testsuite"]
+reason           = "Testsuite sub-pkg pulls setools meta (carved); testsuites kept in sdk."
+
+[[exception]]
+srpm             = "vim"
+expected_channel = "base"
+allowed_in_other = ["vim-X11"]
+reason           = "X11 GUI vim sub-pkg pulls libcanberra/X11 stack; CLI/enhanced/minimal vim stay in base."

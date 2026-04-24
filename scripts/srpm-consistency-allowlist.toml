@@ -560,3 +560,9 @@ srpm             = "syslinux"
 expected_channel = "base"
 allowed_in_other = ["syslinux-perl"]
 reason           = "Perl helpers for SYSLINUX (legacy bootloader) require unpackaged perl(Crypt::PasswdMD5); irrelevant for Azure cloud-distro base."
+
+[[exception]]
+srpm             = "emacs"
+expected_channel = "base"
+allowed_in_other = ["emacs-gtk+x11", "emacs-pgtk"]
+reason           = "GUI emacs builds (gtk+x11, pgtk) pull libpixbufloader-xpm + GTK stack from sdk; emacs-nox/lucid stay in base."

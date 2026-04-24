@@ -638,3 +638,9 @@ srpm             = "crun"
 expected_channel = "base"
 allowed_in_other = ["crun-krun", "crun-wasm"]
 reason           = "libkrun + wasmedge runtime variants of crun carved to sdk; core crun + crun-criu remain in base."
+
+[[exception]]
+srpm             = "DevIL"
+expected_channel = "base"
+allowed_in_other = ["DevIL-ILUT", "DevIL-ILUT-devel"]
+reason           = "DevIL-ILUT/-devel carved to sdk; Allegro 4 not in base."

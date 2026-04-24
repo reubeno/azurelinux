@@ -269,4 +269,7 @@ packages = [
     # crun-krun (libkrun microvm runtime) and crun-wasm (wasm-library / wasmedge runtime) are exotic OCI-runtime variants for microvm and WebAssembly workloads. The core crun OCI runtime stays in base; only these specialty backends move to sdk.
     "crun-krun",
     "crun-wasm",
+    # DevIL ILUT bindings link against Allegro 4 (sdk-only); keep core DevIL libs in base.
+    "DevIL-ILUT",
+    "DevIL-ILUT-devel",
 ]

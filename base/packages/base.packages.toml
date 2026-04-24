@@ -16,8 +16,6 @@ packages = [
     "CUnit",
     "CUnit-devel",
     "DevIL",
-    "DevIL-ILUT",
-    "DevIL-ILUT-devel",
     "DevIL-devel",
     "HdrHistogram_c",
     "HdrHistogram_c-devel",

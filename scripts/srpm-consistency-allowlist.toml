@@ -656,3 +656,9 @@ srpm             = "glusterfs"
 expected_channel = "base"
 allowed_in_other = ["glusterfs-ganesha"]
 reason           = "glusterfs-ganesha carved to sdk; nfs-ganesha stack is sdk-only, consistent with ceph stack."
+
+[[exception]]
+srpm             = "mariadb"
+expected_channel = "base"
+allowed_in_other = ["mariadb-sphinx-engine"]
+reason           = "mariadb-sphinx-engine carved to sdk; sphinx search server stays sdk-only."

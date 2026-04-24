@@ -4381,7 +4381,6 @@ packages = [
     "mariadb-server",
     "mariadb-server-galera",
     "mariadb-server-utils",
-    "mariadb-sphinx-engine",
     "mariadb-test",
     "marshalparser",
     "matchbox-window-manager",

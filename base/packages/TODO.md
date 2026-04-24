@@ -182,6 +182,50 @@ Plan:
 - This will also resolve the `brltty-espeak` libespeak.so.1 finding
   and the `speech-dispatcher` libao.so.4 finding for free.
 
+## Revisit bluez SRPM demotion
+
+The `bluez` SRPM ships 8 sub-packages in base today: `bluez`, `bluez-cups`,
+`bluez-deprecated`, `bluez-hid2hci`, `bluez-libs`, `bluez-libs-devel`,
+`bluez-mesh`, `bluez-obexd`. The Bluetooth daemon and its helpers are not
+needed in headless cloud workloads, so the whole SRPM is a natural demote
+candidate.
+
+A whole-SRPM demote leaves 6 unresolved deps across 5 base packages:
+- `NetworkManager-bluetooth` (bluez + libbluetooth.so.3)
+- `pulseaudio-module-bluetooth` (bluez)
+- `qt6-qtconnectivity` (libbluetooth.so.3 — Qt6 Bluetooth + NFC module)
+- `brltty` and `brltty-minimal` (libbluetooth.so.3 — braille over Bluetooth)
+
+The first three are surgically resolvable (carve `NetworkManager-bluetooth`
++ `pulseaudio-module-bluetooth` from their parent SRPMs; demote the
+`qt6-qtconnectivity` SRPM as a whole — devel/examples included).
+
+The brltty consumers are the blocker: brltty cannot be demoted without
+hitting the same `qemu-char-baum` hard-Require trap that blocks the
+speech-dispatcher / brltty work above (all 19 `qemu-system-*` emulators
+hard-Require `qemu-char-baum`, which hard-Requires brltty).
+
+Two viable paths:
+
+1. **Surgical (Option A) — keep bluez-libs in base**: demote 7 sub-packages
+   (`bluez`, `bluez-cups`, `bluez-deprecated`, `bluez-hid2hci`,
+   `bluez-libs-devel`, `bluez-mesh`, `bluez-obexd`) plus carve
+   `NetworkManager-bluetooth` and `pulseaudio-module-bluetooth`. Mirrors
+   the upower-libs surgical pattern; 0 cascade. Removes the daemon +
+   ancillaries from the supported channel while keeping
+   `libbluetooth.so.3` in base for Qt6 / brltty / accessibility tooling.
+   Clears 0 findings — pure scope-tightening.
+
+2. **Whole-SRPM (Option B)**: requires the same qemu overlay work as the
+   ffado/jack and speech-dispatcher entries above. Once qemu is rebuilt
+   without the brltty/baum char backend (or its Requires is dropped via
+   overlay), the brltty SRPM can be demoted, and bluez can follow as a
+   complete demote (also dragging the `qt6-qtconnectivity` SRPM and the
+   two carved sibling sub-pkgs).
+
+Deferred. Reconsider once the qemu-backend-Requires overlay lands —
+demoting brltty unlocks bluez whole-SRPM at the same time.
+
 ## Revisit gpsd removal
 
 `gpsd` (the GPS daemon and its bindings) was demoted from base to sdk in

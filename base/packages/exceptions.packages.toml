@@ -258,4 +258,6 @@ packages = [
     "cockpit-ha-cluster",
     # maven-doxia-module-markdown: pulls in flexmark-java (54 sub-pkgs) for Markdown rendering; the rest of maven-doxia (core, sink-api, modules apt/xdoc/xhtml5/fml) is foundational Maven plumbing needed in base by maven-doxia-sitetools / maven-reporting-impl / javacc-maven-plugin. Markdown rendering is SDK-tier.
     "maven-doxia-module-markdown",
+    # graphviz-sharp: C#/Mono bindings for graphviz; needs mono-core (sdk-only). Mono runtime not appropriate for headless base; graphviz core + native bindings stay in base.
+    "graphviz-sharp",
 ]

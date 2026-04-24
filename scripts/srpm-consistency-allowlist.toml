@@ -614,3 +614,9 @@ srpm             = "maven-doxia"
 expected_channel = "base"
 allowed_in_other = ["maven-doxia-module-markdown"]
 reason           = "Sub-pkg pulls flexmark-java (54 sub-pkgs); markdown rendering not needed by base maven plumbing consumers"
+
+[[exception]]
+srpm             = "graphviz"
+expected_channel = "base"
+allowed_in_other = ["graphviz-sharp"]
+reason           = "C#/Mono language binding; mono runtime lives in sdk"

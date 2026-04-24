@@ -2074,7 +2074,6 @@ packages = [
     "graphviz-perl",
     "graphviz-python3",
     "graphviz-ruby",
-    "graphviz-sharp",
     "graphviz-tcl",
     "greenboot",
     "greenboot-default-health-checks",

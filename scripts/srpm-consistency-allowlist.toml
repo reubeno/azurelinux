@@ -542,3 +542,9 @@ srpm             = "ghostscript"
 expected_channel = "base"
 allowed_in_other = ["ghostscript-tools-dvipdf"]
 reason           = "ghostscript dvipdf tool requires /usr/bin/dvips from texlive (sdk); core ghostscript stays in base."
+
+[[exception]]
+srpm             = "cvs"
+expected_channel = "base"
+allowed_in_other = ["cvs-contrib"]
+reason           = "Legacy CVS contrib scripts require perl(getopts.pl) (removed from modern Perl); CVS core stays in base."

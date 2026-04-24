@@ -232,4 +232,6 @@ packages = [
     "virt-manager",
     # ghostscript dvipdf wrapper script; hard-requires /usr/bin/dvips from texlive (sdk). Core ghostscript + libgs + other tool sub-pkgs stay in base.
     "ghostscript-tools-dvipdf",
+    # Legacy CVS contrib scripts requiring perl(getopts.pl), removed from modern Perl. CVS itself is unmaintained legacy; contrib has no place in a base distro.
+    "cvs-contrib",
 ]

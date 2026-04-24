@@ -680,7 +680,6 @@ packages = [
     "cups-printerapp",
     "curl",
     "cvs",
-    "cvs-contrib",
     "cvs-doc",
     "cvsps",
     "cvt",

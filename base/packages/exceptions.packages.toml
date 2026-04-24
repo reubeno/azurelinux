@@ -236,4 +236,6 @@ packages = [
     "cvs-contrib",
     # LaTeX/dblatex backend for asciidoc; pulls dblatex + texlive-dvipng-bin (sdk). Core asciidoc + asciidoc-doc stay in base.
     "asciidoc-latex",
+    # Perl helpers for SYSLINUX bootloader; require unpackaged perl(Crypt::PasswdMD5). SYSLINUX is irrelevant for Azure cloud workloads but kept in base for legacy boot use.
+    "syslinux-perl",
 ]

@@ -554,3 +554,9 @@ srpm             = "asciidoc"
 expected_channel = "base"
 allowed_in_other = ["asciidoc-latex"]
 reason           = "asciidoc LaTeX backend pulls dblatex + texlive-dvipng-bin from sdk; core asciidoc stays in base."
+
+[[exception]]
+srpm             = "syslinux"
+expected_channel = "base"
+allowed_in_other = ["syslinux-perl"]
+reason           = "Perl helpers for SYSLINUX (legacy bootloader) require unpackaged perl(Crypt::PasswdMD5); irrelevant for Azure cloud-distro base."

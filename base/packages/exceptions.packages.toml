@@ -278,4 +278,7 @@ packages = [
     "glusterfs-ganesha",
     # Sphinx Search Server v2.2.11 (legacy C++ SQL FTS engine, upstream largely abandoned) lives in sdk; mariadb-sphinx-engine is the niche bridge plugin.
     "mariadb-sphinx-engine",
+    # fence-agents-compute is the OpenStack-Nova fence agent (sdk-only stack); fence-agents-all rides along since it Requires every individual fence agent.
+    "fence-agents-all",
+    "fence-agents-compute",
 ]

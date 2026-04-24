@@ -662,3 +662,9 @@ srpm             = "mariadb"
 expected_channel = "base"
 allowed_in_other = ["mariadb-sphinx-engine"]
 reason           = "mariadb-sphinx-engine carved to sdk; sphinx search server stays sdk-only."
+
+[[exception]]
+srpm             = "fence-agents"
+expected_channel = "base"
+allowed_in_other = ["fence-agents-all", "fence-agents-compute"]
+reason           = "fence-agents-compute carved to sdk; OpenStack stack stays sdk-only. fence-agents-all dragged along (meta-pkg)."

@@ -258,4 +258,6 @@ packages = [
     "maven-doxia-module-markdown",
     # graphviz-sharp: C#/Mono bindings for graphviz; needs mono-core (sdk-only). Mono runtime not appropriate for headless base; graphviz core + native bindings stay in base.
     "graphviz-sharp",
+    # Guile bindings for graphviz; pulls libgc + libguile-3.0 (gc + guile30 SRPMs in sdk only). Niche scripting bindings; core graphviz tooling stays in base.
+    "graphviz-guile",
 ]

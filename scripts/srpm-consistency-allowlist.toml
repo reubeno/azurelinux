@@ -614,3 +614,9 @@ srpm             = "graphviz"
 expected_channel = "base"
 allowed_in_other = ["graphviz-sharp"]
 reason           = "C#/Mono language binding; mono runtime lives in sdk"
+
+[[exception]]
+srpm             = "graphviz"
+expected_channel = "base"
+allowed_in_other = ["graphviz-guile"]
+reason           = "Guile language bindings carved out to sdk; rest of graphviz (core libs, devel, plugins) remains in base."

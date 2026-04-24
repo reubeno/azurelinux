@@ -2067,7 +2067,6 @@ packages = [
     "graphviz-gd",
     "graphviz-go",
     "graphviz-graphs",
-    "graphviz-guile",
     "graphviz-java",
     "graphviz-libs",
     "graphviz-lua",

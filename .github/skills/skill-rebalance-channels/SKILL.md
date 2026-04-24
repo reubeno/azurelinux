@@ -99,38 +99,55 @@ for. Do this in a per-row markdown table, not in prose:
 
 ### Reverse-dep audits (do them before any whole-SRPM move)
 
-For demote / remove candidates, **always** check what depends on the SRPM
-in *both* channels before recommending the move:
+There are **two** pre-move checks you run, and both are mandatory. They
+answer different questions:
 
-```python
-# Quick one-liner to enumerate consumers of a capability substring:
-python3 -c "
-from pathlib import Path
-import sys; sys.path.insert(0, 'scripts')
-from importlib import import_module
-mod = import_module('rebalance-channel'.replace('-', '_'))
-" 2>/dev/null  # the script name has a dash; import via spec, see below
+**Check 1 — "will any base packages break?"** Use `rebalance-channel.py
+predict` with the exact binary-RPM names that would leave base:
+
+```bash
+# For a carve — pass the sub-pkg names:
+python3 scripts/rebalance-channel.py predict avahi-qt5 avahi-qt5-devel
+
+# For a whole-SRPM demote — pass every sub-pkg of the SRPM:
+python3 scripts/rebalance-channel.py demote --dry-run <srpm>   # prints the list
+python3 scripts/rebalance-channel.py predict <pkg1> <pkg2> ...
+
+# For a full SRPM removal — same as demote above.
 ```
 
-Easier: just open a python REPL and reuse the helpers from the script:
+`predict` scans every base package's `Requires:` against the capabilities
+provided by the listed names and reports any `Requires:` that would gain
+no provider if the move went through. If it reports anything at all,
+**stop and adjust the plan** — either extend the move to cover the
+affected packages, drop the `Requires:` via a comp.toml overlay, or pick
+a different candidate. This catches sibling-cascade issues (e.g.
+`erlang -> erlang-wx = <exact-version>`) *before* you commit.
+
+`predict` returns exit status 2 when it finds any predicted regressions,
+so you can gate automation on it.
+
+**Check 2 — "will sdk or the component graph break?"** For whole-SRPM
+demote / remove candidates, sanity-check what in *sdk* (and elsewhere)
+still depends on the SRPM — `predict` only checks base. Use
+`consumers_of` from the script module:
 
 ```bash
 python3 - <<'EOF'
-import importlib.util, pathlib
+import importlib.util, collections
 spec = importlib.util.spec_from_file_location(
     "rc", "scripts/rebalance-channel.py")
 rc = importlib.util.module_from_spec(spec); spec.loader.exec_module(rc)
-import collections
 for ch in ("base", "sdk"):
-    edges = rc.consumers_of(rc.DEFAULT_SPLIT_DIR / ch, "ffmpeg")
-    print(f"=== {ch} consumers of *ffmpeg* ===")
+    edges = rc.consumers_of(rc.DEFAULT_SPLIT_DIR / ch, "libcanberra")
+    print(f"=== {ch} consumers of *libcanberra* ===")
     for n, k in collections.Counter(p for p, _ in edges).most_common():
         print(f"  {k:3d}  {n}")
 EOF
 ```
 
 If the sdk-side consumer set is large (≳ 5 distinct SRPMs) and includes
-broadly-used components (KDE, GNOME, Plasma, etc.), the whole-SRPM
+broadly-used components (KDE, GNOME, Plasma, …), the whole-SRPM
 **remove** is almost certainly wrong; recommend a carve or flag in
 `TODO.md` instead.
 
@@ -138,13 +155,29 @@ broadly-used components (KDE, GNOME, Plasma, etc.), the whole-SRPM
 
 For every action the user approves, follow this loop:
 
-> **Critical**: commit each step separately. The user wants a clean,
-> bisectable history of policy decisions, and an unexpected regression in
-> step N is much easier to surface and discuss when N is its own commit.
+> **Critical**: commit each step separately, and **verify with a set-diff
+> against a pre-step snapshot — not just a net count**. An earlier pass
+> missed two regressions (`erlang` meta requiring a just-carved
+> `erlang-wx`; `gtk4` requiring a just-demoted `gst-bad-libs`) because
+> the net `base.remaining` count went down — the new findings were
+> masked by unrelated resolved ones. The snapshot/diff step below is
+> specifically designed to prevent that.
 
 For each candidate action:
 
-1. **Apply** with the appropriate subcommand:
+1. **Snapshot the current state** (before the move):
+
+   ```bash
+   python3 scripts/rebalance-channel.py snapshot before
+   ```
+
+2. **Predict** the consequences with `predict` (see above). If it
+   reports any predicted regressions, stop and adjust the plan before
+   applying — do not "just run it and see". When working through a
+   batch, re-run `predict` for every step (the safety of a move depends
+   on the state left by the previous step).
+
+3. **Apply** with the appropriate subcommand:
 
    ```bash
    # Whole-SRPM moves (no allowlist edit needed):
@@ -162,11 +195,11 @@ For each candidate action:
    python3 scripts/rebalance-channel.py remove <srpm>
    ```
 
-2. **For `remove`**, also delete the `[components.<srpm>]` line from
+4. **For `remove`**, also delete the `[components.<srpm>]` line from
    `base/comps/components.toml` (and the per-comp dir under
    `base/comps/<srpm>/` if one exists).
 
-3. **Re-validate**:
+5. **Re-run the pipeline**:
 
    ```bash
    python3 scripts/split-repo-by-channel.py \
@@ -175,25 +208,41 @@ For each candidate action:
    python3 scripts/repo-split-summary.py
    ```
 
-4. **Eyeball the delta** vs. the previous step.
+6. **Run the set-diff** against the snapshot from step 1:
 
-   * `base.remaining` should drop by approximately the `Findings` value
-     for that SRPM. If it drops less, look at the per-finding cascade.
-   * `base+sdk.remaining` should be **unchanged** — if it goes up, you
-     just introduced a new sdk-side break and need to investigate.
-   * `srpm uncovered` must remain `0`. If non-zero, the carve created an
-     unanticipated channel split and you need to extend the allow-list.
+   ```bash
+   python3 scripts/rebalance-channel.py diff before
+   ```
 
-5. **If the result is unexpected** (delta significantly off, base+sdk
-   regression, sdk consumers cascade), **stop and surface it to the
-   user** — do **not** commit. Roll back with `git checkout -- <files>`
-   if needed. Show the user:
-   * what changed,
-   * what was expected,
-   * the cascade you found,
-   * options (e.g., partial carve instead of full remove).
+   The output has three numbers that matter:
 
-6. **If the result is expected**, commit:
+   * **resolved**  — findings that went away. Should be roughly equal
+     to the `Findings` value in the candidate table.
+   * **NEW**      — findings that appeared. **This is the regression
+     check.** `diff` exits non-zero if any NEW findings exist.
+   * **unchanged** — findings present both before and after.
+
+   If there are ANY NEW findings, `diff` lists them grouped by consumer
+   package. Investigate each one:
+
+   * If a new finding is against a base consumer that shares an SRPM
+     with something you just moved (sibling-cascade), extend the move
+     and go back to step 1.
+   * If a new finding is against an unrelated base consumer (a
+     transitive provider disappeared), investigate whether the
+     disappeared provider needs to come back (promote / carve back).
+   * Do **not** commit the intermediate state.
+
+7. **Also verify the auxiliary metrics** in `repo-split-summary.py`:
+
+   * `base+sdk.remaining` should be **unchanged** — if it goes up, the
+     move introduced a new sdk-side break.
+   * `srpm uncovered` must remain `0`. If non-zero, the carve created
+     an unanticipated channel split and you need to extend the
+     allow-list.
+
+8. **Only if `diff` reports 0 NEW findings** (and the auxiliaries are
+   clean), commit:
 
    ```bash
    git add -A base/packages base/comps/components.toml \
@@ -214,7 +263,7 @@ For each candidate action:
    * `fix: remove <srpm> entirely from distro`
    * `docs: defer <srpm> ...; flag in TODO.md`  (when skipping)
 
-7. **Track progress** in the session SQL `batch` table (or equivalent):
+9. **Track progress** in the session SQL `batch` table (or equivalent):
 
    ```sql
    INSERT INTO batch VALUES
@@ -224,14 +273,16 @@ For each candidate action:
 
 ## Skipping a candidate
 
-When a candidate's reverse-dep audit reveals it would cause significantly
-more dependency damage than it resolves (the user explicitly asked for
-this safety check), **skip** the apply step. Instead:
+When a candidate's reverse-dep audit (`predict` or sdk-side
+`consumers_of`) reveals it would cause significantly more dependency
+damage than it resolves (the user explicitly asked for this safety
+check), **skip** the apply step. Instead:
 
 1. Do **not** make the package-list change.
 2. Append a section to `base/packages/TODO.md` documenting:
    * what was attempted,
-   * what reverse-deps were found (concrete consumer pkg names),
+   * what reverse-deps were found (concrete consumer pkg names; paste
+     the `predict` or `consumers_of` output),
    * the alternatives the user could pursue later.
 3. Commit the docs change as `docs: defer <srpm> ...; flag in TODO.md`.
 
@@ -241,8 +292,12 @@ this safety check), **skip** the apply step. Instead:
 | --- | --- |
 | `dnf` cache stale across pipeline runs | `split-repo-by-channel.py` already uses a fresh per-scope cachedir; do not override. |
 | Carving without an allowlist entry | The `carve` subcommand always writes both files; do not bypass. |
-| Top-meta SRPM (e.g. `anaconda`) `Requires: <gui-subpkg>` — carving the GUI subpkg without also carving the meta creates a new finding | Audit `Requires:` of the SRPM's meta package before deciding the carve set. |
-| Removing an SRPM with broad sdk consumers (e.g. `libcanberra`, `ffmpeg`) | Always run a reverse-dep audit; if ≳ 5 sdk consumers, demote or flag instead. |
+| Top-meta SRPM (e.g. `anaconda`) `Requires: <gui-subpkg>` — carving the GUI subpkg without also carving the meta creates a new finding | **Run `predict` before every carve.** It catches exactly this pattern. |
+| Demoting an SRPM whose `-libs` sub-pkg is a transitive runtime dep of something in base (e.g. `gst-bad -> gtk4`) | **Run `predict` passing every sub-pkg of the SRPM** before the demote. If it flags an essential base consumer, either partial-carve the runtime back or abandon the demote. |
+| Watching only the net `base.remaining` count across iterations | **Always run `diff <label>` after each move.** The regression count is `NEW`, not `delta(total)`. |
+| Removing an SRPM with broad sdk consumers (e.g. `libcanberra`, `ffmpeg`) | `predict` only checks base; always also run the sdk-side `consumers_of` one-liner. If ≳ 5 sdk consumers, demote or flag instead. |
+| Promoting an SRPM that pulls a transitive sdk-only stack | The `promote` subcommand only moves the named SRPM — run the pipeline after; if `base+sdk.remaining` went up, a transitive promote is needed too. |
+| Editing `exceptions.packages.toml` by hand and getting the comment grouping wrong | Always use `carve`; it appends with a one-line comment in the right place. |
 | Promoting an SRPM that pulls a transitive sdk-only stack | The `promote` subcommand only moves the named SRPM — re-run the pipeline after; if base+sdk is dirty, a transitive promote is needed too. |
 | Editing `exceptions.packages.toml` by hand and getting the comment grouping wrong | Always use `carve`; it appends with a one-line comment in the right place. |
 

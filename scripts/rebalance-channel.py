@@ -22,8 +22,23 @@ Subcommands
                             manual step).
 * ``analyze``             — read the latest repoclosure findings and emit a
                             ranked, actionable table of next-best moves.
+* ``predict <pkg>...``    — *before applying a move*, print every base-side
+                            binary RPM that would gain a new unresolved
+                            dependency if the listed sub-packages were
+                            moved out of base (carved or demoted). Uses
+                            this to catch sibling-cascade issues (e.g.
+                            ``erlang -> erlang-wx = <exact-version>``)
+                            pre-commit.
+* ``snapshot <label>``    — capture the current base repoclosure findings
+                            into a named snapshot file so a subsequent
+                            ``diff`` can show exactly which findings went
+                            away and — crucially — which are NEW.
+* ``diff <label>``        — compare the current base findings against a
+                            named snapshot; prints resolved / new /
+                            unchanged tallies and lists the NEW findings
+                            first (those are the regressions).
 
-The ``promote/demote/carve/remove`` commands need a populated
+The ``promote/demote/carve/remove/predict`` commands need a populated
 ``base/build/work/scratch/repo-split/`` (run ``scripts/split-repo-by-channel.py``
 first). They use ``createrepo_c`` to enumerate which binary RPMs each SRPM
 produces and rewrite the TOMLs in place, preserving formatting where
@@ -469,6 +484,191 @@ def cmd_analyze(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# predict: "what base sub-packages Require <name>?" pre-move safety check
+# ---------------------------------------------------------------------------
+
+def _required_capabilities_for(split_dir: Path, channel: str,
+                                pkg_names: set[str]) -> set[str]:
+    """Return every capability provided by ``pkg_names`` in ``channel`` —
+    plus the package-name capabilities themselves. Used to compute what
+    other packages in the same channel might lose a dependency target when
+    ``pkg_names`` leave the channel.
+    """
+    pri = _open_primary(split_dir / channel)
+    caps: set[str] = set(pkg_names)
+
+    def cb(pkg):
+        if pkg.name in pkg_names:
+            caps.add(pkg.name)
+            for prov in pkg.provides:
+                caps.add(prov[0])
+            for fname in pkg.files:
+                full = (fname[1] or "") + (fname[2] or "")
+                if full:
+                    caps.add(full)
+
+    cr.xml_parse_primary(pri, pkgcb=cb, do_files=True,
+                         warningcb=lambda *_: True)
+    return caps
+
+
+def cmd_predict(args: argparse.Namespace) -> int:
+    """Simulate: if these pkg names left base, who would break?
+
+    Scans every base package's Requires against the union of capabilities
+    provided by the listed names. For each hit, also checks whether some
+    *other* base package still provides the same capability (i.e. an
+    alternative provider) — if yes, the dep is safe; if no, it's a
+    predicted new unresolved.
+    """
+    split_dir = Path(args.split_dir)
+    pkg_names = set(args.pkg)
+
+    # Step 1: what capabilities will leave base?
+    leaving_caps = _required_capabilities_for(split_dir, "base", pkg_names)
+
+    # Step 2: what capabilities remain provided by the REST of base?
+    pri = _open_primary(split_dir / "base")
+    remaining_providers: dict[str, set[str]] = collections.defaultdict(set)
+    all_requires: list[tuple[str, str]] = []
+
+    def cb(pkg):
+        if pkg.name in pkg_names:
+            return  # these are leaving
+        for prov in pkg.provides:
+            remaining_providers[prov[0]].add(pkg.name)
+        remaining_providers[pkg.name].add(pkg.name)
+        for fname in pkg.files:
+            full = (fname[1] or "") + (fname[2] or "")
+            if full:
+                remaining_providers[full].add(pkg.name)
+        for req in pkg.requires:
+            all_requires.append((pkg.name, req[0]))
+
+    cr.xml_parse_primary(pri, pkgcb=cb, do_files=True,
+                         warningcb=lambda *_: True)
+
+    # Step 3: a Require breaks if the cap is in leaving_caps AND not
+    # (still) satisfied by something remaining.
+    predicted: list[tuple[str, str]] = []
+    for consumer, cap in all_requires:
+        if cap in leaving_caps and cap not in remaining_providers:
+            predicted.append((consumer, cap))
+
+    # Cluster by consumer for readability.
+    by_consumer = collections.defaultdict(list)
+    for c, cap in predicted:
+        by_consumer[c].append(cap)
+
+    if not predicted:
+        print(f"OK: moving {sorted(pkg_names)} out of base introduces "
+              f"0 new unresolved deps.")
+        return 0
+
+    print(f"WARNING: moving {sorted(pkg_names)} out of base would "
+          f"introduce {len(predicted)} new unresolved dep(s) across "
+          f"{len(by_consumer)} base package(s):")
+    print()
+    for consumer in sorted(by_consumer):
+        caps = sorted(set(by_consumer[consumer]))
+        print(f"  {consumer}")
+        for cap in caps:
+            print(f"    -> {cap}")
+    print()
+    print("Options to resolve:")
+    print("  1. Add the affected consumer packages to the same carve/demote "
+          "(most common, mirrors the yggdrasil / anaconda / erlang pattern).")
+    print("  2. Drop the Requires via a comp.toml overlay (if the dep is "
+          "genuinely optional upstream).")
+    print("  3. Abandon this move; find a different candidate.")
+    return 2  # non-zero so callers (and humans) notice
+
+
+# ---------------------------------------------------------------------------
+# snapshot / diff: track repoclosure findings as SETS between iterations so
+# regressions (new findings) cannot hide inside a positive net delta.
+# ---------------------------------------------------------------------------
+
+def _snapshot_path(split_dir: Path, label: str) -> Path:
+    return split_dir / f"findings-snapshot-{label}.json"
+
+
+def _load_base_findings(split_dir: Path) -> list[dict]:
+    return json.loads(
+        (split_dir / "repoclosure-base.findings.json").read_text()
+    )["findings"]
+
+
+def _finding_key(f: dict) -> tuple[str, str]:
+    """Identity of a single finding for set-diff purposes. We use the
+    consumer NAME (not NEVRA) so that a simple rebuild doesn't look like
+    everything regressed.
+    """
+    return (f["consumer_name"], f["requires"])
+
+
+def cmd_snapshot(args: argparse.Namespace) -> int:
+    split_dir = Path(args.split_dir)
+    findings = _load_base_findings(split_dir)
+    out = _snapshot_path(split_dir, args.label)
+    out.write_text(json.dumps(findings, indent=2))
+    print(f"Snapshot '{args.label}': {len(findings)} base findings -> {out}")
+    return 0
+
+
+def cmd_diff(args: argparse.Namespace) -> int:
+    split_dir = Path(args.split_dir)
+    snap = _snapshot_path(split_dir, args.label)
+    if not snap.exists():
+        print(f"ERROR: no snapshot named '{args.label}' at {snap}",
+              file=sys.stderr)
+        return 1
+    old = json.loads(snap.read_text())
+    new = _load_base_findings(split_dir)
+    old_keys = {_finding_key(f): f for f in old}
+    new_keys = {_finding_key(f): f for f in new}
+
+    resolved = [old_keys[k] for k in old_keys.keys() - new_keys.keys()]
+    introduced = [new_keys[k] for k in new_keys.keys() - old_keys.keys()]
+    unchanged = len(old_keys.keys() & new_keys.keys())
+
+    print(f"Diff vs snapshot '{args.label}':")
+    print(f"  total:      {len(old):4d} -> {len(new):4d}  "
+          f"(delta {len(new)-len(old):+d})")
+    print(f"  resolved:   {len(resolved):4d}")
+    print(f"  NEW:        {len(introduced):4d}  "
+          f"{'<-- REGRESSION CANDIDATES' if introduced else ''}")
+    print(f"  unchanged:  {unchanged:4d}")
+
+    if introduced:
+        print()
+        print("NEW findings (potential regressions — investigate before commit):")
+        by_consumer = collections.defaultdict(list)
+        for f in introduced:
+            by_consumer[f["consumer_name"]].append(f["requires"])
+        for consumer in sorted(by_consumer):
+            caps = sorted(set(by_consumer[consumer]))
+            print(f"  {consumer}")
+            for cap in caps:
+                print(f"    -> {cap}")
+
+    if args.show_resolved and resolved:
+        print()
+        print(f"Resolved findings ({len(resolved)}):")
+        by_consumer = collections.defaultdict(list)
+        for f in resolved:
+            by_consumer[f["consumer_name"]].append(f["requires"])
+        for consumer in sorted(by_consumer):
+            caps = sorted(set(by_consumer[consumer]))
+            print(f"  {consumer}")
+            for cap in caps:
+                print(f"    -> {cap}")
+
+    # Exit non-zero if any new findings — easy to script around.
+    return 2 if introduced else 0
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -477,11 +677,17 @@ def build_parser() -> argparse.ArgumentParser:
         description="Surgically move RPMs between rpm-base and rpm-sdk.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
-            "All commands are idempotent in the sense that they re-read the "
-            "TOMLs each time. Run scripts/split-repo-by-channel.py first to "
-            "generate the repodata under base/build/work/scratch/repo-split/, "
-            "then iterate: pick a candidate (analyze), apply a change "
-            "(promote/demote/carve), re-run split, commit."
+            "Recommended iteration loop:\n"
+            "  1. Run scripts/split-repo-by-channel.py to refresh repodata.\n"
+            "  2. rebalance-channel.py snapshot before\n"
+            "  3. rebalance-channel.py predict <pkg-names-to-move>\n"
+            "     (abort or adjust if unexpected new deps would appear.)\n"
+            "  4. rebalance-channel.py promote|demote|carve|remove ...\n"
+            "  5. Re-run split-repo-by-channel.py.\n"
+            "  6. rebalance-channel.py diff before\n"
+            "     (if NEW findings appear, STOP and investigate — do not\n"
+            "      commit yet.)\n"
+            "  7. Commit."
         ),
     )
     p.add_argument("--split-dir", default=str(DEFAULT_SPLIT_DIR),
@@ -526,6 +732,32 @@ def build_parser() -> argparse.ArgumentParser:
                     help="number of top consumer-SRPM rows to print "
                          "(default: 25)")
     an.set_defaults(func=cmd_analyze)
+
+    pd = sub.add_parser("predict",
+                        help="before a move: list base pkgs that would gain "
+                             "new unresolved deps if NAMED pkgs left base")
+    pd.add_argument("pkg", nargs="+",
+                    help="binary RPM name(s) that would leave base (carve "
+                         "sub-pkg names, or every sub-pkg of an SRPM about "
+                         "to be demoted/removed)")
+    pd.set_defaults(func=cmd_predict)
+
+    sn = sub.add_parser("snapshot",
+                        help="capture the current base repoclosure findings "
+                             "to a named snapshot file")
+    sn.add_argument("label", nargs="?", default="before",
+                    help="snapshot label (default: 'before')")
+    sn.set_defaults(func=cmd_snapshot)
+
+    df = sub.add_parser("diff",
+                        help="compare current base findings against a named "
+                             "snapshot; list NEW (regression) findings first")
+    df.add_argument("label", nargs="?", default="before",
+                    help="snapshot label to compare against (default: "
+                         "'before')")
+    df.add_argument("--show-resolved", action="store_true",
+                    help="also print the findings that were resolved")
+    df.set_defaults(func=cmd_diff)
 
     return p
 

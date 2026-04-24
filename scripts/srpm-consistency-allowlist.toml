@@ -596,3 +596,15 @@ srpm             = "hunspell-no"
 expected_channel = "base"
 allowed_in_other = ["mythes-nb", "mythes-nn"]
 reason           = "Locale-specific MyThes data; needs mythes core which lives in sdk"
+
+[[exception]]
+srpm             = "389-ds-base"
+expected_channel = "base"
+allowed_in_other = ["cockpit-389-ds"]
+reason           = "Cockpit web UI plugin; cockpit framework lives in sdk"
+
+[[exception]]
+srpm             = "pcs"
+expected_channel = "base"
+allowed_in_other = ["cockpit-ha-cluster"]
+reason           = "Cockpit web UI plugin; cockpit framework lives in sdk"

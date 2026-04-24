@@ -252,4 +252,8 @@ packages = [
     # mythes-nb/-nn: Norwegian Bokmal/Nynorsk thesauri (LibreOffice MyThes); need mythes core (sdk-only); locale-specific
     "mythes-nb",
     "mythes-nn",
+    # cockpit-389-ds: Cockpit web UI plugin for 389 Directory Server; needs cockpit/cockpit-bridge (sdk-only). 389-ds-base server stays in base; only the web management UI moves to sdk.
+    "cockpit-389-ds",
+    # cockpit-ha-cluster: Cockpit web UI plugin for pcs/pacemaker HA cluster mgmt; needs cockpit-bridge (sdk-only). pcs CLI stays in base; only the web management UI moves to sdk.
+    "cockpit-ha-cluster",
 ]

@@ -604,8 +604,6 @@ packages = [
     "cmake-rpm-macros",
     "cmake-srpm-macros",
     "cmocka-doc",
-    "cockpit-389-ds",
-    "cockpit-ha-cluster",
     "codec2",
     "codec2-devel",
     "color-filesystem",

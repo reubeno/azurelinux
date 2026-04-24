@@ -150,6 +150,38 @@ Plan:
   to sdk via `rebalance-channel.py demote apt apt-apidoc apt-devel apt-doc apt-libs apt-utils`.
 - No allowlist entry needed (whole-SRPM demote).
 
+## Revisit speech-dispatcher / brltty / orca (accessibility) demotion
+
+`speech-dispatcher` (9 sub-pkgs) and `brltty` (15 sub-pkgs) are
+accessibility tooling \u2014 text-to-speech daemon and Braille TTY support
+respectively. Both are user-facing desktop accessibility components and
+do not belong in a server-focused base channel; the GNOME `orca`
+screen reader is in the same family but is not currently built in
+azurelinux at all (so nothing to demote for it).
+
+Blocker (qemu-emulator-trap, same pattern as ffado/jack):
+
+- Demoting `speech-dispatcher` orphans `brltty-speech-dispatcher` (the
+  speech-dispatcher Braille plugin).
+- Demoting `brltty` then orphans `qemu-char-baum` (a qemu char-device
+  backend that bridges the host Baum Braille terminal into the guest
+  via brlapi).
+- `qemu-char-baum` is hard-Required by all **19** `qemu-system-*`
+  emulators with versioned exact-version dep \u2014 same cascade we hit with
+  qemu-audio-jack / qemu-audio-pipewire.
+
+Plan:
+
+- **Add a comp.toml overlay to qemu** that drops the
+  `qemu-char-baum`/`qemu-audio-*`/etc. backend Requires from
+  `qemu-system-*` (or rebuilds qemu without the brlapi/jack/pipewire
+  char/audio backends). Once qemu no longer hard-pulls the backends,
+  carving `qemu-char-baum` becomes safe.
+- Then demote `brltty` (15 sub-pkgs) and `speech-dispatcher` (9
+  sub-pkgs) as a single coordinated transaction.
+- This will also resolve the `brltty-espeak` libespeak.so.1 finding
+  and the `speech-dispatcher` libao.so.4 finding for free.
+
 ## Revisit gpsd removal
 
 `gpsd` (the GPS daemon and its bindings) was demoted from base to sdk in

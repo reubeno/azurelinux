@@ -241,4 +241,6 @@ packages = [
     # GUI emacs builds (GTK+X11 and pure-GTK Wayland flavors); pull libpixbufloader-xpm + GTK/X11 stack from sdk. emacs-nox (CLI) and emacs-lucid stay in base.
     "emacs-gtk+x11",
     "emacs-pgtk",
+    # texinfo-tex: TeX backend (needs full texlive toolchain incl. /usr/bin/texconfig-sys, epsf.tex); base ships only the texinfo command-line tool
+    "texinfo-tex",
 ]

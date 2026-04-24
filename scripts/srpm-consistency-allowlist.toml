@@ -566,3 +566,9 @@ srpm             = "emacs"
 expected_channel = "base"
 allowed_in_other = ["emacs-gtk+x11", "emacs-pgtk"]
 reason           = "GUI emacs builds (gtk+x11, pgtk) pull libpixbufloader-xpm + GTK stack from sdk; emacs-nox/lucid stay in base."
+
+[[exception]]
+srpm             = "texinfo"
+expected_channel = "base"
+allowed_in_other = ["texinfo-tex"]
+reason           = "GUI/extra texlive backend not appropriate for base; only texinfo CLI is in base"

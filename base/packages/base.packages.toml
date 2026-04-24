@@ -7737,7 +7737,6 @@ packages = [
     "telnet-server",
     "testng",
     "texinfo",
-    "texinfo-tex",
     "texttopaps",
     "tftp",
     "tftp-server",

@@ -24625,6 +24625,8 @@ packages = [
     "wildmidi",
     "wildmidi-devel",
     "wildmidi-libs",
+    "wireshark-cli",
+    "wireshark-devel",
     "wlr-protocols-devel",
     "wqy-zenhei-fonts",
     "wxBase",

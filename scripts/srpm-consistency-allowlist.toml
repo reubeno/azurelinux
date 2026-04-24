@@ -747,3 +747,9 @@ srpm             = "python-sqlalchemy"
 expected_channel = "base"
 allowed_in_other = ["python3-sqlalchemy+aiomysql", "python3-sqlalchemy+postgresql_pg8000"]
 reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
+
+[[exception]]
+srpm             = "libvirt"
+expected_channel = "base"
+allowed_in_other = ["libvirt-wireshark"]
+reason           = "libvirt-wireshark is a wireshark dissector plugin; lives wherever wireshark lives (sdk)."

@@ -318,4 +318,6 @@ packages = [
     # PEP-508 +extras sub-package; optional dep not in base
     "python3-sqlalchemy+aiomysql",
     "python3-sqlalchemy+postgresql_pg8000",
+    # Demote wireshark dissector plugin: wireshark itself is sdk-tier (dev/network analysis tooling, not a server runtime).
+    "libvirt-wireshark",
 ]

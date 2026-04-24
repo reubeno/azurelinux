@@ -7068,6 +7068,8 @@ packages = [
     "rabbitmq-server",
     "rados-objclass-devel",
     "radvd",
+    "rapidjson-devel",
+    "rapidjson-doc",
     "rasdaemon",
     "rav1e",
     "rav1e-devel",

@@ -6613,8 +6613,6 @@ packages = [
     "qv4l2",
     "ragel",
     "rapidfuzz-cpp-devel",
-    "rapidjson-devel",
-    "rapidjson-doc",
     "raptor2",
     "raptor2-devel",
     "rb_libtorrent",

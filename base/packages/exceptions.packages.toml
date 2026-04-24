@@ -262,4 +262,6 @@ packages = [
     "graphviz-guile",
     # PDF variant of docbook-utils; pulls texlive-jadetex + texlive-collection-fontsrecommended + texlive-collection-htmlxml + tex(dvips), all sdk-only. Heavy LaTeX toolchain not needed in headless cloud base. The HTML and base docbook-utils sub-pkgs remain in base.
     "docbook-utils-pdf",
+    # SELinux GUI sandbox; uses xorg-x11-server-Xephyr (nested X server) to confine X11 apps. xorg-x11-server SRPM is in sdk; the rest of policycoreutils (core SELinux tooling, dbus, devel, gui, newrole, python-utils, restorecond) remains in base.
+    "policycoreutils-sandbox",
 ]

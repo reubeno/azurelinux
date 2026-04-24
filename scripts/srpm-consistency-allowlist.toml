@@ -620,3 +620,9 @@ srpm             = "docbook-utils"
 expected_channel = "base"
 allowed_in_other = ["docbook-utils-pdf"]
 reason           = "PDF variant carved to sdk; HTML and core docbook-utils tooling stays in base."
+
+[[exception]]
+srpm             = "policycoreutils"
+expected_channel = "base"
+allowed_in_other = ["policycoreutils-sandbox"]
+reason           = "GUI sandbox sub-package carved out to sdk; core SELinux policycoreutils tooling remains in base."

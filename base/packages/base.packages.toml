@@ -1383,6 +1383,7 @@ packages = [
     "gettext-envsubst",
     "gettext-libs",
     "gettext-runtime",
+    "ghc-srpm-macros",
     "ghostscript",
     "ghostscript-doc",
     "ghostscript-gtk",

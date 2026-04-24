@@ -1796,7 +1796,6 @@ packages = [
     "ghc-splitmix-devel",
     "ghc-splitmix-doc",
     "ghc-splitmix-prof",
-    "ghc-srpm-macros",
     "ghc-stm",
     "ghc-stm-devel",
     "ghc-stm-doc",

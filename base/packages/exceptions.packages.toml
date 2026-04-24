@@ -260,4 +260,6 @@ packages = [
     "graphviz-sharp",
     # Guile bindings for graphviz; pulls libgc + libguile-3.0 (gc + guile30 SRPMs in sdk only). Niche scripting bindings; core graphviz tooling stays in base.
     "graphviz-guile",
+    # PDF variant of docbook-utils; pulls texlive-jadetex + texlive-collection-fontsrecommended + texlive-collection-htmlxml + tex(dvips), all sdk-only. Heavy LaTeX toolchain not needed in headless cloud base. The HTML and base docbook-utils sub-pkgs remain in base.
+    "docbook-utils-pdf",
 ]

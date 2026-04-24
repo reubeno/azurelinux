@@ -868,7 +868,6 @@ packages = [
     "docbook-style-dsssl",
     "docbook-style-xsl",
     "docbook-utils",
-    "docbook-utils-pdf",
     "docbook2X",
     "docbook5-schemas",
     "docbook5-style-xsl",

@@ -620,3 +620,9 @@ srpm             = "graphviz"
 expected_channel = "base"
 allowed_in_other = ["graphviz-guile"]
 reason           = "Guile language bindings carved out to sdk; rest of graphviz (core libs, devel, plugins) remains in base."
+
+[[exception]]
+srpm             = "docbook-utils"
+expected_channel = "base"
+allowed_in_other = ["docbook-utils-pdf"]
+reason           = "PDF variant carved to sdk; HTML and core docbook-utils tooling stays in base."

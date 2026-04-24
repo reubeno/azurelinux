@@ -361,8 +361,6 @@ packages = [
     "bluez-obexd",
     "bmc-snmp-proxy",
     "bnd-maven-plugin",
-    "bolt",
-    "bolt-tests",
     "bomtool",
     "boom-boot",
     "boom-boot-conf",

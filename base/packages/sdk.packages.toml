@@ -247,6 +247,8 @@ packages = [
     "blosc2",
     "blosc2-devel",
     "blueprint-compiler",
+    "bolt",
+    "bolt-tests",
     "bouncycastle",
     "bouncycastle-javadoc",
     "bouncycastle-jmail",

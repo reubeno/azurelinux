@@ -298,12 +298,6 @@ allowed_in_other = ["erlang-wx"]
 reason           = "wxWidgets-based Observer GUI carved out to sdk; Erlang runtime, OTP libraries, and other sub-packages remain in base."
 
 [[exception]]
-srpm             = "thermald"
-expected_channel = "base"
-allowed_in_other = ["thermald-monitor"]
-reason           = "Qt5 GUI monitor sub-package carved out to sdk; thermald daemon (system-tier) remains in base."
-
-[[exception]]
 srpm             = "subversion"
 expected_channel = "base"
 allowed_in_other = ["subversion-kde"]

@@ -151,8 +151,6 @@ packages = [
     "poppler-qt5-devel",
     # wxWidgets-based 'Observer' GUI; pulls full wxGTK stack.
     "erlang-wx",
-    # Qt5 GUI for monitoring thermald daemon; pulls qt5-qtbase + qcustomplot.
-    "thermald-monitor",
     # KDE/Plasma wallet integration; pulls kf5-kcoreaddons, kf5-ki18n, kf5-kwallet.
     "subversion-kde",
     # Fedora installer GUI / live-ISO / install-image / widget-glade-devel sub-packages; pull GUI desktop stack (nm-connection-editor, gnome-kiosk, blivet-gui, glade, zenity, anaconda-webui).

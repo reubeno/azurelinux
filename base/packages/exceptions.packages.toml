@@ -291,4 +291,31 @@ packages = [
     "nbdkit-gcs-plugin",
     # GCE Pacemaker fence agent; carve to sdk (Azure-focused distro), analogous to fence-agents-aws.
     "fence-agents-gce",
+    # PEP-508 optional-deps sub-packages whose extras pull in deps not in base; main pkgs remain in base
+    "python-systemd-doc",
+    # PEP-508 +extras sub-package; optional dep not in base
+    "python3-dns+doh",
+    "python3-dns+doq",
+    "python3-dns+trio",
+    # PEP-508 +extras sub-package; optional dep not in base
+    "python3-fsspec+dask",
+    # PEP-508 +extras sub-package; optional dep not in base
+    "python3-jsonschema+format",
+    "python3-jsonschema+format-nongpl",
+    # PEP-508 +extras sub-package; optional dep not in base
+    "python3-lxml+cssselect",
+    # PEP-508 +extras sub-package; optional dep not in base
+    "python3-networkx+extra",
+    # PEP-508 +extras sub-package; optional dep not in base
+    "python3-oauthlib+signals",
+    # PEP-508 +extras sub-package; optional dep not in base
+    "python3-pooch+xxhash",
+    # PEP-508 +extras sub-package; optional dep not in base
+    "python3-pymongo+ocsp",
+    # PEP-508 +extras sub-package; optional dep not in base
+    "python3-qrcode+all",
+    "python3-qrcode+pil",
+    # PEP-508 +extras sub-package; optional dep not in base
+    "python3-sqlalchemy+aiomysql",
+    "python3-sqlalchemy+postgresql_pg8000",
 ]

@@ -681,3 +681,69 @@ expected_channel = "base"
 allowed_in_other = ["nbdkit-gcs-plugin"]
 reason           = "nbdkit-gcs-plugin carved to sdk; GCP storage stack stays sdk-only."
 
+
+[[exception]]
+srpm             = "python-systemd"
+expected_channel = "base"
+allowed_in_other = ["python-systemd-doc"]
+reason           = "PEP-508 +extras carved to sdk; their optional deps are not appropriate for the supported base channel"
+
+[[exception]]
+srpm             = "python-dns"
+expected_channel = "base"
+allowed_in_other = ["python3-dns+doh", "python3-dns+doq", "python3-dns+trio"]
+reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
+
+[[exception]]
+srpm             = "python-fsspec"
+expected_channel = "base"
+allowed_in_other = ["python3-fsspec+dask"]
+reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
+
+[[exception]]
+srpm             = "python-jsonschema"
+expected_channel = "base"
+allowed_in_other = ["python3-jsonschema+format", "python3-jsonschema+format-nongpl"]
+reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
+
+[[exception]]
+srpm             = "python-lxml"
+expected_channel = "base"
+allowed_in_other = ["python3-lxml+cssselect"]
+reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
+
+[[exception]]
+srpm             = "python-networkx"
+expected_channel = "base"
+allowed_in_other = ["python3-networkx+extra"]
+reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
+
+[[exception]]
+srpm             = "python-oauthlib"
+expected_channel = "base"
+allowed_in_other = ["python3-oauthlib+signals"]
+reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
+
+[[exception]]
+srpm             = "python-pooch"
+expected_channel = "base"
+allowed_in_other = ["python3-pooch+xxhash"]
+reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
+
+[[exception]]
+srpm             = "python-pymongo"
+expected_channel = "base"
+allowed_in_other = ["python3-pymongo+ocsp"]
+reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
+
+[[exception]]
+srpm             = "python-qrcode"
+expected_channel = "base"
+allowed_in_other = ["python3-qrcode+all", "python3-qrcode+pil"]
+reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
+
+[[exception]]
+srpm             = "python-sqlalchemy"
+expected_channel = "base"
+allowed_in_other = ["python3-sqlalchemy+aiomysql", "python3-sqlalchemy+postgresql_pg8000"]
+reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"

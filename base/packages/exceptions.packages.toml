@@ -284,4 +284,7 @@ packages = [
     # fence-agents-aws and -aws-vpc-net are AWS-specific Pacemaker fence agents; carve to sdk (Azure-focused distro).
     "fence-agents-aws",
     "fence-agents-aws-vpc-net",
+    # Google Cloud Storage fsspec backends; carve to sdk (Azure-focused distro). Core python3-fsspec stays in base.
+    "python3-fsspec+gcs",
+    "python3-fsspec+gs",
 ]

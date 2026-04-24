@@ -161,4 +161,6 @@ packages = [
     "anaconda-install-img-deps",
     "anaconda-live",
     "anaconda-widgets-devel",
+    # Qt5 binding pulls qt5-qtbase (sdk); core thrift + glib binding stay in base.
+    "thrift-qt",
 ]

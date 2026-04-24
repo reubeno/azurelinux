@@ -7689,7 +7689,6 @@ packages = [
     "thrift",
     "thrift-devel",
     "thrift-glib",
-    "thrift-qt",
     "time",
     "tini",
     "tini-static",

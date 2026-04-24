@@ -243,3 +243,32 @@ Defer pending:
 
 Once those are clear, drop the SRPM via `rebalance-channel.py remove gpsd`
 and delete `[components.gpsd]` from `base/comps/components.toml`.
+
+## Post next-snapshot cleanup: erlang sub-pkgs no longer produced
+
+Two overlays in `base/comps/erlang/erlang.comp.toml` now disable
+`%global __with_wxwidgets` (and strip the unconditional
+`Requires: erlang-wx` line in `erlang-src`). With those overlays in
+effect the rebuilt erlang RPMs no longer produce these five sub-packages
+at all — their `%package` definitions are inside `%if %{__with_wxwidgets}`:
+
+- `erlang-debugger`
+- `erlang-dialyzer`
+- `erlang-et`
+- `erlang-observer`
+- `erlang-reltool`
+
+They are still listed in `base/packages/base.packages.toml` because the
+prebuilt RPM corpus our pipeline checks against still contains them
+(snapshot pre-dates the overlay). Once the next published-RPM snapshot
+incorporates the overlay:
+
+1. Remove the five entries from `base.packages.toml`.
+2. Remove the corresponding seven `[[ignore]]` entries from
+   `scripts/repoclosure-allowlist.toml` (the `# erlang: erlang-wx GUI
+   sub-package elimination` block — they will go to zero hits in
+   `repoclosure-base.allowlist-hits.txt` once the snapshot is current).
+3. Confirm no consumer has appeared that requires any of those five.
+
+If we ever need to restore the wxErlang sub-packages (e.g. the cloud
+distro starts shipping a desktop-tier story), revert both overlays.

@@ -6,18 +6,35 @@
 # matched (so we can spot stale entries).
 #
 # Fields:
-#   package     Consumer package name. Glob patterns supported (fnmatch).
-#               This is the package whose unresolved dependency we accept.
-#   requires    The exact unresolved requirement string as printed by
-#               `dnf repoclosure` (e.g. "libfoo.so.1()(64bit)" or
-#               "perl(Some::Module)"). Glob patterns supported.
-#   scope       Which repoclosure run this applies to:
-#                 "base"     - base-only run
-#                 "base+sdk" - base + sdk run
-#                 "any"      - both (default)
-#   reason      Free-form rationale.
-#   confidence  "high" | "medium" | "low" - our confidence that dropping
-#               this dependency is safe.
+#   package             Consumer package name. Glob patterns supported (fnmatch).
+#                       This is the package whose unresolved dependency we accept.
+#   requires            The exact unresolved requirement string as printed by
+#                       `dnf repoclosure` (e.g. "libfoo.so.1()(64bit)" or
+#                       "perl(Some::Module)"). Glob patterns supported.
+#   scope               Which repoclosure run this applies to:
+#                         "base"     - base-only run
+#                         "base+sdk" - base + sdk run
+#                         "any"      - both (default)
+#   reason              Free-form rationale.
+#   confidence          "high" | "medium" | "low" - our confidence that
+#                       dropping this dependency is safe.
+#
+# Optional provenance for "overlay-pending" suppressions (the case where
+# we have already authored a comp.toml overlay that drops the offending
+# Requires from the rebuilt RPM, but the prebuilt RPM corpus our pipeline
+# checks against was published *before* the overlay landed, so the dep
+# still appears in the raw findings until the next published-RPM snapshot):
+#   overlay             Path to the comp.toml that holds the overlay.
+#                       Reviewers can read it to understand the pending fix.
+#   verified_at_commit  Git short-sha at which we last locally rebuilt the
+#                       affected RPM with `azldev component build` and
+#                       confirmed via `rpm -qpR` that the dep is gone.
+#                       Bump this whenever the overlay or upstream changes.
+#                       Once the next published-RPM snapshot includes the
+#                       overlay, the raw finding disappears, this entry
+#                       stops hitting (visible in repoclosure-base.allowlist-hits.txt
+#                       — the entry will simply not appear), and the entry
+#                       can be deleted.
 
 # Example (commented out):
 # [[ignore]]
@@ -26,3 +43,96 @@
 # scope      = "base"
 # reason     = "Pulled in only by an optional plugin we do not ship."
 # confidence = "high"
+#
+# Example overlay-pending suppression:
+# [[ignore]]
+# package            = "frobnicator"
+# requires           = "libobsolete.so.1()(64bit)"
+# scope              = "base"
+# reason             = "Overlay drops this Requires; verified rebuilt RPM no longer carries it."
+# confidence         = "high"
+# overlay            = "base/comps/frobnicator/frobnicator.comp.toml"
+# verified_at_commit = "abc1234"
+
+# ----------------------------------------------------------------------
+# erlang: erlang-wx GUI sub-package elimination
+#
+# The erlang-wx sub-package and the wx-conditional %package definitions
+# (debugger, dialyzer, et, observer, reltool) plus the unconditional
+# `Requires: erlang-wx` line in erlang-src have all been removed from
+# the rebuilt RPMs by two overlays in base/comps/erlang/erlang.comp.toml
+# (flipping `%global __with_wxwidgets 1` -> `0`, and stripping the
+# unconditional `Requires: %{name}-wx` line). Locally-built RPMs were
+# inspected with `azldev component build -p erlang` followed by
+# `rpm -qpR` per sub-package — `erlang` and `erlang-src` no longer
+# Require erlang-wx, and the other five sub-pkgs are no longer produced.
+# These suppressions clean the seven leftover findings against the
+# pre-overlay published snapshot and will go stale (zero hits in
+# repoclosure-base.allowlist-hits.txt) after the next published-RPM
+# snapshot incorporates the overlay; at that point delete this block
+# AND remove the 5 no-longer-built sub-packages
+# (erlang-debugger/-dialyzer/-et/-observer/-reltool) from
+# base/packages/base.packages.toml.
+
+[[ignore]]
+package            = "erlang"
+requires           = "erlang-wx(x86-64) = *"
+scope              = "base"
+reason             = "Overlay sets %global __with_wxwidgets 0; rebuilt erlang RPM no longer Requires erlang-wx (verified via rpm -qpR)."
+confidence         = "high"
+overlay            = "base/comps/erlang/erlang.comp.toml"
+verified_at_commit = "84390c4d7d"
+
+[[ignore]]
+package            = "erlang-debugger"
+requires           = "erlang-wx(x86-64) = *"
+scope              = "base"
+reason             = "%package debugger is inside %if %{__with_wxwidgets}; with toggle flipped to 0 the rebuilt erlang RPM set no longer produces erlang-debugger at all."
+confidence         = "high"
+overlay            = "base/comps/erlang/erlang.comp.toml"
+verified_at_commit = "84390c4d7d"
+
+[[ignore]]
+package            = "erlang-dialyzer"
+requires           = "erlang-wx(x86-64) = *"
+scope              = "base"
+reason             = "%package dialyzer is inside %if %{__with_wxwidgets}; with toggle flipped to 0 the rebuilt erlang RPM set no longer produces erlang-dialyzer at all."
+confidence         = "high"
+overlay            = "base/comps/erlang/erlang.comp.toml"
+verified_at_commit = "84390c4d7d"
+
+[[ignore]]
+package            = "erlang-et"
+requires           = "erlang-wx(x86-64) = *"
+scope              = "base"
+reason             = "%package et is inside %if %{__with_wxwidgets}; with toggle flipped to 0 the rebuilt erlang RPM set no longer produces erlang-et at all."
+confidence         = "high"
+overlay            = "base/comps/erlang/erlang.comp.toml"
+verified_at_commit = "84390c4d7d"
+
+[[ignore]]
+package            = "erlang-observer"
+requires           = "erlang-wx(x86-64) = *"
+scope              = "base"
+reason             = "%package observer is inside %if %{__with_wxwidgets}; with toggle flipped to 0 the rebuilt erlang RPM set no longer produces erlang-observer at all."
+confidence         = "high"
+overlay            = "base/comps/erlang/erlang.comp.toml"
+verified_at_commit = "84390c4d7d"
+
+[[ignore]]
+package            = "erlang-reltool"
+requires           = "erlang-wx(x86-64) = *"
+scope              = "base"
+reason             = "%package reltool is inside %if %{__with_wxwidgets}; with toggle flipped to 0 the rebuilt erlang RPM set no longer produces erlang-reltool at all."
+confidence         = "high"
+overlay            = "base/comps/erlang/erlang.comp.toml"
+verified_at_commit = "84390c4d7d"
+
+[[ignore]]
+package            = "erlang-src"
+requires           = "erlang-wx(x86-64) = *"
+scope              = "base"
+reason             = "Second overlay strips the unconditional `Requires: %{name}-wx` line from the erlang-src %package preamble; rebuilt erlang-src RPM no longer Requires erlang-wx (verified via rpm -qpR)."
+confidence         = "high"
+overlay            = "base/comps/erlang/erlang.comp.toml"
+verified_at_commit = "84390c4d7d"

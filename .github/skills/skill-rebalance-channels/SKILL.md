@@ -96,6 +96,7 @@ for. Do this in a per-row markdown table, not in prose:
 | A small (≲ 10 sub-pkgs) sdk SRPM dominates the providers column and is genuinely base-tier (auth primitive, fundamental lib) | **promote** that provider SRPM |
 | The consumer SRPM is a leaf in *both* channels (no other SRPM requires it) and only its own GUI-binding sub-pkgs are problematic | **remove** the SRPM from the distro entirely (also delete the `[components.<name>]` line in `base/comps/components.toml` and any per-comp dir) |
 | The consumer SRPM has *many* leaking sub-packages spread across many providers, and the sdk-side reverse-dep set of the providers is large | **flag in `base/packages/TODO.md`** — needs a policy decision |
+| The offending Requires is conditional on a `%global __with_<feature>` toggle (or is a single line we can surgically delete) and the feature is not appropriate for AZL | **comp.toml overlay + allowlist suppression** — see Workflow (c) below. The overlay drops the dep from rebuilt RPMs; the allowlist suppresses the leftover findings against the pre-overlay snapshot. |
 
 ### Reverse-dep audits (do them before any whole-SRPM move)
 
@@ -314,3 +315,96 @@ check), **skip** the apply step. Instead:
 * `mingw32-<pkg>` / `mingw64-<pkg>` Windows cross-compile artifact
 * SRPM whole-demote: build tooling, GPU compute meta, niche language tooling (rocm, dola, maven-doxia, gpsbabel)
 * SRPM whole-remove: leaf SRPM with 0 sdk consumers (yggdrasil, libportal)
+
+## Workflow (c): "overlay-pending" suppression
+
+Sometimes the right fix is **not** a channel move at all but a comp.toml
+overlay that drops the offending Requires from the rebuilt RPM (e.g.
+flipping a `%global __with_<feature>` in the spec, or stripping a single
+`Requires:` line). The challenge: our pipeline runs `dnf repoclosure`
+against the **prebuilt** published RPM corpus, which still carries the
+old dep until the next snapshot. The finding will keep showing up until
+then, even though the fix has landed.
+
+Workflow:
+
+1. **Author the overlay** in `base/comps/<srpm>/<srpm>.comp.toml` (see
+   [`skill-fix-overlay`](../skill-fix-overlay/SKILL.md) and
+   [`comp-toml.instructions.md`](../../instructions/comp-toml.instructions.md)).
+
+2. **Verify the overlay applies** with `prep-sources`:
+
+   ```bash
+   azldev comp prep-sources -p <srpm> --force \
+       -o base/build/work/scratch/<srpm>-overlay-check -q
+   # diff the overlayed spec against your expectations
+   ```
+
+3. **Build the RPMs locally** — do NOT take the overlay on faith:
+
+   ```bash
+   azldev component build -p <srpm> -q
+   ```
+
+4. **Inspect the rebuilt RPMs** with `rpm -qpR` to confirm the offending
+   Require is gone (and any other expected effect):
+
+   ```bash
+   for r in base/out/rpms/rpm-*/<srpm>-*-*.rpm; do
+       rpm -qpR "$r" | grep -q '^<offending-dep>' \
+           && echo "FAIL: $r still Requires <offending-dep>" \
+           || echo "OK:   $r"
+   done
+   # If the overlay also removes a sub-package, also assert it isn't built:
+   ls base/out/rpms/rpm-*/<removed-subpkg>-*.rpm 2>&1
+   ```
+
+   **Surprises here are normal**: an overlay that "should" remove a
+   single Requires can also delete entire `%package` blocks that were
+   wrapped in the same `%if`. Note any sub-packages that disappear and
+   plan to remove them from `base.packages.toml` after the next snapshot
+   (record in `base/packages/TODO.md`).
+
+5. **Add allowlist entries** to `scripts/repoclosure-allowlist.toml`,
+   one per (consumer pkg, missing dep) pair, including the optional
+   provenance fields:
+
+   ```toml
+   [[ignore]]
+   package            = "<consumer>"
+   requires           = "<the dep, glob-wildcards welcome>"
+   scope              = "base"
+   reason             = "<one line — what the overlay does, how verified>"
+   confidence         = "high"
+   overlay            = "base/comps/<srpm>/<srpm>.comp.toml"
+   verified_at_commit = "<git short-sha at which step 4 was run>"
+   ```
+
+   The `verified_at_commit` SHA acts as a high-water mark: if anyone
+   touches the overlay or its underlying upstream spec later, the SHA
+   becomes a "last-checked" reference; bump it when re-verifying.
+
+6. **Re-run the pipeline** — the suppressions should appear in
+   `repoclosure-base.allowlist-hits.txt` (with the `overlay` and
+   `verified-at` lines surfaced) and the filtered/remaining count
+   should drop by the matching entries:
+
+   ```bash
+   python3 scripts/split-repo-by-channel.py \
+       --output-dir base/build/work/scratch/repo-split
+   ```
+
+7. **Add a TODO entry** in `base/packages/TODO.md` describing what
+   needs to happen after the next published-RPM snapshot:
+   - Delete the allowlist `[[ignore]]` block (entries will go to zero
+     hits once the new snapshot incorporates the overlay).
+   - Remove from `base.packages.toml` any sub-packages that the
+     overlay caused to no longer be produced.
+
+8. **Commit** the overlay, allowlist entries, and TODO note in a single
+   change so the provenance trail is intact.
+
+When you later see `0 hits` for one of these allowlist blocks (visible
+because the entry simply does not appear in
+`repoclosure-base.allowlist-hits.txt`), the overlay has fully landed in
+the snapshot — execute the TODO cleanup.

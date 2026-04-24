@@ -4,3 +4,41 @@
 
 [components.erlang.build]
 without = ["doc"]
+
+# Disable the erlang-wx sub-package (Erlang's wxWidgets bindings). AZL is a
+# headless cloud distro and does not ship wxGTK; building erlang-wx would
+# pull in a desktop GUI stack at build time and would force every other
+# erlang sub-package whose %if %{__with_wxwidgets} block adds a
+# `Requires: erlang-wx` (erlang-meta, -debugger, -dialyzer, -et, -observer,
+# -reltool, -src) to drag the wx subpackage into the runtime closure.
+#
+# The upstream spec already supports this configuration via the
+# `%global __with_wxwidgets` toggle: when set to 0, every wx-conditional
+# `%package wx` definition, every `Requires: %{name}-wx` line, and the
+# wxGTK BuildRequires are skipped wholesale. Flipping the global is by
+# far the most surgical fix.
+#
+# Validation procedure when this overlay is touched:
+#   azldev component build -p erlang
+#   for r in base/out/RPMS/*/erlang-{,debugger-,dialyzer-,et-,observer-,reltool-,src-}*.rpm; do
+#       rpm -qpR "$r" | grep -q '^erlang-wx' && echo "FAIL: $r" || echo "OK: $r"
+#   done
+#   ls base/out/RPMS/*/erlang-wx*.rpm   # must be "No such file"
+[[components.erlang.overlays]]
+description = "Disable erlang-wx sub-package (wxGTK GUI bindings) — AZL is a headless cloud distro"
+type = "spec-search-replace"
+regex = '^%global __with_wxwidgets 1$'
+replacement = '%global __with_wxwidgets 0'
+
+# erlang-src's `Requires: %{name}-wx` is the only such Requires line in the
+# upstream spec that is NOT wrapped in a `%if %{__with_wxwidgets}` block —
+# it lives inside `%if %{__with_sources}`. The wxwidgets toggle alone
+# therefore can't drop it; remove it surgically here so the rebuilt
+# erlang-src RPM doesn't pull in a now-nonexistent erlang-wx package.
+# The other six identical lines all live inside %if %{__with_wxwidgets}
+# blocks (now %if 0), so removing them globally is dead-code cleanup.
+[[components.erlang.overlays]]
+description = "Drop unconditional Requires: erlang-wx from erlang-src (paired with __with_wxwidgets=0 above)"
+type = "spec-search-replace"
+regex = '^Requires: %\{name\}-wx%\{\?_isa\} = %\{version\}-%\{release\}$'
+replacement = ''

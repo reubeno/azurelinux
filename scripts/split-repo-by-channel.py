@@ -559,6 +559,17 @@ def load_allowlist(path: Path) -> list[dict]:
         entry.setdefault("scope", "any")
         entry.setdefault("reason", "")
         entry.setdefault("confidence", "")
+        # Optional provenance fields for "overlay-pending" suppressions:
+        #   overlay              path to the comp.toml that holds the overlay
+        #                        which will eventually drop the dep from the
+        #                        rebuilt RPMs (so that this allowlist entry
+        #                        stops hitting and can be removed).
+        #   verified_at_commit   git short-sha at which the overlay was last
+        #                        verified locally via `azldev component build`
+        #                        + `rpm -qpR` to actually have produced an
+        #                        RPM that no longer carries the dep.
+        entry.setdefault("overlay", "")
+        entry.setdefault("verified_at_commit", "")
     return entries
 
 
@@ -669,6 +680,12 @@ def run_repoclosure(
                     f"  reason     : {entry.get('reason', '')}\n"
                     f"  confidence : {entry.get('confidence', '')}\n"
                 )
+                if entry.get("overlay"):
+                    fh.write(f"  overlay    : {entry['overlay']}\n")
+                if entry.get("verified_at_commit"):
+                    fh.write(
+                        f"  verified-at: {entry['verified_at_commit']}\n"
+                    )
 
     # Structured JSON output for downstream analysis tooling.
     json_path = output_dir / f"repoclosure-{scope_name}.findings.json"

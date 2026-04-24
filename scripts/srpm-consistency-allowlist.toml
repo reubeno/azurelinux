@@ -326,3 +326,141 @@ srpm             = "vala"
 expected_channel = "base"
 allowed_in_other = ["vala-doc"]
 reason           = "vala-doc is a GUI doc-browser integration; vala compiler/runtime supported in base."
+
+[[exception]]
+srpm             = "perl-Carp-Clan"
+expected_channel = "base"
+allowed_in_other = ["perl-Carp-Clan-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-DBI"
+expected_channel = "base"
+allowed_in_other = ["perl-DBI-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-Date-Manip"
+expected_channel = "base"
+allowed_in_other = ["perl-Date-Manip-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-DateTime-Locale"
+expected_channel = "base"
+allowed_in_other = ["perl-DateTime-Locale-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-DateTime-TimeZone"
+expected_channel = "base"
+allowed_in_other = ["perl-DateTime-TimeZone-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-Devel-CheckLib"
+expected_channel = "base"
+allowed_in_other = ["perl-Devel-CheckLib-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-FCGI"
+expected_channel = "base"
+allowed_in_other = ["perl-FCGI-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-HTTP-Daemon"
+expected_channel = "base"
+allowed_in_other = ["perl-HTTP-Daemon-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-HTTP-Message"
+expected_channel = "base"
+allowed_in_other = ["perl-HTTP-Message-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-LDAP"
+expected_channel = "base"
+allowed_in_other = ["perl-LDAP-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-LWP-Protocol-https"
+expected_channel = "base"
+allowed_in_other = ["perl-LWP-Protocol-https-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-List-SomeUtils"
+expected_channel = "base"
+allowed_in_other = ["perl-List-SomeUtils-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-Log-Log4perl"
+expected_channel = "base"
+allowed_in_other = ["perl-Log-Log4perl-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-Module-Build"
+expected_channel = "base"
+allowed_in_other = ["perl-Module-Build-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-Module-Install"
+expected_channel = "base"
+allowed_in_other = ["perl-Module-Install-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-Module-ScanDeps"
+expected_channel = "base"
+allowed_in_other = ["perl-Module-ScanDeps-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-Syntax-Keyword-Try"
+expected_channel = "base"
+allowed_in_other = ["perl-Syntax-Keyword-Try-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-Test-Simple"
+expected_channel = "base"
+allowed_in_other = ["perl-Test-Simple-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-URI"
+expected_channel = "base"
+allowed_in_other = ["perl-URI-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-XML-LibXML"
+expected_channel = "base"
+allowed_in_other = ["perl-XML-LibXML-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-XML-XPath"
+expected_channel = "base"
+allowed_in_other = ["perl-XML-XPath-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-bignum"
+expected_channel = "base"
+allowed_in_other = ["perl-bignum-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-libwww-perl"
+expected_channel = "base"
+allowed_in_other = ["perl-libwww-perl-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."

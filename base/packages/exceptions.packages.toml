@@ -165,4 +165,42 @@ packages = [
     "thrift-qt",
     # vala-doc requires devhelp (sdk-only, GUI doc browser); CLI vala compiler stays in base.
     "vala-doc",
+    # ----------------------------------------------------------------
+    # Perl *-tests sub-pkgs (23 entries) — carved from base.
+    #
+    # These sub-packages ship the parent perl module's upstream test
+    # corpus (t/*.t scripts, fixtures, sample data). They are not
+    # required at runtime by anything other than someone re-running
+    # the module's own self-test suite, which is not a base-supported
+    # workflow. Their Requires pull in heavyweight test-harness perl
+    # modules (Test::Class, Test::Needs, Test::LeakTrace,
+    # Future::AsyncAwait, mod_perl, ...).
+    #
+    # Carving these 23 sub-pkgs to sdk avoids pulling ~59 sdk SRPMs
+    # into base purely to satisfy these test-only deps, while clearing
+    # 34 of 47 outstanding perl-cluster repoclosure findings in base.
+    # ----------------------------------------------------------------
+    "perl-Carp-Clan-tests",
+    "perl-DBI-tests",
+    "perl-Date-Manip-tests",
+    "perl-DateTime-Locale-tests",
+    "perl-DateTime-TimeZone-tests",
+    "perl-Devel-CheckLib-tests",
+    "perl-FCGI-tests",
+    "perl-HTTP-Daemon-tests",
+    "perl-HTTP-Message-tests",
+    "perl-LDAP-tests",
+    "perl-LWP-Protocol-https-tests",
+    "perl-List-SomeUtils-tests",
+    "perl-Log-Log4perl-tests",
+    "perl-Module-Build-tests",
+    "perl-Module-Install-tests",
+    "perl-Module-ScanDeps-tests",
+    "perl-Syntax-Keyword-Try-tests",
+    "perl-Test-Simple-tests",
+    "perl-URI-tests",
+    "perl-XML-LibXML-tests",
+    "perl-XML-XPath-tests",
+    "perl-bignum-tests",
+    "perl-libwww-perl-tests",
 ]

@@ -512,6 +512,99 @@ def _required_capabilities_for(split_dir: Path, channel: str,
     return caps
 
 
+def _cmd_predict_promote(args: argparse.Namespace) -> int:
+    """Simulate: if this SRPM's sub-pkgs were promoted from sdk to base,
+    would any of *their* Requires be unmet by base ∪ {promoted pkgs}?
+
+    Mirrors cmd_predict but in the inbound direction. Useful before a
+    promote: catches the case where the promoted SRPM brings new unmet
+    deps into base.
+    """
+    split_dir = Path(args.split_dir)
+    sdk_dir = split_dir / "sdk"
+    srpm = args.srpm
+
+    # Step 1: collect all sub-pkgs of the SRPM in sdk + their Requires.
+    promoted_pkgs: dict[str, dict] = {}
+
+    def cb_sdk(pkg):
+        if _srpm_name(pkg.rpm_sourcerpm or "") != srpm:
+            return
+        prov = {p[0] for p in pkg.provides}
+        prov.add(pkg.name)
+        files: set[str] = set()
+        for fn in pkg.files:
+            full = (fn[1] or "") + (fn[2] or "")
+            if full:
+                files.add(full)
+        promoted_pkgs[pkg.name] = {
+            "provides": prov,
+            "files": files,
+            "requires": {r[0] for r in pkg.requires},
+        }
+
+    cr.xml_parse_primary(_open_primary(sdk_dir), pkgcb=cb_sdk, do_files=True,
+                         warningcb=lambda *_: True)
+    if not promoted_pkgs:
+        print(f"WARN: no binary RPMs in sdk for SRPM {srpm!r}", file=sys.stderr)
+        return 1
+
+    # Step 2: collect all caps provided by base.
+    base_caps: set[str] = set()
+    pri = _open_primary(split_dir / "base")
+
+    def cb_base(pkg):
+        base_caps.add(pkg.name)
+        for prov in pkg.provides:
+            base_caps.add(prov[0])
+        for fn in pkg.files:
+            full = (fn[1] or "") + (fn[2] or "")
+            if full:
+                base_caps.add(full)
+
+    cr.xml_parse_primary(pri, pkgcb=cb_base, do_files=True,
+                         warningcb=lambda *_: True)
+
+    # Step 3: union with caps from the about-to-be-promoted pkgs themselves.
+    available = set(base_caps)
+    for p in promoted_pkgs.values():
+        available |= p["provides"]
+        available |= p["files"]
+
+    # Step 4: any Require of a promoted pkg unmet by `available`?
+    unmet: list[tuple[str, str]] = []
+    for name, p in promoted_pkgs.items():
+        for req in p["requires"]:
+            if req not in available:
+                unmet.append((name, req))
+
+    by_consumer: dict[str, list[str]] = collections.defaultdict(list)
+    for n, c in unmet:
+        by_consumer[n].append(c)
+
+    if not unmet:
+        print(f"OK: promoting SRPM {srpm!r} ({len(promoted_pkgs)} sub-pkg(s)) "
+              f"introduces 0 new unresolved deps in base.")
+        return 0
+
+    print(f"WARNING: promoting SRPM {srpm!r} ({len(promoted_pkgs)} sub-pkg(s)) "
+          f"would introduce {len(unmet)} new unresolved dep(s) across "
+          f"{len(by_consumer)} promoted package(s):")
+    print()
+    for consumer in sorted(by_consumer):
+        for cap in sorted(set(by_consumer[consumer])):
+            print(f"  {consumer}")
+            print(f"    -> {cap}")
+    print()
+    print("Options to resolve:")
+    print("  1. Also promote the SRPM(s) that provide the missing caps "
+          "(cascade promote).")
+    print("  2. Drop the Requires via a comp.toml overlay (if genuinely "
+          "optional upstream).")
+    print("  3. Abandon this promote; pick a different candidate.")
+    return 2
+
+
 def cmd_predict(args: argparse.Namespace) -> int:
     """Simulate: if these pkg names left base, who would break?
 
@@ -520,9 +613,30 @@ def cmd_predict(args: argparse.Namespace) -> int:
     *other* base package still provides the same capability (i.e. an
     alternative provider) — if yes, the dep is safe; if no, it's a
     predicted new unresolved.
+
+    With ``--promote SRPM`` (or first positional arg ``promote SRPM``),
+    instead simulates the inbound direction: would the promoted SRPM
+    bring any unmet Requires into base?
     """
+    # Promote-mode dispatch: detect either the explicit flag or the
+    # positional shorthand "predict promote <srpm>".
+    if getattr(args, "promote", None):
+        args.srpm = args.promote
+        return _cmd_predict_promote(args)
+    if len(args.pkg) >= 2 and args.pkg[0] == "promote":
+        args.srpm = args.pkg[1]
+        if len(args.pkg) > 2:
+            print("ERROR: 'predict promote' takes exactly one SRPM name",
+                  file=sys.stderr)
+            return 2
+        return _cmd_predict_promote(args)
+
     split_dir = Path(args.split_dir)
     pkg_names = set(args.pkg)
+    if not pkg_names:
+        print("ERROR: predict needs either pkg names (leave-base sim) or "
+              "'promote <srpm>' (enter-base sim)", file=sys.stderr)
+        return 2
 
     # Step 1: what capabilities will leave base?
     leaving_caps = _required_capabilities_for(split_dir, "base", pkg_names)
@@ -735,11 +849,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     pd = sub.add_parser("predict",
                         help="before a move: list base pkgs that would gain "
-                             "new unresolved deps if NAMED pkgs left base")
-    pd.add_argument("pkg", nargs="+",
+                             "new unresolved deps if NAMED pkgs left base "
+                             "(or, with 'promote SRPM', if SRPM's pkgs "
+                             "entered base)")
+    pd.add_argument("pkg", nargs="*",
                     help="binary RPM name(s) that would leave base (carve "
                          "sub-pkg names, or every sub-pkg of an SRPM about "
-                         "to be demoted/removed)")
+                         "to be demoted/removed). Or use the form "
+                         "'promote <srpm>' to simulate an inbound promote.")
+    pd.add_argument("--promote", metavar="SRPM",
+                    help="explicit promote-mode: simulate adding all "
+                         "sub-pkgs of SRPM from sdk to base and report any "
+                         "unmet Requires they bring with them")
     pd.set_defaults(func=cmd_predict)
 
     sn = sub.add_parser("snapshot",

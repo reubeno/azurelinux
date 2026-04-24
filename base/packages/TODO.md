@@ -94,6 +94,37 @@ Options to evaluate:
 - **Wait for upstream migration.** As consumers migrate to `gsound`, the set
   of dependants will shrink and removal becomes feasible.
 
+## Revisit ffado / jack-audio-connection-kit demotion
+
+`ffado` (FireWire pro-audio) and `jack-audio-connection-kit` (the JACK audio
+routing daemon) live in `rpm-base` today. Both are pro-audio user-space
+components that are not appropriate for a headless server-focused base
+channel. The intent was to demote both to `rpm-sdk`, but doing so cascades
+into the qemu-system-* set:
+
+- `libffado` SRPM (3 sub-pkgs) → `jack-audio-connection-kit` hard-Requires
+  `libffado.so.2()`, so demoting ffado forces JACK to follow.
+- `jack-audio-connection-kit` SRPM (3 sub-pkgs) → demoting JACK orphans
+  three jack-backend audio plugins (`mpg123-plugins-jack`,
+  `pulseaudio-module-jack`, `qemu-audio-jack`).
+- `qemu-audio-jack` is one of the eight audio backends that **every**
+  `qemu-system-*` (20 emulators) hard-Requires with versioned exact-version
+  deps, so demoting it cascades to all 20 emulators (same pattern that
+  blocked the `qemu-audio-pipewire` carve earlier).
+
+Options to evaluate:
+
+- **Demote everything together.** ffado + jack + 3 plugins + 20
+  qemu-system-* emulators. Large blast radius; needs a product call on
+  whether full-system emulation belongs in base.
+- **Add comp.toml overlays to drop `libjack`/`libffado` Requires** from the
+  audio plugins (qemu-audio-jack in particular) so the audio backend
+  becomes optional/dlopen-style. Needs upstream feasibility check —
+  qemu-audio-jack actually links libjack at build time, so this likely
+  requires patching the spec rather than just dropping a Requires.
+- **Keep as-is.** Accept ffado + JACK in base as the cost of having the
+  qemu emulator set in base.
+
 ## Revisit gpsd removal
 
 `gpsd` (the GPS daemon and its bindings) was demoted from base to sdk in

@@ -8,3 +8,17 @@ description = "Disable Xen support - not needed for Azure Linux (Hyper-V/KVM onl
 type = "spec-search-replace"
 regex = '%global have_xen 1'
 replacement = '%global have_xen 0'
+
+# Disable BrlAPI / Baum Braille terminal char-device backend.
+# AZL is a headless cloud distro and does not ship the brltty Braille
+# stack in base; with brltty demoted to sdk the qemu-char-baum sub-package
+# (a chardev plugin that bridges the host Baum Braille terminal into a
+# guest via brlapi) is not useful and unconditionally pulled brlapi (and
+# transitively brltty) into the base channel. The upstream spec gates
+# both the %package char-baum definition and the per-emulator
+# `Requires: %{name}-char-baum` line on `%global have_brlapi`.
+[[components.qemu.overlays]]
+description = "Disable Baum Braille char-device backend - brltty is sdk-tier in AZL"
+type = "spec-search-replace"
+regex = '^%global have_brlapi 1$'
+replacement = '%global have_brlapi 0'

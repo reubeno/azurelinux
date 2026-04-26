@@ -139,37 +139,29 @@ build, the `[[ignore]]` block tagged
 `scripts/repoclosure-allowlist.toml` will go to zero hits in
 `repoclosure-base.allowlist-hits.txt` and should be deleted.
 
-## Revisit speech-dispatcher / brltty / orca (accessibility) demotion
+## Revisit speech-dispatcher / orca (accessibility) demotion
 
-`speech-dispatcher` (9 sub-pkgs) and `brltty` (15 sub-pkgs) are
-accessibility tooling \u2014 text-to-speech daemon and Braille TTY support
-respectively. Both are user-facing desktop accessibility components and
-do not belong in a server-focused base channel; the GNOME `orca`
-screen reader is in the same family but is not currently built in
-azurelinux at all (so nothing to demote for it).
+`speech-dispatcher` (9 sub-pkgs) is text-to-speech daemon plumbing —
+user-facing desktop accessibility, not server runtime; the GNOME
+`orca` screen reader is in the same family but is not currently built
+in azurelinux at all (so nothing to demote for it).
 
-Blocker (qemu-emulator-trap, same pattern as ffado/jack):
+`brltty` (15 sub-pkgs incl. `brlapi`, `python3-brlapi`,
+`tcl-brlapi`, `ocaml-brlapi`, `brltty-espeak{,-ng}`,
+`brltty-speech-dispatcher`, `brltty-at-spi2`, etc.) was demoted to
+sdk in commit 13c2ccb-ish in concert with a qemu overlay that flips
+`%global have_brlapi` to 0 — see
+`base/comps/qemu/qemu.comp.toml`. With the brlapi backend disabled
+qemu no longer produces `qemu-char-baum` and the per-emulator
+`Requires: %{name}-char-baum` lines disappear, so the brltty demote
+no longer cascades into the entire `qemu-system-*` family.
 
-- Demoting `speech-dispatcher` orphans `brltty-speech-dispatcher` (the
-  speech-dispatcher Braille plugin).
-- Demoting `brltty` then orphans `qemu-char-baum` (a qemu char-device
-  backend that bridges the host Baum Braille terminal into the guest
-  via brlapi).
-- `qemu-char-baum` is hard-Required by all **19** `qemu-system-*`
-  emulators with versioned exact-version dep \u2014 same cascade we hit with
-  qemu-audio-jack / qemu-audio-pipewire.
-
-Plan:
-
-- **Add a comp.toml overlay to qemu** that drops the
-  `qemu-char-baum`/`qemu-audio-*`/etc. backend Requires from
-  `qemu-system-*` (or rebuilds qemu without the brlapi/jack/pipewire
-  char/audio backends). Once qemu no longer hard-pulls the backends,
-  carving `qemu-char-baum` becomes safe.
-- Then demote `brltty` (15 sub-pkgs) and `speech-dispatcher` (9
-  sub-pkgs) as a single coordinated transaction.
-- This will also resolve the `brltty-espeak` libespeak.so.1 finding
-  and the `speech-dispatcher` libao.so.4 finding for free.
+speech-dispatcher remains: demoting it orphans
+`brltty-speech-dispatcher` (already in sdk now) but also
+`festival-freebsoft-utils -> speech-dispatcher`,
+`gnome-shell -> speech-dispatcher` (if shipped) and a few
+GUI consumers. Worth a separate visit; same overlay-pending pattern
+likely applies to its consumers.
 
 ## Revisit bluez SRPM demotion
 
@@ -189,31 +181,16 @@ The first three are surgically resolvable (carve `NetworkManager-bluetooth`
 + `pulseaudio-module-bluetooth` from their parent SRPMs; demote the
 `qt6-qtconnectivity` SRPM as a whole — devel/examples included).
 
-The brltty consumers are the blocker: brltty cannot be demoted without
-hitting the same `qemu-char-baum` hard-Require trap that blocks the
-speech-dispatcher / brltty work above (all 19 `qemu-system-*` emulators
-hard-Require `qemu-char-baum`, which hard-Requires brltty).
+The brltty consumers are no longer a blocker — brltty was demoted in
+concert with the qemu have_brlapi overlay. With brltty in sdk and
+`libbluetooth.so.3` still available there, demoting bluez in full
+depends only on resolving the three carve/demote candidates above.
 
-Two viable paths:
-
-1. **Surgical (Option A) — keep bluez-libs in base**: demote 7 sub-packages
-   (`bluez`, `bluez-cups`, `bluez-deprecated`, `bluez-hid2hci`,
-   `bluez-libs-devel`, `bluez-mesh`, `bluez-obexd`) plus carve
-   `NetworkManager-bluetooth` and `pulseaudio-module-bluetooth`. Mirrors
-   the upower-libs surgical pattern; 0 cascade. Removes the daemon +
-   ancillaries from the supported channel while keeping
-   `libbluetooth.so.3` in base for Qt6 / brltty / accessibility tooling.
-   Clears 0 findings — pure scope-tightening.
-
-2. **Whole-SRPM (Option B)**: requires the same qemu overlay work as the
-   ffado/jack and speech-dispatcher entries above. Once qemu is rebuilt
-   without the brltty/baum char backend (or its Requires is dropped via
-   overlay), the brltty SRPM can be demoted, and bluez can follow as a
-   complete demote (also dragging the `qt6-qtconnectivity` SRPM and the
-   two carved sibling sub-pkgs).
-
-Deferred. Reconsider once the qemu-backend-Requires overlay lands —
-demoting brltty unlocks bluez whole-SRPM at the same time.
+Plan once revisited: demote 7 sub-packages
+(`bluez`, `bluez-cups`, `bluez-deprecated`, `bluez-hid2hci`,
+`bluez-libs-devel`, `bluez-mesh`, `bluez-obexd`) plus carve
+`NetworkManager-bluetooth` and `pulseaudio-module-bluetooth`, OR
+go for whole-SRPM demote and drag `qt6-qtconnectivity` along.
 
 ## Revisit gpsd removal
 
@@ -232,6 +209,30 @@ Defer pending:
 
 Once those are clear, drop the SRPM via `rebalance-channel.py remove gpsd`
 and delete `[components.gpsd]` from `base/comps/components.toml`.
+
+## Post next-snapshot cleanup: qemu have_brlapi overlay + brltty demote
+
+The qemu overlay in `base/comps/qemu/qemu.comp.toml` flips
+`%global have_brlapi 1 -> 0`, which both stops producing
+`qemu-char-baum` (BrlAPI/Baum chardev backend) and drops the
+per-emulator `Requires: %{name}-char-baum` line from all 19
+`qemu-system-*` RPMs. With that cascade defused, the entire
+`brltty` SRPM (15 sub-packages) was demoted to sdk in the same
+commit. Verified locally with `azldev component build -p qemu
+--no-check` + `rpm -qpR`.
+
+Once the next published-RPM snapshot incorporates the qemu rebuild:
+
+1. Delete the `# qemu: drop have_brlapi / qemu-char-baum cascade`
+   `[[ignore]]` block from `scripts/repoclosure-allowlist.toml` —
+   it will go to zero hits in `repoclosure-base.allowlist-hits.txt`
+   once the snapshot reflects the overlay.
+2. Confirm no new consumer has appeared that requires
+   `qemu-char-baum` or any brltty/brlapi binary in base.
+
+`qemu-char-baum` was already removed from
+`base/packages/base.packages.toml` — no further package-list
+edits needed.
 
 ## Post next-snapshot cleanup: erlang-wx allowlist block
 

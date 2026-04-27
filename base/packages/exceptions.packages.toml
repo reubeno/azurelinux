@@ -354,4 +354,6 @@ packages = [
     "kernel-selftests-internal",
     # Tests sub-pkg requires xdg-user-dirs (sdk-tier desktop XDG dir helper); test artifact not warranted in base for cloud distro.
     "perl-File-BaseDir-tests",
+    # xmlto-tex requires tex-passivetex (TeX/PassiveTeX backend) which is not packaged in either channel. PDF/TeX rendering not warranted in base for cloud distro; xmlto core stays in base.
+    "xmlto-tex",
 ]

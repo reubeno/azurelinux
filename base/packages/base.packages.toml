@@ -7937,7 +7937,6 @@ packages = [
     "xmlsec1-openssl-devel",
     "xmlstarlet",
     "xmlto",
-    "xmlto-tex",
     "xmlto-xhtml",
     "xmltoman",
     "xmlunit",

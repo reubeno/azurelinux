@@ -849,3 +849,9 @@ srpm             = "perl-File-BaseDir"
 expected_channel = "base"
 allowed_in_other = ["perl-File-BaseDir-tests"]
 reason           = "perl-File-BaseDir-tests carved to sdk - xdg-user-dirs is sdk-tier and only needed by this dev/test sub-pkg."
+
+[[exception]]
+srpm             = "xmlto"
+expected_channel = "base"
+allowed_in_other = ["xmlto-tex"]
+reason           = "xmlto-tex carved to sdk - tex-passivetex isn't packaged anywhere; only xmlto-tex consumed it."

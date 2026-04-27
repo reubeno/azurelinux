@@ -3367,8 +3367,6 @@ packages = [
     "libclc",
     "libclc-devel",
     "libclc-spirv",
-    "libconfuse",
-    "libconfuse-devel",
     "libcramjam",
     "libcramjam-devel",
     "libcupsfilters",

@@ -3296,6 +3296,8 @@ packages = [
     "libcomps-doc",
     "libconfig",
     "libconfig-devel",
+    "libconfuse",
+    "libconfuse-devel",
     "libcpuid",
     "libcpuid-devel",
     "libcpuid-static",

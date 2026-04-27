@@ -238,3 +238,21 @@ reason             = "tuna overlay disables the oscilloscope bcond; the oscillos
 confidence         = "high"
 overlay            = "base/comps/tuna/tuna.comp.toml"
 verified_at_commit = "05b1cfa20c"
+
+# ----------------------------------------------------------------------
+# ostree: drop installed-tests sub-package (gjs enabler)
+#
+# ostree-tests is the GNOME installed-tests harness; its only base
+# unresolved dep was /usr/bin/gjs (sdk-tier). The overlay in
+# base/comps/ostree/ostree.comp.toml passes `--without tests` to
+# disable the bcond and stop building the sub-package entirely.
+# Verified locally with `azldev component build -p ostree`: no
+# ostree-tests RPM is produced.
+[[ignore]]
+package            = "ostree-tests"
+requires           = "/usr/bin/gjs"
+scope              = "any"
+reason             = "ostree overlay disables the tests bcond; the ostree-tests sub-package is no longer built once the snapshot picks up the rebuilt ostree."
+confidence         = "high"
+overlay            = "base/comps/ostree/ostree.comp.toml"
+verified_at_commit = "73e7158634"

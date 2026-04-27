@@ -4909,7 +4909,6 @@ packages = [
     "ostree-devel",
     "ostree-grub2",
     "ostree-libs",
-    "ostree-tests",
     "ovfenv",
     "p11-kit",
     "p11-kit-client",

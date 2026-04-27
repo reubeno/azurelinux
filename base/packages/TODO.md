@@ -1,5 +1,33 @@
 # Package list TODOs
 
+## Deferred: qemu-audio-pipewire carve / pipewire bcond overlay
+
+`qemu-audio-pipewire` requires `libpipewire-0.3.so.0` from the
+`pipewire` SRPM; pipewire is currently sdk-tier (the desktop audio
+stack is not warranted in base for AZL).
+
+Unlike the jack/brlapi cleanup, qemu's spec has no pre-existing
+`%global have_pipewire` global to flip — pipewire is hard-coded
+across `BuildRequires`, `--enable-pipewire`, the `--audio-drv-list`
+list, and the `%package` / `%files audio-pipewire` blocks. Mirroring
+the jack/brlapi pattern would require introducing the conditional at
+~6 sites (multi-overlay, brittle).
+
+Two options when revisiting:
+
+1. **Carve** `qemu-audio-pipewire` to sdk via the standard exception
+   pattern. Simple but leaves the published `qemu-audio-pipewire.so`
+   without a libpipewire host in base. Acceptable since the audio
+   plugin is opt-in; no qemu-system-* emulator hard-Requires it.
+
+2. **Spec overlay** introducing `%global have_pipewire 0` plus
+   `%if %{have_pipewire}` guards around the BuildRequires, configure
+   flag, audio-drv-list (must remove `pipewire,` token), the
+   `%package audio-pipewire` block, and the `%files audio-pipewire`
+   block. Closer to the jack/brlapi pattern but a much larger
+   spec-search-replace surface area; would need careful regex
+   anchoring on each site.
+
 ## Revisit wholesale mpg123 demote
 
 The full `mpg123` SRPM (`mpg123`, `mpg123-libs`, `mpg123-devel`,

@@ -356,4 +356,6 @@ packages = [
     "libreport-plugin-mailx",
     # GTK3 input-method modules sub-pkg requires gtk-immodules-imsettings (sdk-tier IM glue). Full IME stack not warranted in base for cloud distro; gtk3 core stays in base.
     "gtk3-immodules",
+    # picocli-shell-jline2 carved to sdk: depends on jline2 (sdk-tier; jline 3.x is the maintained line).
+    "picocli-shell-jline2",
 ]

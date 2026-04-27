@@ -5738,7 +5738,6 @@ packages = [
     "php-xml",
     "picocli",
     "picocli-codegen",
-    "picocli-shell-jline2",
     "picocli-shell-jline3",
     "pigz",
     "pinentry",

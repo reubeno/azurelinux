@@ -855,3 +855,9 @@ srpm             = "gtk3"
 expected_channel = "base"
 allowed_in_other = ["gtk3-immodules"]
 reason           = "gtk3-immodules carved to sdk - gtk-immodules-imsettings is sdk-tier and only needed by IM modules sub-pkg."
+
+[[exception]]
+srpm             = "picocli"
+expected_channel = "base"
+allowed_in_other = ["picocli-shell-jline2"]
+reason           = "picocli-shell-jline2 carved to sdk because it depends on the legacy jline2 library (sdk-tier); rest of picocli stays in base."

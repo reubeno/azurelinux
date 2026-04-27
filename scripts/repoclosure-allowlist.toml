@@ -256,3 +256,22 @@ reason             = "ostree overlay disables the tests bcond; the ostree-tests 
 confidence         = "high"
 overlay            = "base/comps/ostree/ostree.comp.toml"
 verified_at_commit = "73e7158634"
+
+# ----------------------------------------------------------------------
+# sblim-cmpi-base: drop test sub-package (sblim-testsuite enabler)
+#
+# sblim-cmpi-base-test was the optional test harness for the SBLIM
+# CMPI base provider; its only base unresolved dep was sblim-testsuite
+# (sdk-tier). The overlay in
+# base/comps/sblim-cmpi-base/sblim-cmpi-base.comp.toml flips
+# `%global with_test_subpackage 1` to 0, stopping the test sub-pkg
+# from being built. Verified by local rebuild: no
+# sblim-cmpi-base-test RPM produced.
+[[ignore]]
+package            = "sblim-cmpi-base-test"
+requires           = "sblim-testsuite"
+scope              = "any"
+reason             = "overlay flips %global with_test_subpackage to 0; sub-pkg no longer built once snapshot picks up rebuild."
+confidence         = "high"
+overlay            = "base/comps/sblim-cmpi-base/sblim-cmpi-base.comp.toml"
+verified_at_commit = "807a983921"

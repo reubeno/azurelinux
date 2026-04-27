@@ -7279,7 +7279,6 @@ packages = [
     "sbd-tests",
     "sblim-cmpi-base",
     "sblim-cmpi-base-devel",
-    "sblim-cmpi-base-test",
     "sblim-cmpi-devel",
     "sblim-indication_helper",
     "sblim-indication_helper-devel",

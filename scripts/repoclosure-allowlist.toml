@@ -275,3 +275,41 @@ reason             = "overlay flips %global with_test_subpackage to 0; sub-pkg n
 confidence         = "high"
 overlay            = "base/comps/sblim-cmpi-base/sblim-cmpi-base.comp.toml"
 verified_at_commit = "807a983921"
+
+# ----------------------------------------------------------------------
+# gpm whole-SRPM demote: emacs/mc/vim no longer link libgpm
+#
+# Demoting the gpm SRPM (console mouse-event daemon - relic of bare-
+# metal text consoles, irrelevant for cloud / headless workloads)
+# entirely to sdk. Three base consumers - emacs-nw, mc, vim-enhanced -
+# linked libgpm.so.2 in the upstream Fedora-built snapshot, but this
+# is gated behind a bcond in each spec. Overlays in
+# base/comps/{emacs,mc,vim}/*.comp.toml flip the bcond to OFF; locally
+# rebuilt RPMs no longer require libgpm. Allowlist these stale
+# Requires until the snapshot picks up our rebuilt RPMs.
+[[ignore]]
+package            = "emacs-nw"
+requires           = "libgpm.so.2()(64bit)"
+scope              = "any"
+reason             = "emacs.spec %bcond gpm flipped OFF via comp.toml; rebuilt emacs-nw has no libgpm Requires."
+confidence         = "high"
+overlay            = "base/comps/emacs/emacs.comp.toml"
+verified_at_commit = "e4a3ee9b87"
+
+[[ignore]]
+package            = "mc"
+requires           = "libgpm.so.2()(64bit)"
+scope              = "any"
+reason             = "mc.spec %bcond gpm flipped OFF via comp.toml; rebuilt mc has no libgpm Requires."
+confidence         = "high"
+overlay            = "base/comps/mc/mc.comp.toml"
+verified_at_commit = "e4a3ee9b87"
+
+[[ignore]]
+package            = "vim-enhanced"
+requires           = "libgpm.so.2()(64bit)"
+scope              = "any"
+reason             = "vim.spec gpm bcond flipped OFF via comp.toml; rebuilt vim-enhanced has no libgpm Requires."
+confidence         = "high"
+overlay            = "base/comps/vim/vim.comp.toml"
+verified_at_commit = "e4a3ee9b87"

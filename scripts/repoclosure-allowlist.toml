@@ -199,3 +199,22 @@ reason             = "qemu-audio-jack will not be built once snapshot picks up t
 confidence         = "high"
 overlay            = "base/comps/qemu/qemu.comp.toml"
 verified_at_commit = "d85ef67af9"
+
+# ----------------------------------------------------------------------
+# po4a: drop texlive-kpathsea Requires
+#
+# po4a is a multi-format documentation translation tool. Its only use
+# of texlive-kpathsea is via Locale::Po4a::TeX (which shells out to
+# kpsewhich to resolve TeX include paths). All other format modules
+# (man, sgml, xml, asciidoc, markdown, docbook, dia, halibut, ...)
+# work without it. The overlay in base/comps/po4a/po4a.comp.toml
+# drops both runtime Requires lines so po4a can stay in base while
+# texlive-kpathsea(-bin) live in sdk.
+[[ignore]]
+package            = "po4a"
+requires           = ["texlive-kpathsea", "texlive-kpathsea-bin"]
+scope              = "any"
+reason             = "po4a overlay drops the runtime Requires on texlive-kpathsea(-bin); rebuilt RPM verified to have no texlive Requires."
+confidence         = "high"
+overlay            = "base/comps/po4a/po4a.comp.toml"
+verified_at_commit = "ecc3137503"

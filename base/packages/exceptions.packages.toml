@@ -356,4 +356,6 @@ packages = [
     "perl-File-BaseDir-tests",
     # xmlto-tex requires tex-passivetex (TeX/PassiveTeX backend) which is not packaged in either channel. PDF/TeX rendering not warranted in base for cloud distro; xmlto core stays in base.
     "xmlto-tex",
+    # Munin monitoring plugin sub-pkg requires munin-node (sdk-tier; Munin agent). Munin-based monitoring not part of base for cloud distro; rest of unbound stays in base.
+    "unbound-munin",
 ]

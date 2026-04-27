@@ -7710,7 +7710,6 @@ packages = [
     "unbound-devel",
     "unbound-dracut",
     "unbound-libs",
-    "unbound-munin",
     "unbound-utils",
     "unicode-ucd",
     "unicode-ucd-unihan",

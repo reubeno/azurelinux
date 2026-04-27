@@ -855,3 +855,9 @@ srpm             = "xmlto"
 expected_channel = "base"
 allowed_in_other = ["xmlto-tex"]
 reason           = "xmlto-tex carved to sdk - tex-passivetex isn't packaged anywhere; only xmlto-tex consumed it."
+
+[[exception]]
+srpm             = "unbound"
+expected_channel = "base"
+allowed_in_other = ["unbound-munin"]
+reason           = "unbound-munin carved to sdk - munin-node is sdk-tier monitoring agent not warranted in base."

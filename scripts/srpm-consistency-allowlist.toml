@@ -765,3 +765,9 @@ srpm             = "pulseaudio"
 expected_channel = "base"
 allowed_in_other = ["pulseaudio-module-jack"]
 reason           = "pulseaudio-module-jack carved to sdk to allow jack-audio-connection-kit demote; rest of pulseaudio sub-pkgs stay in base"
+
+[[exception]]
+srpm             = "mpg123"
+expected_channel = "base"
+allowed_in_other = ["mpg123-plugins-portaudio", "mpg123-plugins-pulseaudio"]
+reason           = "mpg123-plugins-portaudio + -pulseaudio carved to sdk to close repoclosure leaks (libportaudio.so.2); mpg123/-libs/-devel stay in base"

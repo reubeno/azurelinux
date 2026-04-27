@@ -4513,8 +4513,6 @@ packages = [
     "mpg123",
     "mpg123-devel",
     "mpg123-libs",
-    "mpg123-plugins-portaudio",
-    "mpg123-plugins-pulseaudio",
     "mpich",
     "mpich-autoload",
     "mpich-devel",

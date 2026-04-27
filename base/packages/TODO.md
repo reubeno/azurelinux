@@ -1,5 +1,23 @@
 # Package list TODOs
 
+## Revisit wholesale mpg123 demote
+
+The full `mpg123` SRPM (`mpg123`, `mpg123-libs`, `mpg123-devel`,
+plus `mpg123-plugins-portaudio` / `-pulseaudio` / `-jack` carved
+to sdk) cannot currently be demoted as-is: two non-sibling base
+libraries hard-Require `libmpg123.so.0`:
+
+- `libsndfile` — has 7 base consumers via `libsndfile.so.1`
+- `libopenmpt` — has 2 base consumers via `libopenmpt.so.0`
+
+So a wholesale `mpg123` demote pulls `libsndfile` + `libopenmpt`
++ 9 downstream base packages along with it. Worth revisiting if /
+when those downstream consumers move out of base on their own
+(several look like GUI/audio leaves), or via a deliberate
+`libsndfile`-rooted demote pass. For now we have only carved the
+three audio-backend plugin sub-packages (portaudio, pulseaudio,
+jack) to sdk.
+
 ## Revisit fonts & langpacks
 
 `langpacks` (372 sub-pkgs) lives in `rpm-base` today and pulls a large set of

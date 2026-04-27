@@ -324,4 +324,7 @@ packages = [
     "mpg123-plugins-jack",
     # Carve pulseaudio-module-jack to sdk: JACK is sdk-tier in AZL (pro-audio routing daemon, not server runtime)
     "pulseaudio-module-jack",
+    # Carve niche audio-backend plugins to sdk: portaudio is sdk-tier; pulseaudio backend plugin is redundant given pulseaudio's own modules
+    "mpg123-plugins-portaudio",
+    "mpg123-plugins-pulseaudio",
 ]

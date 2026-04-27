@@ -329,3 +329,30 @@ reason             = "overlay flips %bcond_without anthy to OFF; m17n-lib-anthy 
 confidence         = "high"
 overlay            = "base/comps/m17n-lib/m17n-lib.comp.toml"
 verified_at_commit = "4478d4e811"
+
+# ----------------------------------------------------------------------
+# qemu-audio-pa: PulseAudio backend dropped via overlay
+#
+# qemu.comp.toml overlays remove the audio-pa sub-package entirely
+# (--disable-pa configure, %package/%description/%files audio-pa
+# removed via spec-remove-section, requires_audio_pa macro emptied).
+# Allowlist the stale published-snapshot Requires until the rebuilt
+# qemu RPMs hit the published feed - at which point audio-pa won't
+# exist and these entries can be retired.
+[[ignore]]
+package            = "qemu-audio-pa"
+requires           = "libpulse.so.0()(64bit)"
+scope              = "any"
+reason             = "qemu-audio-pa sub-package removed via overlay; entry stale until published feed picks up rebuild."
+confidence         = "high"
+overlay            = "base/comps/qemu/qemu.comp.toml"
+verified_at_commit = "a45fd86611"
+
+[[ignore]]
+package            = "qemu-audio-pa"
+requires           = "libpulse.so.0(PULSE_0)(64bit)"
+scope              = "any"
+reason             = "qemu-audio-pa sub-package removed via overlay; entry stale until published feed picks up rebuild."
+confidence         = "high"
+overlay            = "base/comps/qemu/qemu.comp.toml"
+verified_at_commit = "a45fd86611"

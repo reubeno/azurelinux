@@ -7084,7 +7084,6 @@ packages = [
     "rsyslog-mmnormalize",
     "rsyslog-mmsnmptrapd",
     "rsyslog-mmtaghostname",
-    "rsyslog-mongodb",
     "rsyslog-mysql",
     "rsyslog-omamqp1",
     "rsyslog-openssl",

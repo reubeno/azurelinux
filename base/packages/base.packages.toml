@@ -5402,7 +5402,6 @@ packages = [
     "perl-Module-Runtime-tests",
     "perl-Module-ScanDeps",
     "perl-Module-Signature",
-    "perl-MojoX-MIME-Types",
     "perl-Mozilla-CA",
     "perl-Mozilla-CA-tests",
     "perl-NDBM_File",

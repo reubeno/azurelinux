@@ -861,3 +861,9 @@ srpm             = "picocli"
 expected_channel = "base"
 allowed_in_other = ["picocli-shell-jline2"]
 reason           = "picocli-shell-jline2 carved to sdk because it depends on the legacy jline2 library (sdk-tier); rest of picocli stays in base."
+
+[[exception]]
+srpm             = "perl-MIME-Types"
+expected_channel = "base"
+allowed_in_other = ["perl-MojoX-MIME-Types"]
+reason           = "perl-MojoX-MIME-Types is a Mojolicious adapter; perl-Mojolicious is sdk-tier in AZL. Rest of perl-MIME-Types SRPM stays in base."

@@ -358,4 +358,6 @@ packages = [
     "gtk3-immodules",
     # picocli-shell-jline2 carved to sdk: depends on jline2 (sdk-tier; jline 3.x is the maintained line).
     "picocli-shell-jline2",
+    # perl-MojoX-MIME-Types carved to sdk: Mojolicious adapter (perl-Mojolicious is sdk-tier); rest of perl-MIME-Types stays in base.
+    "perl-MojoX-MIME-Types",
 ]

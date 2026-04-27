@@ -342,7 +342,6 @@ packages = [
     "blivet-data",
     "blktrace",
     "blosc",
-    "blosc-bench",
     "blosc-devel",
     "bluez",
     "bluez-cups",

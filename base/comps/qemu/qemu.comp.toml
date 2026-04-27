@@ -22,3 +22,16 @@ description = "Disable Baum Braille char-device backend - brltty is sdk-tier in 
 type = "spec-search-replace"
 regex = '^%global have_brlapi 1$'
 replacement = '%global have_brlapi 0'
+
+# Disable JACK audio backend. AZL is a headless cloud distro; JACK (the
+# pro-audio routing daemon) and ffado (FireWire pro-audio) are sdk-tier.
+# The upstream spec gates both the %package audio-jack definition and
+# the per-emulator `Requires: %{name}-audio-jack` line on %global have_jack;
+# flipping it to 0 stops producing qemu-audio-jack and removes the
+# cascading hard-Require from all qemu-system-* emulators, so
+# jack-audio-connection-kit + libffado can be cleanly demoted to sdk.
+[[components.qemu.overlays]]
+description = "Disable JACK audio backend - jack/ffado are sdk-tier in AZL"
+type = "spec-search-replace"
+regex = '^%global have_jack 1$'
+replacement = '%global have_jack 0'

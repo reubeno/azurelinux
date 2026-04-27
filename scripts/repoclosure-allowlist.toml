@@ -164,3 +164,38 @@ reason             = "qemu overlay flips %global have_brlapi to 0; qemu-char-bau
 confidence         = "high"
 overlay            = "base/comps/qemu/qemu.comp.toml"
 verified_at_commit = "61673f0d25"
+
+# ----------------------------------------------------------------------
+# qemu: drop have_jack / qemu-audio-jack cascade (jack/ffado demote enabler)
+#
+# jack-audio-connection-kit (the JACK pro-audio routing daemon, 3
+# sub-pkgs) and libffado (FireWire pro-audio, 3 sub-pkgs) were demoted
+# to sdk. The blocker was qemu-audio-jack — qemu's JACK audio backend —
+# which is hard-Required (versioned exact-version) by all 19
+# qemu-system-* emulators. The overlay in
+# base/comps/qemu/qemu.comp.toml flips `%global have_jack 1` to 0,
+# which both stops producing the qemu-audio-jack sub-package and
+# drops the per-emulator `Requires: %{name}-audio-jack` line entirely.
+# Verified locally with `azldev component build -p qemu --no-check`
+# + `rpm -qpR`: no qemu RPM Requires anything jack-related, and
+# qemu-audio-jack is not built.
+[[ignore]]
+package            = ["qemu-system-aarch64", "qemu-system-alpha", "qemu-system-arm", "qemu-system-avr", "qemu-system-hppa", "qemu-system-loongarch64", "qemu-system-m68k", "qemu-system-microblaze", "qemu-system-mips", "qemu-system-or1k", "qemu-system-ppc", "qemu-system-riscv", "qemu-system-rx", "qemu-system-s390x", "qemu-system-sh4", "qemu-system-sparc", "qemu-system-tricore", "qemu-system-x86", "qemu-system-xtensa"]
+requires           = ["qemu-audio-jack", "qemu-audio-jack(*", "qemu-audio-jack = *"]
+scope              = "any"
+reason             = "qemu overlay flips %global have_jack to 0; qemu-audio-jack sub-pkg is no longer produced and the per-emulator Requires line is no longer emitted in the rebuilt RPMs."
+confidence         = "high"
+overlay            = "base/comps/qemu/qemu.comp.toml"
+verified_at_commit = "d85ef67af9"
+
+# Snapshot-lag: qemu-audio-jack itself still exists in the published
+# snapshot and Requires libjack.so.0; once the snapshot rebuilds qemu
+# this sub-pkg disappears entirely (covered by the cascade entry above).
+[[ignore]]
+package            = "qemu-audio-jack"
+requires           = "libjack.so.0()(64bit)"
+scope              = "any"
+reason             = "qemu-audio-jack will not be built once snapshot picks up the have_jack=0 overlay; libjack moved to sdk."
+confidence         = "high"
+overlay            = "base/comps/qemu/qemu.comp.toml"
+verified_at_commit = "d85ef67af9"

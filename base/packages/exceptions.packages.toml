@@ -320,4 +320,8 @@ packages = [
     "python3-sqlalchemy+postgresql_pg8000",
     # Demote wireshark dissector plugin: wireshark itself is sdk-tier (dev/network analysis tooling, not a server runtime).
     "libvirt-wireshark",
+    # Carve mpg123-plugins-jack to sdk: JACK is sdk-tier in AZL (pro-audio routing daemon, not server runtime)
+    "mpg123-plugins-jack",
+    # Carve pulseaudio-module-jack to sdk: JACK is sdk-tier in AZL (pro-audio routing daemon, not server runtime)
+    "pulseaudio-module-jack",
 ]

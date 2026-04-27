@@ -753,3 +753,15 @@ srpm             = "libvirt"
 expected_channel = "base"
 allowed_in_other = ["libvirt-wireshark"]
 reason           = "libvirt-wireshark is a wireshark dissector plugin; lives wherever wireshark lives (sdk)."
+
+[[exception]]
+srpm             = "mpg123"
+expected_channel = "base"
+allowed_in_other = ["mpg123-plugins-jack"]
+reason           = "mpg123-plugins-jack carved to sdk to allow jack-audio-connection-kit demote; rest of mpg123 sub-pkgs stay in base"
+
+[[exception]]
+srpm             = "pulseaudio"
+expected_channel = "base"
+allowed_in_other = ["pulseaudio-module-jack"]
+reason           = "pulseaudio-module-jack carved to sdk to allow jack-audio-connection-kit demote; rest of pulseaudio sub-pkgs stay in base"

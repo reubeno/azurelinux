@@ -35,3 +35,52 @@ description = "Disable JACK audio backend - jack/ffado are sdk-tier in AZL"
 type = "spec-search-replace"
 regex = '^%global have_jack 1$'
 replacement = '%global have_jack 0'
+
+# Disable PulseAudio audio backend. AZL is a headless cloud distro;
+# pulseaudio is being demoted to sdk in its entirety, so qemu-audio-pa
+# (links libpulse) cannot stay in base. The upstream spec lacks a
+# have_pa macro - audio-pa is built unconditionally and its Requires
+# line cascades into every qemu-system-* emulator. Surgically remove
+# the audio-pa sub-package, unhook the Requires cascade, and switch
+# configure to --disable-pa.
+
+# 1. Unhook the cascading audio-pa Requires from every qemu-system-*
+#    emulator by emptying the requires_audio_pa macro.
+[[components.qemu.overlays]]
+description = "Empty requires_audio_pa macro - unhook qemu-audio-pa Requires from emulators"
+type = "spec-search-replace"
+regex = '^%define requires_audio_pa Requires: %\{name\}-audio-pa = %\{evr\}$'
+replacement = '%define requires_audio_pa %{nil}'
+
+# 2. Drop literal "pa," from --audio-drv-list (no longer building PA driver).
+[[components.qemu.overlays]]
+description = "Drop pa from --audio-drv-list (PulseAudio backend disabled)"
+type = "spec-search-replace"
+regex = '--audio-drv-list=pipewire,pa,sdl,alsa,'
+replacement = '--audio-drv-list=pipewire,sdl,alsa,'
+
+# 3. Switch configure flag from --enable-pa to --disable-pa.
+[[components.qemu.overlays]]
+description = "configure: --enable-pa -> --disable-pa"
+type = "spec-search-replace"
+regex = '^  --enable-pa \\$'
+replacement = '  --disable-pa \'
+
+# 4. Remove the audio-pa sub-package definition.
+[[components.qemu.overlays]]
+description = "Remove %package audio-pa - sub-package no longer built"
+type = "spec-remove-section"
+section = "%package"
+package = "audio-pa"
+
+[[components.qemu.overlays]]
+description = "Remove %description audio-pa - sub-package no longer built"
+type = "spec-remove-section"
+section = "%description"
+package = "audio-pa"
+
+[[components.qemu.overlays]]
+description = "Remove %files audio-pa - sub-package no longer built"
+type = "spec-remove-section"
+section = "%files"
+package = "audio-pa"

@@ -5264,7 +5264,6 @@ packages = [
     "perl-Fedora-VSP",
     "perl-Fedora-VSP-tests",
     "perl-File-BaseDir",
-    "perl-File-BaseDir-tests",
     "perl-File-Basename",
     "perl-File-Compare",
     "perl-File-Copy",

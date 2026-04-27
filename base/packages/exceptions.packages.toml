@@ -352,4 +352,6 @@ packages = [
     "pulseaudio-module-lirc",
     # kernel-selftests-internal is a developer/test sub-package of the kernel SRPM containing kselftest binaries (no consumer should runtime-Require it). Hard-Requires /usr/bin/inc (nmh mail handler) which is in neither channel; the test scripts shell out for ad-hoc checks. Out-of-place for base in a cloud distro.
     "kernel-selftests-internal",
+    # Tests sub-pkg requires xdg-user-dirs (sdk-tier desktop XDG dir helper); test artifact not warranted in base for cloud distro.
+    "perl-File-BaseDir-tests",
 ]

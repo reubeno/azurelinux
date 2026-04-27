@@ -843,3 +843,9 @@ srpm             = "kernel"
 expected_channel = "base"
 allowed_in_other = ["kernel-selftests-internal"]
 reason           = "kernel selftests sub-pkg requires nmh /usr/bin/inc (not in either channel); developer/test artifact"
+
+[[exception]]
+srpm             = "perl-File-BaseDir"
+expected_channel = "base"
+allowed_in_other = ["perl-File-BaseDir-tests"]
+reason           = "perl-File-BaseDir-tests carved to sdk - xdg-user-dirs is sdk-tier and only needed by this dev/test sub-pkg."

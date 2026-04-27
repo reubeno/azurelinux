@@ -5218,7 +5218,6 @@ packages = [
     "perl-DBD-SQLite",
     "perl-DBD-SQLite-tests",
     "perl-DBI",
-    "perl-DBI-Coro",
     "perl-DBM_Filter",
     "perl-DB_File",
     "perl-DB_File-tests",

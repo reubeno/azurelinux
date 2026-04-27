@@ -783,3 +783,9 @@ srpm             = "systemtap"
 expected_channel = "base"
 allowed_in_other = ["systemtap-testsuite"]
 reason           = "systemtap-testsuite carved to sdk to drop 'stress' dep from base; rest of systemtap stays in base"
+
+[[exception]]
+srpm             = "perl-DBI"
+expected_channel = "base"
+allowed_in_other = ["perl-DBI-Coro"]
+reason           = "perl-DBI-Coro carved to sdk to avoid dragging the perl-Coro/AnyEvent/EV/Event/Guard/BDB cascade into base; rest of perl-DBI stays in base"

@@ -331,4 +331,6 @@ packages = [
     "blosc-bench",
     # Carve systemtap-testsuite to sdk: testsuite is not server runtime; pulls 'stress' (sdk-tier perf-testing tool)
     "systemtap-testsuite",
+    # Carve perl-DBI-Coro to sdk: niche async DBI wrapper that depends on perl-Coro. No base consumer Requires it. Promoting perl-Coro to base instead would cascade-pull 6 SRPMs (perl-Coro, perl-AnyEvent, perl-IO-AIO, perl-AnyEvent-AIO, perl-AnyEvent-BDB, perl-BDB, perl-EV, perl-Event, perl-Guard) which is a much larger blast than carving this leaf sub-pkg.
+    "perl-DBI-Coro",
 ]

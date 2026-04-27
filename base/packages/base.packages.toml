@@ -6970,6 +6970,7 @@ packages = [
     "relaxng-datatype-java",
     "replacer",
     "replacer-javadoc",
+    "resolv_wrapper",
     "resource-agents",
     "rest",
     "rest-devel",

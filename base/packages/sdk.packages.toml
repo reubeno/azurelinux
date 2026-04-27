@@ -6705,7 +6705,6 @@ packages = [
     "redhat-text-vf-fonts",
     "reflections",
     "reflections-javadoc",
-    "resolv_wrapper",
     "rgb",
     "rlottie",
     "rlottie-devel",

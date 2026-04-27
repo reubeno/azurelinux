@@ -7737,6 +7737,8 @@ packages = [
     "twolame-libs",
     "tzdata",
     "tzdata-java",
+    "ubdsrv",
+    "ubdsrv-devel",
     "uchardet",
     "uchardet-devel",
     "ucx",

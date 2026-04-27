@@ -24539,8 +24539,6 @@ packages = [
     "tumbler",
     "tumbler-devel",
     "tumbler-extras",
-    "ubdsrv",
-    "ubdsrv-devel",
     "uboot-tools",
     "ucrt64-binutils",
     "ucrt64-cpp",

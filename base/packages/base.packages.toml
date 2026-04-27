@@ -4333,6 +4333,7 @@ packages = [
     "maven-jar-plugin",
     "maven-lib",
     "maven-local-openjdk25",
+    "maven-mapping",
     "maven-openjdk25",
     "maven-parent",
     "maven-plugin-annotations",

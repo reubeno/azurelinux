@@ -3839,7 +3839,6 @@ packages = [
     "maven-invoker-javadoc",
     "maven-invoker-plugin",
     "maven-invoker-plugin-javadoc",
-    "maven-mapping",
     "maven-script-interpreter",
     "maven-script-interpreter-javadoc",
     "maven-shade-plugin",

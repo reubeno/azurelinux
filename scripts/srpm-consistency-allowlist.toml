@@ -837,3 +837,9 @@ srpm             = "pulseaudio"
 expected_channel = "base"
 allowed_in_other = ["pulseaudio-module-lirc"]
 reason           = "lirc/IR remote-control integration is sdk-tier; liblirc_client not in base"
+
+[[exception]]
+srpm             = "kernel"
+expected_channel = "base"
+allowed_in_other = ["kernel-selftests-internal"]
+reason           = "kernel selftests sub-pkg requires nmh /usr/bin/inc (not in either channel); developer/test artifact"

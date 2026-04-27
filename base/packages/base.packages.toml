@@ -2626,7 +2626,6 @@ packages = [
     "kernel-modules-extra-matched",
     "kernel-modules-internal",
     "kernel-rpm-macros",
-    "kernel-selftests-internal",
     "kernel-srpm-macros",
     "kernel-tools",
     "kernel-tools-libs",

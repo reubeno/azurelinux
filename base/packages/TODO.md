@@ -130,29 +130,27 @@ build, the `[[ignore]]` block tagged
 `scripts/repoclosure-allowlist.toml` will go to zero hits in
 `repoclosure-base.allowlist-hits.txt` and should be deleted.
 
-## Revisit speech-dispatcher / orca (accessibility) demotion
+## Speech-dispatcher / orca (accessibility) — done
 
-`speech-dispatcher` (9 sub-pkgs) is text-to-speech daemon plumbing —
-user-facing desktop accessibility, not server runtime; the GNOME
-`orca` screen reader is in the same family but is not currently built
-in azurelinux at all (so nothing to demote for it).
+`speech-dispatcher` (9 sub-pkgs: `speech-dispatcher`, `-devel`,
+`-doc`, `-espeak-ng`, `-festival`, `-flite`, `-libs`, `-utils`,
+`python3-speechd`) was demoted to sdk. It is text-to-speech daemon
+plumbing — user-facing desktop accessibility, not server runtime.
+The whole-SRPM demote was clean: no non-sibling base consumer
+Requires `libspeechd.so.2` or any speech-dispatcher sub-package.
+
+The GNOME `orca` screen reader (sibling stack) is not currently
+built in azurelinux at all, so nothing to demote for it.
 
 `brltty` (15 sub-pkgs incl. `brlapi`, `python3-brlapi`,
 `tcl-brlapi`, `ocaml-brlapi`, `brltty-espeak{,-ng}`,
 `brltty-speech-dispatcher`, `brltty-at-spi2`, etc.) was demoted to
-sdk in commit 13c2ccb-ish in concert with a qemu overlay that flips
-`%global have_brlapi` to 0 — see
-`base/comps/qemu/qemu.comp.toml`. With the brlapi backend disabled
-qemu no longer produces `qemu-char-baum` and the per-emulator
-`Requires: %{name}-char-baum` lines disappear, so the brltty demote
-no longer cascades into the entire `qemu-system-*` family.
-
-speech-dispatcher remains: demoting it orphans
-`brltty-speech-dispatcher` (already in sdk now) but also
-`festival-freebsoft-utils -> speech-dispatcher`,
-`gnome-shell -> speech-dispatcher` (if shipped) and a few
-GUI consumers. Worth a separate visit; same overlay-pending pattern
-likely applies to its consumers.
+sdk in concert with a qemu overlay that flips `%global have_brlapi`
+to 0 — see `base/comps/qemu/qemu.comp.toml`. With the brlapi
+backend disabled qemu no longer produces `qemu-char-baum` and the
+per-emulator `Requires: %{name}-char-baum` lines disappear, so the
+brltty demote no longer cascades into the entire `qemu-system-*`
+family.
 
 ## Revisit bluez SRPM demotion
 

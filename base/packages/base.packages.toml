@@ -4274,6 +4274,8 @@ packages = [
     "lua-rpm-macros",
     "lua-srpm-macros",
     "lua-static",
+    "luajit",
+    "luajit-devel",
     "luarocks",
     "lujavrite",
     "luksmeta",

@@ -3729,8 +3729,6 @@ packages = [
     "lua-term",
     "lua5.1-filesystem",
     "lua5.1-lpeg",
-    "luajit",
-    "luajit-devel",
     "lusol",
     "lusol-devel",
     "lutok",

@@ -831,3 +831,9 @@ srpm             = "clamav"
 expected_channel = "base"
 allowed_in_other = ["clamav-milter"]
 reason           = "milter integration is sendmail-specific; libmilter not in base"
+
+[[exception]]
+srpm             = "pulseaudio"
+expected_channel = "base"
+allowed_in_other = ["pulseaudio-module-lirc"]
+reason           = "lirc/IR remote-control integration is sdk-tier; liblirc_client not in base"

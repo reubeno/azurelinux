@@ -348,4 +348,6 @@ packages = [
     "ldirectord",
     # clamav-milter is the Sendmail Milter integration for ClamAV. Pulls libmilter (sendmail-milter) which is not in base. The rest of clamav (scanner, signatures, daemon) stays in base.
     "clamav-milter",
+    # pulseaudio-module-lirc is the LIRC (Linux Infrared Remote Control) volume-control plugin for PulseAudio. AZL is a headless cloud distro with no IR receivers; lirc is sdk-tier. The rest of pulseaudio stays in base.
+    "pulseaudio-module-lirc",
 ]

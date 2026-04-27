@@ -5958,7 +5958,6 @@ packages = [
     "pulseaudio-libs-glib2",
     "pulseaudio-module-bluetooth",
     "pulseaudio-module-gsettings",
-    "pulseaudio-module-lirc",
     "pulseaudio-module-x11",
     "pulseaudio-module-zeroconf",
     "pulseaudio-utils",

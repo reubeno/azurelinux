@@ -4724,6 +4724,8 @@ packages = [
     "numactl-libs",
     "numad",
     "numatop",
+    "nuspell",
+    "nuspell-devel",
     "nvidia-gpu-firmware",
     "nvme-cli",
     "nvmetcli",

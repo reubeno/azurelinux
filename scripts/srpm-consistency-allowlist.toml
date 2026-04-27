@@ -196,6 +196,12 @@ allowed_in_other = ["mingw32-libyaml", "mingw64-libyaml"]
 reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
 
 [[exception]]
+srpm             = "nuspell"
+expected_channel = "base"
+allowed_in_other = ["mingw32-nuspell", "mingw64-nuspell"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
 srpm             = "nbdkit"
 expected_channel = "base"
 allowed_in_other = ["mingw32-nbdkit", "mingw64-nbdkit"]

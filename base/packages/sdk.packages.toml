@@ -4307,8 +4307,6 @@ packages = [
     "ntfs-3g-system-compression",
     "nunit",
     "nunit-devel",
-    "nuspell",
-    "nuspell-devel",
     "nv-codec-headers",
     "ocaml-astring",
     "ocaml-astring-devel",

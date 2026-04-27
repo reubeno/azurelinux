@@ -724,6 +724,8 @@ packages = [
     "flexmark-java-util-sequence",
     "flexmark-java-util-visitor",
     "flexmark-java-youtrack-converter",
+    "flite",
+    "flite-devel",
     "fltk",
     "fltk-devel",
     "fltk-fluid",

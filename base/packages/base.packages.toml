@@ -1186,8 +1186,6 @@ packages = [
     "flexiblas-openblas-serial64",
     "flexiblas-openblas-threads",
     "flexiblas-openblas-threads64",
-    "flite",
-    "flite-devel",
     "fmt",
     "fmt-devel",
     "fontawesome-6-brands-fonts",

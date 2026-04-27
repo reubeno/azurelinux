@@ -825,3 +825,9 @@ srpm             = "resource-agents"
 expected_channel = "base"
 allowed_in_other = ["ldirectord"]
 reason           = "ldirectord's perl-Net-IMAP-Simple-SSL chain (and family) is a niche IPVS LB monitoring stack"
+
+[[exception]]
+srpm             = "clamav"
+expected_channel = "base"
+allowed_in_other = ["clamav-milter"]
+reason           = "milter integration is sendmail-specific; libmilter not in base"

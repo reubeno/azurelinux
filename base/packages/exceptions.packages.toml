@@ -346,4 +346,6 @@ packages = [
     "nbdkit-torrent-plugin",
     # ldirectord is the Linux Director Daemon for IPVS-based load balancing; depends on perl-Net-IMAP-Simple-SSL (a chain of CPAN perl modules not warranted in base for an IPVS LB monitoring daemon). The rest of resource-agents (HA cluster scripts) stays in base.
     "ldirectord",
+    # clamav-milter is the Sendmail Milter integration for ClamAV. Pulls libmilter (sendmail-milter) which is not in base. The rest of clamav (scanner, signatures, daemon) stays in base.
+    "clamav-milter",
 ]

@@ -544,7 +544,6 @@ packages = [
     "clamav-filesystem",
     "clamav-freshclam",
     "clamav-lib",
-    "clamav-milter",
     "clamd",
     "clang",
     "clang-analyzer",

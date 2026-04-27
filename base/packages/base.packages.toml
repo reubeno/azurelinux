@@ -5558,6 +5558,8 @@ packages = [
     "perl-Sub-Exporter",
     "perl-Sub-Exporter-Progressive",
     "perl-Sub-Install",
+    "perl-Sub-Quote",
+    "perl-Sub-Quote-tests",
     "perl-Sub-Uplevel",
     "perl-Symbol",
     "perl-Syntax-Keyword-Try",

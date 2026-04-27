@@ -4860,8 +4860,6 @@ packages = [
     "perl-Sub-Identify",
     "perl-Sub-Infix",
     "perl-Sub-Name",
-    "perl-Sub-Quote",
-    "perl-Sub-Quote-tests",
     "perl-Symbol-Util",
     "perl-Syntax-Keyword-Defer",
     "perl-Syntax-Keyword-Defer-tests",

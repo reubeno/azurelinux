@@ -867,3 +867,9 @@ srpm             = "libreport"
 expected_channel = "base"
 allowed_in_other = ["libreport-plugin-mailx"]
 reason           = "libreport-plugin-mailx carved to sdk - /usr/bin/mailx provider isn't packaged anywhere in AZL."
+
+[[exception]]
+srpm             = "gtk3"
+expected_channel = "base"
+allowed_in_other = ["gtk3-immodules"]
+reason           = "gtk3-immodules carved to sdk - gtk-immodules-imsettings is sdk-tier and only needed by IM modules sub-pkg."

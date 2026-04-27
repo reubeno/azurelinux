@@ -360,4 +360,6 @@ packages = [
     "unbound-munin",
     # mailx plugin needs /usr/bin/mailx (mailx package is not in either channel - heirloom-mailx isn't packaged in AZL); not warranted in base for cloud distro.
     "libreport-plugin-mailx",
+    # GTK3 input-method modules sub-pkg requires gtk-immodules-imsettings (sdk-tier IM glue). Full IME stack not warranted in base for cloud distro; gtk3 core stays in base.
+    "gtk3-immodules",
 ]

@@ -2047,7 +2047,6 @@ packages = [
     "gtk3-devel",
     "gtk3-devel-docs",
     "gtk3-immodule-xim",
-    "gtk3-immodules",
     "gtk3-tests",
     "gtk4",
     "gtk4-devel",

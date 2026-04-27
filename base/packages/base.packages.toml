@@ -4164,7 +4164,6 @@ packages = [
     "linux-firmware",
     "linux-firmware-whence",
     "linux-system-roles",
-    "linuxdoc-tools",
     "linuxptp",
     "linuxptp-selinux",
     "liquidio-firmware",

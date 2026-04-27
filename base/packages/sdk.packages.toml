@@ -3708,6 +3708,7 @@ packages = [
     "linenoise-devel",
     "linkchecker",
     "linuxconsoletools",
+    "linuxdoc-tools",
     "lirc-compat",
     "lirc-config",
     "lirc-core",

@@ -5801,7 +5801,6 @@ packages = [
     "pigz",
     "pinentry",
     "pinentry-emacs",
-    "pinentry-gnome3",
     "pinentry-tty",
     "pixman",
     "pixman-devel",

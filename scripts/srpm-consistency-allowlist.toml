@@ -807,3 +807,9 @@ srpm             = "bluez"
 expected_channel = "base"
 allowed_in_other = ["bluez-cups"]
 reason           = "Sole base consumer of cups server pkg, also carved"
+
+[[exception]]
+srpm             = "pinentry"
+expected_channel = "base"
+allowed_in_other = ["pinentry-gnome3"]
+reason           = "GNOME GUI sub-pkg, no GNOME stack in base"

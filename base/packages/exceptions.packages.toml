@@ -340,4 +340,6 @@ packages = [
     "cups-printerapp",
     # bluez-cups carved to SDK alongside cups server (bluez Bluetooth printer backend); only base consumer of cups server pkg
     "bluez-cups",
+    # GNOME GUI passphrase prompt; AZL is headless cloud distro. pinentry, pinentry-emacs (emacs is in base), and pinentry-tty stay in base for terminal/emacs use
+    "pinentry-gnome3",
 ]

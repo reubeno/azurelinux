@@ -789,3 +789,15 @@ srpm             = "perl-DBI"
 expected_channel = "base"
 allowed_in_other = ["perl-DBI-Coro"]
 reason           = "perl-DBI-Coro carved to sdk to avoid dragging the perl-Coro/AnyEvent/EV/Event/Guard/BDB cascade into base; rest of perl-DBI stays in base"
+
+[[exception]]
+srpm             = "cups"
+expected_channel = "base"
+allowed_in_other = ["cups", "cups-ipptool", "cups-lpd", "cups-printerapp"]
+reason           = "Server-side cups; only bluez-cups in base depends on it (also carved)"
+
+[[exception]]
+srpm             = "bluez"
+expected_channel = "base"
+allowed_in_other = ["bluez-cups"]
+reason           = "Sole base consumer of cups server pkg, also carved"

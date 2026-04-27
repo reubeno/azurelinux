@@ -813,3 +813,9 @@ srpm             = "pinentry"
 expected_channel = "base"
 allowed_in_other = ["pinentry-gnome3"]
 reason           = "GNOME GUI sub-pkg, no GNOME stack in base"
+
+[[exception]]
+srpm             = "nbdkit"
+expected_channel = "base"
+allowed_in_other = ["nbdkit-torrent-plugin"]
+reason           = "torrent plugin pulls libtorrent-rasterbar; specialty plugin for serving torrents over NBD"

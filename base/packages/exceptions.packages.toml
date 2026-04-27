@@ -342,4 +342,6 @@ packages = [
     "bluez-cups",
     # GNOME GUI passphrase prompt; AZL is headless cloud distro. pinentry, pinentry-emacs (emacs is in base), and pinentry-tty stay in base for terminal/emacs use
     "pinentry-gnome3",
+    # nbdkit-torrent-plugin requires libtorrent-rasterbar (BitTorrent protocol library); not appropriate for an enterprise cloud distro's base channel
+    "nbdkit-torrent-plugin",
 ]

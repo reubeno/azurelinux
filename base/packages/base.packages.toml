@@ -4554,7 +4554,6 @@ packages = [
     "nbdkit-tar-filter",
     "nbdkit-tcl-plugin",
     "nbdkit-tmpdisk-plugin",
-    "nbdkit-torrent-plugin",
     "nbdkit-vddk-plugin",
     "nbdkit-vram-plugin",
     "nbdkit-xz-filter",

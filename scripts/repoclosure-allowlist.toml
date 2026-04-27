@@ -218,3 +218,23 @@ reason             = "po4a overlay drops the runtime Requires on texlive-kpathse
 confidence         = "high"
 overlay            = "base/comps/po4a/po4a.comp.toml"
 verified_at_commit = "ecc3137503"
+
+# ----------------------------------------------------------------------
+# tuna: drop oscilloscope sub-package (matplotlib-gtk3 enabler)
+#
+# tuna's optional `oscilloscope` sub-package is a matplotlib-GTK3
+# real-time visualizer that hard-Required python3-matplotlib-gtk3
+# (the GUI matplotlib bindings, sdk-tier in AZL). The overlay in
+# base/comps/tuna/tuna.comp.toml passes `--without oscilloscope` to
+# disable the bcond and removes the unpackaged-file fallout from
+# `%pyproject_install` via spec-search-replace.
+# Verified locally with `azldev component build -p tuna`: no
+# oscilloscope sub-package is produced.
+[[ignore]]
+package            = "oscilloscope"
+requires           = "python3-matplotlib-gtk3"
+scope              = "any"
+reason             = "tuna overlay disables the oscilloscope bcond; the oscilloscope sub-package is no longer built once the snapshot picks up the rebuilt tuna."
+confidence         = "high"
+overlay            = "base/comps/tuna/tuna.comp.toml"
+verified_at_commit = "05b1cfa20c"

@@ -313,3 +313,19 @@ reason             = "vim.spec gpm bcond flipped OFF via comp.toml; rebuilt vim-
 confidence         = "high"
 overlay            = "base/comps/vim/vim.comp.toml"
 verified_at_commit = "e4a3ee9b87"
+
+# ----------------------------------------------------------------------
+# m17n-lib-anthy: drop optional Anthy IME module via bcond
+#
+# m17n-lib-anthy was the only base consumer of anthy-unicode (sdk-tier
+# Japanese IME). m17n-lib.spec gates it via `%bcond_without anthy`
+# (default ON when fedora is set). Overlay flips to OFF; rebuilt
+# m17n-lib no longer produces the anthy sub-package.
+[[ignore]]
+package            = "m17n-lib-anthy"
+requires           = "anthy-unicode"
+scope              = "any"
+reason             = "overlay flips %bcond_without anthy to OFF; m17n-lib-anthy no longer built once snapshot picks up rebuild."
+confidence         = "high"
+overlay            = "base/comps/m17n-lib/m17n-lib.comp.toml"
+verified_at_commit = "4478d4e811"

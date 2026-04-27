@@ -4256,7 +4256,6 @@ packages = [
     "m17n-db-devel",
     "m17n-db-extras",
     "m17n-lib",
-    "m17n-lib-anthy",
     "m17n-lib-devel",
     "m17n-lib-tools",
     "m4",

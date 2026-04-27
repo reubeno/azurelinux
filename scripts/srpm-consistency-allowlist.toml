@@ -861,3 +861,9 @@ srpm             = "unbound"
 expected_channel = "base"
 allowed_in_other = ["unbound-munin"]
 reason           = "unbound-munin carved to sdk - munin-node is sdk-tier monitoring agent not warranted in base."
+
+[[exception]]
+srpm             = "libreport"
+expected_channel = "base"
+allowed_in_other = ["libreport-plugin-mailx"]
+reason           = "libreport-plugin-mailx carved to sdk - /usr/bin/mailx provider isn't packaged anywhere in AZL."

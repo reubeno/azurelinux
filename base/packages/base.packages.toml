@@ -3788,7 +3788,6 @@ packages = [
     "libreport-plugin-bugzilla",
     "libreport-plugin-kerneloops",
     "libreport-plugin-logger",
-    "libreport-plugin-mailx",
     "libreport-plugin-mantisbt",
     "libreport-plugin-reportuploader",
     "libreport-plugin-systemd-journal",

@@ -358,4 +358,6 @@ packages = [
     "xmlto-tex",
     # Munin monitoring plugin sub-pkg requires munin-node (sdk-tier; Munin agent). Munin-based monitoring not part of base for cloud distro; rest of unbound stays in base.
     "unbound-munin",
+    # mailx plugin needs /usr/bin/mailx (mailx package is not in either channel - heirloom-mailx isn't packaged in AZL); not warranted in base for cloud distro.
+    "libreport-plugin-mailx",
 ]

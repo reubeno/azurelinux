@@ -344,4 +344,6 @@ packages = [
     "pinentry-gnome3",
     # nbdkit-torrent-plugin requires libtorrent-rasterbar (BitTorrent protocol library); not appropriate for an enterprise cloud distro's base channel
     "nbdkit-torrent-plugin",
+    # ldirectord is the Linux Director Daemon for IPVS-based load balancing; depends on perl-Net-IMAP-Simple-SSL (a chain of CPAN perl modules not warranted in base for an IPVS LB monitoring daemon). The rest of resource-agents (HA cluster scripts) stays in base.
+    "ldirectord",
 ]

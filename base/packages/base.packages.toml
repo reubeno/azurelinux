@@ -3024,7 +3024,6 @@ packages = [
     "lcms2-devel",
     "lcms2-utils",
     "ldb-tools",
-    "ldirectord",
     "ldns",
     "ldns-devel",
     "ldns-doc",

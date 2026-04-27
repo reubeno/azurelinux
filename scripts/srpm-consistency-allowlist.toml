@@ -819,3 +819,9 @@ srpm             = "nbdkit"
 expected_channel = "base"
 allowed_in_other = ["nbdkit-torrent-plugin"]
 reason           = "torrent plugin pulls libtorrent-rasterbar; specialty plugin for serving torrents over NBD"
+
+[[exception]]
+srpm             = "resource-agents"
+expected_channel = "base"
+allowed_in_other = ["ldirectord"]
+reason           = "ldirectord's perl-Net-IMAP-Simple-SSL chain (and family) is a niche IPVS LB monitoring stack"

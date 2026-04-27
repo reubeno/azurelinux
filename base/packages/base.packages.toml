@@ -2045,6 +2045,7 @@ packages = [
     "gstreamer1-plugins-base-tools",
     "gtest",
     "gtest-devel",
+    "gtk-doc",
     "gtk-update-icon-cache",
     "gtk3",
     "gtk3-devel",

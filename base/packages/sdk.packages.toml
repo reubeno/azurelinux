@@ -2672,7 +2672,6 @@ packages = [
     "gstreamer1-plugins-good-qt",
     "gstreamer1-plugins-good-qt6",
     "gt",
-    "gtk-doc",
     "gtk-immodules-imsettings",
     "gtk-layer-shell",
     "gtk-layer-shell-devel",

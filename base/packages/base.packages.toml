@@ -4429,6 +4429,8 @@ packages = [
     "mcstrans",
     "mdadm",
     "mdevctl",
+    "mecab",
+    "mecab-devel",
     "mediatek-firmware",
     "memcached",
     "memcached-devel",

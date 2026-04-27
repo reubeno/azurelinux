@@ -3806,8 +3806,6 @@ packages = [
     "maven-shade-plugin-javadoc",
     "maven-verifier-plugin",
     "maven-verifier-plugin-javadoc",
-    "mecab",
-    "mecab-devel",
     "media-player-info",
     "memkind",
     "memkind-devel",

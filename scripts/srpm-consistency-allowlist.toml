@@ -496,12 +496,6 @@ allowed_in_other = ["setools-gui", "setools"]
 reason           = "GUI sub-pkg; pulls python3-pyqt6 from sdk."
 
 [[exception]]
-srpm             = "pulseaudio"
-expected_channel = "base"
-allowed_in_other = ["pulseaudio-qpaeq"]
-reason           = "GUI sub-pkg; pulls python3-qt5-base from sdk."
-
-[[exception]]
 srpm             = "firewalld"
 expected_channel = "base"
 allowed_in_other = ["firewall-applet"]
@@ -767,12 +761,6 @@ allowed_in_other = ["mpg123-plugins-jack"]
 reason           = "mpg123-plugins-jack carved to sdk to allow jack-audio-connection-kit demote; rest of mpg123 sub-pkgs stay in base"
 
 [[exception]]
-srpm             = "pulseaudio"
-expected_channel = "base"
-allowed_in_other = ["pulseaudio-module-jack"]
-reason           = "pulseaudio-module-jack carved to sdk to allow jack-audio-connection-kit demote; rest of pulseaudio sub-pkgs stay in base"
-
-[[exception]]
 srpm             = "mpg123"
 expected_channel = "base"
 allowed_in_other = ["mpg123-plugins-portaudio", "mpg123-plugins-pulseaudio"]
@@ -831,12 +819,6 @@ srpm             = "clamav"
 expected_channel = "base"
 allowed_in_other = ["clamav-milter"]
 reason           = "milter integration is sendmail-specific; libmilter not in base"
-
-[[exception]]
-srpm             = "pulseaudio"
-expected_channel = "base"
-allowed_in_other = ["pulseaudio-module-lirc"]
-reason           = "lirc/IR remote-control integration is sdk-tier; liblirc_client not in base"
 
 [[exception]]
 srpm             = "kernel"

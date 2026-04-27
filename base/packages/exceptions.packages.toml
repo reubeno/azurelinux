@@ -213,8 +213,6 @@ packages = [
     # Qt6 SELinux policy analysis GUI + setools meta-pkg (Requires gui); setools-console* CLI tools stay in base.
     "setools-gui",
     "setools",
-    # Qt5 PulseAudio equalizer GUI; pulseaudio daemon/utils stay in base.
-    "pulseaudio-qpaeq",
     # PyQt6 firewall tray applet; firewalld daemon/CLI tools stay in base.
     "firewall-applet",
     # GTK source-view demo program; librest library stays in base.
@@ -322,8 +320,6 @@ packages = [
     "libvirt-wireshark",
     # Carve mpg123-plugins-jack to sdk: JACK is sdk-tier in AZL (pro-audio routing daemon, not server runtime)
     "mpg123-plugins-jack",
-    # Carve pulseaudio-module-jack to sdk: JACK is sdk-tier in AZL (pro-audio routing daemon, not server runtime)
-    "pulseaudio-module-jack",
     # Carve niche audio-backend plugins to sdk: portaudio is sdk-tier; pulseaudio backend plugin is redundant given pulseaudio's own modules
     "mpg123-plugins-portaudio",
     "mpg123-plugins-pulseaudio",
@@ -348,8 +344,6 @@ packages = [
     "ldirectord",
     # clamav-milter is the Sendmail Milter integration for ClamAV. Pulls libmilter (sendmail-milter) which is not in base. The rest of clamav (scanner, signatures, daemon) stays in base.
     "clamav-milter",
-    # pulseaudio-module-lirc is the LIRC (Linux Infrared Remote Control) volume-control plugin for PulseAudio. AZL is a headless cloud distro with no IR receivers; lirc is sdk-tier. The rest of pulseaudio stays in base.
-    "pulseaudio-module-lirc",
     # kernel-selftests-internal is a developer/test sub-package of the kernel SRPM containing kselftest binaries (no consumer should runtime-Require it). Hard-Requires /usr/bin/inc (nmh mail handler) which is in neither channel; the test scripts shell out for ad-hoc checks. Out-of-place for base in a cloud distro.
     "kernel-selftests-internal",
     # Tests sub-pkg requires xdg-user-dirs (sdk-tier desktop XDG dir helper); test artifact not warranted in base for cloud distro.

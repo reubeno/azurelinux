@@ -777,3 +777,9 @@ srpm             = "blosc"
 expected_channel = "base"
 allowed_in_other = ["blosc-bench"]
 reason           = "blosc-bench carved to sdk to drop python3-matplotlib dep from base; rest of blosc stays in base"
+
+[[exception]]
+srpm             = "systemtap"
+expected_channel = "base"
+allowed_in_other = ["systemtap-testsuite"]
+reason           = "systemtap-testsuite carved to sdk to drop 'stress' dep from base; rest of systemtap stays in base"

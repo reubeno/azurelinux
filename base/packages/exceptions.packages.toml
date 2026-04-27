@@ -329,4 +329,6 @@ packages = [
     "mpg123-plugins-pulseaudio",
     # Carve blosc-bench to sdk: matplotlib-based benchmark tool, not server runtime
     "blosc-bench",
+    # Carve systemtap-testsuite to sdk: testsuite is not server runtime; pulls 'stress' (sdk-tier perf-testing tool)
+    "systemtap-testsuite",
 ]

@@ -7615,7 +7615,6 @@ packages = [
     "systemtap-sdt-devel",
     "systemtap-sdt-dtrace",
     "systemtap-server",
-    "systemtap-testsuite",
     "tang",
     "tar",
     "target-restore",

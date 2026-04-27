@@ -4852,7 +4852,6 @@ packages = [
     "perl-Sort-Versions",
     "perl-Spellunker",
     "perl-Spiffy",
-    "perl-String-CRC32",
     "perl-String-Escape",
     "perl-String-Format",
     "perl-Struct-Dumb",

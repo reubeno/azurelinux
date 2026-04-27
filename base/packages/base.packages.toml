@@ -5552,6 +5552,7 @@ packages = [
     "perl-Specio",
     "perl-Storable",
     "perl-Storable-tests",
+    "perl-String-CRC32",
     "perl-String-ShellQuote",
     "perl-String-ShellQuote-tests",
     "perl-Sub-Exporter",

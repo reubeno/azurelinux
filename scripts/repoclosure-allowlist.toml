@@ -356,3 +356,20 @@ reason             = "qemu-audio-pa sub-package removed via overlay; entry stale
 confidence         = "high"
 overlay            = "base/comps/qemu/qemu.comp.toml"
 verified_at_commit = "a45fd86611"
+
+# ----------------------------------------------------------------------
+# hwloc-plugins: drop oneapi-level-zero BR via rhel=10 macro
+#
+# hwloc.spec gates oneapi-level-zero-devel BuildRequires behind
+# %if %{undefined rhel}. hwloc.comp.toml defines rhel=10 so AZL builds
+# follow the RHEL flow and skip the BR; rebuilt hwloc-plugins no longer
+# Requires libze_loader.so.1. Allowlist the stale published-snapshot
+# Requires until the rebuilt RPMs hit the published feed.
+[[ignore]]
+package            = "hwloc-plugins"
+requires           = "libze_loader.so.1()(64bit)"
+scope              = "any"
+reason             = "hwloc.comp.toml sets rhel=10; rebuilt hwloc-plugins no longer Requires libze_loader. Stale until published feed picks up rebuild."
+confidence         = "high"
+overlay            = "base/comps/hwloc/hwloc.comp.toml"
+verified_at_commit = "47b909dd09"

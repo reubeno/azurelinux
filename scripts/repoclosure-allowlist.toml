@@ -433,3 +433,21 @@ reason = "qemu PipeWire audio backend disabled via overlay (--disable-pipewire, 
 confidence = "high"
 overlay = "base/comps/qemu/qemu.comp.toml"
 verified_at_commit = "978d56a9af"
+
+[[ignore]]
+package = "anaconda-core"
+requires = "flatpak"
+scope = "base"
+reason = "anaconda-core no longer Requires flatpak (overlay drops the Requires; AZL doesn't ship the flatpak installer source-type). Stale published RPM until republish."
+confidence = "high"
+overlay = "base/comps/anaconda/anaconda.comp.toml"
+verified_at_commit = "036f4766e8"
+
+[[ignore]]
+package = "anaconda-core"
+requires = "flatpak-libs"
+scope = "base"
+reason = "anaconda-core no longer Requires flatpak-libs (overlay drops the Requires). Stale published RPM until republish."
+confidence = "high"
+overlay = "base/comps/anaconda/anaconda.comp.toml"
+verified_at_commit = "036f4766e8"

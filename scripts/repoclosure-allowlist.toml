@@ -389,3 +389,38 @@ scope              = "any"
 reason             = "Current ruby.spec sets rdoc_version=6.14.0 and builds rubygem-rdoc=6.14.0. Stale published feed still has 6.4.0-208; will resolve on next ruby rebuild + publish."
 confidence         = "high"
 verified_at_commit = "602c3e10ac"
+
+# ----------------------------------------------------------------------
+# gtk4: GtkMedia/GtkVideo widget disabled in AZL
+#
+# gtk4.comp.toml drops the Requires on gstreamer1-plugins-bad-free-libs,
+# the BR on gstreamer-player-1.0, and configures meson with
+# -Dmedia-gstreamer=disabled. Rebuilt gtk4 / gtk4-devel no longer link
+# libgstplay-1.0.so.0. Allowlist the stale published-snapshot Requires
+# until the rebuilt RPMs hit the published feed.
+[[ignore]]
+package            = "gtk4"
+requires           = "gstreamer1-plugins-bad-free-libs(x86-64) >= 1.24.0"
+scope              = "any"
+reason             = "gtk4.comp.toml disables media-gstreamer; rebuilt gtk4 no longer Requires gst-bad-libs. Stale until published feed picks up rebuild."
+confidence         = "high"
+overlay            = "base/comps/gtk4/gtk4.comp.toml"
+verified_at_commit = "2fbe340a6f"
+
+[[ignore]]
+package            = "gtk4"
+requires           = "libgstplay-1.0.so.0()(64bit)"
+scope              = "any"
+reason             = "gtk4.comp.toml disables media-gstreamer; rebuilt gtk4 no longer links libgstplay. Stale until published feed picks up rebuild."
+confidence         = "high"
+overlay            = "base/comps/gtk4/gtk4.comp.toml"
+verified_at_commit = "2fbe340a6f"
+
+[[ignore]]
+package            = "gtk4-devel"
+requires           = "libgstplay-1.0.so.0()(64bit)"
+scope              = "any"
+reason             = "gtk4.comp.toml disables media-gstreamer; rebuilt gtk4-devel no longer links libgstplay. Stale until published feed picks up rebuild."
+confidence         = "high"
+overlay            = "base/comps/gtk4/gtk4.comp.toml"
+verified_at_commit = "2fbe340a6f"

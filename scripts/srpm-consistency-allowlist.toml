@@ -903,3 +903,9 @@ srpm             = "javapackages-tools"
 expected_channel = "base"
 allowed_in_other = ["javapackages-local-openjdk25", "maven-local-openjdk25"]
 reason           = "javapackages-local-openjdk25 chain pulls xmvn-generator -> dola-bsx (sdk-tier Java build-tooling fork). Whole chain carved to sdk; rest of javapackages-tools stays in base."
+
+[[exception]]
+srpm             = "fence-agents"
+expected_channel = "base"
+allowed_in_other = ["fence-agents-amt", "fence-agents-amt-ws"]
+reason           = "fence-agents-amt/-amt-ws Require amtterm which moved to sdk. Intel AMT cluster fencing not a cloud workload."

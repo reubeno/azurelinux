@@ -133,6 +133,7 @@ packages = [
     "allegro-tools",
     "aml",
     "aml-devel",
+    "amtterm",
     "anaconda-webui",
     "ant-contrib",
     "ant-contrib-javadoc",

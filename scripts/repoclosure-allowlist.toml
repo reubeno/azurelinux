@@ -116,6 +116,7 @@ confidence         = "high"
 overlay            = "base/comps/erlang/erlang.comp.toml"
 verified_at_commit = "84390c4d7d"
 
+
 # ----------------------------------------------------------------------
 # openscap: drop the optional apt-libs Requires
 #
@@ -137,6 +138,7 @@ reason             = "build.without = [\"apt\"] in base/comps/openscap/openscap.
 confidence         = "high"
 overlay            = "base/comps/openscap/openscap.comp.toml"
 verified_at_commit = "0f614bd9c0"
+
 
 # ----------------------------------------------------------------------
 # qemu: drop have_brlapi / qemu-char-baum cascade (brltty demote enabler)
@@ -165,6 +167,7 @@ confidence         = "high"
 overlay            = "base/comps/qemu/qemu.comp.toml"
 verified_at_commit = "61673f0d25"
 
+
 # ----------------------------------------------------------------------
 # qemu: drop have_jack / qemu-audio-jack cascade (jack/ffado demote enabler)
 #
@@ -188,6 +191,7 @@ confidence         = "high"
 overlay            = "base/comps/qemu/qemu.comp.toml"
 verified_at_commit = "d85ef67af9"
 
+
 # Snapshot-lag: qemu-audio-jack itself still exists in the published
 # snapshot and Requires libjack.so.0; once the snapshot rebuilds qemu
 # this sub-pkg disappears entirely (covered by the cascade entry above).
@@ -199,6 +203,7 @@ reason             = "qemu-audio-jack will not be built once snapshot picks up t
 confidence         = "high"
 overlay            = "base/comps/qemu/qemu.comp.toml"
 verified_at_commit = "d85ef67af9"
+
 
 # ----------------------------------------------------------------------
 # po4a: drop texlive-kpathsea Requires
@@ -218,6 +223,7 @@ reason             = "po4a overlay drops the runtime Requires on texlive-kpathse
 confidence         = "high"
 overlay            = "base/comps/po4a/po4a.comp.toml"
 verified_at_commit = "ecc3137503"
+
 
 # ----------------------------------------------------------------------
 # tuna: drop oscilloscope sub-package (matplotlib-gtk3 enabler)
@@ -239,6 +245,7 @@ confidence         = "high"
 overlay            = "base/comps/tuna/tuna.comp.toml"
 verified_at_commit = "05b1cfa20c"
 
+
 # ----------------------------------------------------------------------
 # ostree: drop installed-tests sub-package (gjs enabler)
 #
@@ -256,6 +263,7 @@ reason             = "ostree overlay disables the tests bcond; the ostree-tests 
 confidence         = "high"
 overlay            = "base/comps/ostree/ostree.comp.toml"
 verified_at_commit = "73e7158634"
+
 
 # ----------------------------------------------------------------------
 # sblim-cmpi-base: drop test sub-package (sblim-testsuite enabler)
@@ -275,6 +283,7 @@ reason             = "overlay flips %global with_test_subpackage to 0; sub-pkg n
 confidence         = "high"
 overlay            = "base/comps/sblim-cmpi-base/sblim-cmpi-base.comp.toml"
 verified_at_commit = "807a983921"
+
 
 # ----------------------------------------------------------------------
 # gpm whole-SRPM demote: emacs/mc/vim no longer link libgpm
@@ -296,6 +305,7 @@ confidence         = "high"
 overlay            = "base/comps/emacs/emacs.comp.toml"
 verified_at_commit = "e4a3ee9b87"
 
+
 [[ignore]]
 package            = "mc"
 requires           = "libgpm.so.2()(64bit)"
@@ -305,6 +315,7 @@ confidence         = "high"
 overlay            = "base/comps/mc/mc.comp.toml"
 verified_at_commit = "e4a3ee9b87"
 
+
 [[ignore]]
 package            = "vim-enhanced"
 requires           = "libgpm.so.2()(64bit)"
@@ -313,6 +324,7 @@ reason             = "vim.spec gpm bcond flipped OFF via comp.toml; rebuilt vim-
 confidence         = "high"
 overlay            = "base/comps/vim/vim.comp.toml"
 verified_at_commit = "e4a3ee9b87"
+
 
 # ----------------------------------------------------------------------
 # m17n-lib-anthy: drop optional Anthy IME module via bcond
@@ -329,6 +341,7 @@ reason             = "overlay flips %bcond_without anthy to OFF; m17n-lib-anthy 
 confidence         = "high"
 overlay            = "base/comps/m17n-lib/m17n-lib.comp.toml"
 verified_at_commit = "4478d4e811"
+
 
 # ----------------------------------------------------------------------
 # qemu-audio-pa: PulseAudio backend dropped via overlay
@@ -348,6 +361,7 @@ confidence         = "high"
 overlay            = "base/comps/qemu/qemu.comp.toml"
 verified_at_commit = "a45fd86611"
 
+
 [[ignore]]
 package            = "qemu-audio-pa"
 requires           = "libpulse.so.0(PULSE_0)(64bit)"
@@ -356,6 +370,7 @@ reason             = "qemu-audio-pa sub-package removed via overlay; entry stale
 confidence         = "high"
 overlay            = "base/comps/qemu/qemu.comp.toml"
 verified_at_commit = "a45fd86611"
+
 
 # ----------------------------------------------------------------------
 # hwloc-plugins: drop oneapi-level-zero BR via rhel=10 macro
@@ -374,6 +389,7 @@ confidence         = "high"
 overlay            = "base/comps/hwloc/hwloc.comp.toml"
 verified_at_commit = "47b909dd09"
 
+
 # ----------------------------------------------------------------------
 # rubygems-devel: rdoc version skew with stale ruby in published feed
 #
@@ -390,6 +406,7 @@ reason             = "Current ruby.spec sets rdoc_version=6.14.0 and builds ruby
 confidence         = "high"
 verified_at_commit = "602c3e10ac"
 
+
 # ----------------------------------------------------------------------
 # gtk4: GtkMedia/GtkVideo widget disabled in AZL
 #
@@ -398,32 +415,8 @@ verified_at_commit = "602c3e10ac"
 # -Dmedia-gstreamer=disabled. Rebuilt gtk4 / gtk4-devel no longer link
 # libgstplay-1.0.so.0. Allowlist the stale published-snapshot Requires
 # until the rebuilt RPMs hit the published feed.
-[[ignore]]
-package            = "gtk4"
-requires           = "gstreamer1-plugins-bad-free-libs(x86-64) >= 1.24.0"
-scope              = "any"
-reason             = "gtk4.comp.toml disables media-gstreamer; rebuilt gtk4 no longer Requires gst-bad-libs. Stale until published feed picks up rebuild."
-confidence         = "high"
-overlay            = "base/comps/gtk4/gtk4.comp.toml"
-verified_at_commit = "2fbe340a6f"
 
-[[ignore]]
-package            = "gtk4"
-requires           = "libgstplay-1.0.so.0()(64bit)"
-scope              = "any"
-reason             = "gtk4.comp.toml disables media-gstreamer; rebuilt gtk4 no longer links libgstplay. Stale until published feed picks up rebuild."
-confidence         = "high"
-overlay            = "base/comps/gtk4/gtk4.comp.toml"
-verified_at_commit = "2fbe340a6f"
 
-[[ignore]]
-package            = "gtk4-devel"
-requires           = "libgstplay-1.0.so.0()(64bit)"
-scope              = "any"
-reason             = "gtk4.comp.toml disables media-gstreamer; rebuilt gtk4-devel no longer links libgstplay. Stale until published feed picks up rebuild."
-confidence         = "high"
-overlay            = "base/comps/gtk4/gtk4.comp.toml"
-verified_at_commit = "2fbe340a6f"
 
 [[ignore]]
 package = "qemu-audio-pipewire"
@@ -434,6 +427,7 @@ confidence = "high"
 overlay = "base/comps/qemu/qemu.comp.toml"
 verified_at_commit = "978d56a9af"
 
+
 [[ignore]]
 package = "anaconda-core"
 requires = "flatpak"
@@ -442,6 +436,7 @@ reason = "anaconda-core no longer Requires flatpak (overlay drops the Requires; 
 confidence = "high"
 overlay = "base/comps/anaconda/anaconda.comp.toml"
 verified_at_commit = "036f4766e8"
+
 
 [[ignore]]
 package = "anaconda-core"

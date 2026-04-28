@@ -1,40 +1,12 @@
 [components.gtk4]
 
-# AZL is a headless cloud distro - no need for the GtkMedia/GtkVideo
-# widget. Disable media-gstreamer to drop the
-#   BuildRequires: pkgconfig(gstreamer-player-1.0)
-#   Requires:      gstreamer1-plugins-bad-free-libs
-# pair, since gstreamer1-plugins-bad-free-* is sdk-tier in AZL.
+# gtk4 4.20.3's meson hard-requires libdrm but the upstream Fedora
+# spec does not declare a BuildRequires on libdrm-devel. Without
+# this BR the build fails at meson.build:731. This is a latent
+# upstream gap; keep the BR even though gtk4 itself now lives in sdk.
 
-# 1. Drop the runtime Requires on gstreamer1-plugins-bad-free-libs.
 [[components.gtk4.overlays]]
-description = "Remove Requires on gstreamer1-plugins-bad-free-libs (GtkVideo widget disabled)"
-type = "spec-search-replace"
-regex = '^Requires: gstreamer1-plugins-bad-free-libs%\{\?_isa\} >= %\{gstreamer_version\}$'
-replacement = '# Requires: gstreamer1-plugins-bad-free-libs - dropped, GtkVideo widget disabled in AZL'
-
-# 2. Drop the BuildRequires on pkgconfig(gstreamer-player-1.0).
-[[components.gtk4.overlays]]
-description = "Remove BuildRequires on gstreamer-player-1.0 (GtkVideo widget disabled)"
-type = "spec-remove-tag"
-tag = "BuildRequires"
-value = "pkgconfig(gstreamer-player-1.0) >= %{gstreamer_version}"
-
-# 3. Pass -Dmedia-gstreamer=disabled to meson.
-[[components.gtk4.overlays]]
-description = "Configure gtk4 with -Dmedia-gstreamer=disabled - no GtkMedia/GtkVideo support"
-type = "spec-search-replace"
-section = "%build"
-regex = '^        -Dbuild-examples=false$'
-replacement = "        -Dbuild-examples=false \\\n        -Dmedia-gstreamer=disabled"
-
-# 4. Pre-existing latent BR gap: gtk4 4.20 meson hard-requires
-#    libdrm (DMA-BUF / GPU buffer code paths added in 4.x); the
-#    upstream spec never got an explicit BR. Add it so the build
-#    succeeds in our chroot which doesn't happen to drag libdrm-devel
-#    in transitively.
-[[components.gtk4.overlays]]
-description = "Add missing BuildRequires on libdrm (gtk4 4.20 meson requires it)"
+description = "Add missing libdrm BuildRequires (gtk4 4.20+ meson requirement)"
 type = "spec-add-tag"
 tag = "BuildRequires"
 value = "pkgconfig(libdrm)"

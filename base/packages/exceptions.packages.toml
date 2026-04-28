@@ -380,4 +380,7 @@ packages = [
     "fence-agents-amt-ws",
     # sysprof (the GUI binary) carved to sdk: depends on libpanel + libadwaita + gtk4 (all GUI). The rest of the sysprof SRPM (libsysprof, sysprof-cli, sysprof-agent, sysprof-capture-devel, sysprof-devel) stays in base since glib2-devel/libsoup3-devel link sysprof-capture-4.
     "sysprof",
+    # glycin-gtk4-libs + glycin-gtk4-devel carved to sdk: GTK4-specific image-loader bindings. Rest of glycin (glycin-libs, glycin-loaders, glycin-thumbnailer, glycin-devel) stays in base because gdk-pixbuf2 hard-Requires libglycin-2.so.0.
+    "glycin-gtk4-devel",
+    "glycin-gtk4-libs",
 ]

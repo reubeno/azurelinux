@@ -915,3 +915,9 @@ srpm             = "sysprof"
 expected_channel = "base"
 allowed_in_other = ["sysprof"]
 reason           = "sysprof GUI binary moved with libpanel/libadwaita/gtk4 demote."
+
+[[exception]]
+srpm             = "glycin"
+expected_channel = "base"
+allowed_in_other = ["glycin-gtk4-devel", "glycin-gtk4-libs"]
+reason           = "GTK4 bindings sub-package; gtk4 itself moving to sdk."

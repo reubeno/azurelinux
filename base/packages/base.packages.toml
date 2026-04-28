@@ -1567,8 +1567,6 @@ packages = [
     "glusterfs-thin-arbiter",
     "glx-utils",
     "glycin-devel",
-    "glycin-gtk4-devel",
-    "glycin-gtk4-libs",
     "glycin-libs",
     "glycin-loaders",
     "glycin-thumbnailer",

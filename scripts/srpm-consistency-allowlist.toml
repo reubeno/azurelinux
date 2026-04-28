@@ -909,3 +909,9 @@ srpm             = "fence-agents"
 expected_channel = "base"
 allowed_in_other = ["fence-agents-amt", "fence-agents-amt-ws"]
 reason           = "fence-agents-amt/-amt-ws Require amtterm which moved to sdk. Intel AMT cluster fencing not a cloud workload."
+
+[[exception]]
+srpm             = "sysprof"
+expected_channel = "base"
+allowed_in_other = ["sysprof"]
+reason           = "sysprof GUI binary moved with libpanel/libadwaita/gtk4 demote."

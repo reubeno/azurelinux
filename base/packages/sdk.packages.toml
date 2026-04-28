@@ -3589,6 +3589,8 @@ packages = [
     "libopendmarc-devel",
     "libopenmpt",
     "libopenmpt-devel",
+    "libpanel",
+    "libpanel-devel",
     "libpapilo",
     "libpapilo-devel",
     "libphodav",

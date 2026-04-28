@@ -378,4 +378,6 @@ packages = [
     # fence-agents-amt + fence-agents-amt-ws carved to sdk: both depend on amtterm (Intel AMT serial-over-LAN client, demoted to sdk). Intel AMT-managed clusters are a niche enterprise-on-prem use case; cloud-hosted nodes use serial-console-via-IMDS.
     "fence-agents-amt",
     "fence-agents-amt-ws",
+    # sysprof (the GUI binary) carved to sdk: depends on libpanel + libadwaita + gtk4 (all GUI). The rest of the sysprof SRPM (libsysprof, sysprof-cli, sysprof-agent, sysprof-capture-devel, sysprof-devel) stays in base since glib2-devel/libsoup3-devel link sysprof-capture-4.
+    "sysprof",
 ]

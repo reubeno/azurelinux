@@ -24751,6 +24751,7 @@ packages = [
     "xmessage",
     "xmvn-connector-ivy",
     "xmvn-connector-ivy-javadoc",
+    "xmvn-generator",
     "xmvn5",
     "xmvn5-core",
     "xmvn5-minimal",

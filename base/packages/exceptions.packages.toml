@@ -372,4 +372,7 @@ packages = [
     "javapackages-compat",
     # perl-Log-Dispatch-ApacheLog carved to sdk: requires perl(Apache2::Log) from mod_perl which is sdk-tier. Zero consumers in base. Rest of perl-Log-Dispatch SRPM stays in base.
     "perl-Log-Dispatch-ApacheLog",
+    # javapackages-local-openjdk25 + maven-local-openjdk25 carved to sdk: these are Java package-BUILD tooling (RPM dep generation, maven build helpers). javapackages-local-openjdk25 hard-Requires xmvn-generator (sdk); maven-local-openjdk25 hard-Requires javapackages-local-openjdk25. AZL base ships Java RUNTIME macros via javapackages-tools/javapackages-common/javapackages-filesystem; building Java packages belongs in sdk.
+    "javapackages-local-openjdk25",
+    "maven-local-openjdk25",
 ]

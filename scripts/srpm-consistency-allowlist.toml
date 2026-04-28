@@ -897,3 +897,9 @@ srpm             = "perl-Log-Dispatch"
 expected_channel = "base"
 allowed_in_other = ["perl-Log-Dispatch-ApacheLog"]
 reason           = "ApacheLog sub-package needs mod_perl (sdk-tier); no base consumers."
+
+[[exception]]
+srpm             = "javapackages-tools"
+expected_channel = "base"
+allowed_in_other = ["javapackages-local-openjdk25", "maven-local-openjdk25"]
+reason           = "javapackages-local-openjdk25 chain pulls xmvn-generator -> dola-bsx (sdk-tier Java build-tooling fork). Whole chain carved to sdk; rest of javapackages-tools stays in base."

@@ -873,3 +873,9 @@ srpm             = "perl-File-BaseDir"
 expected_channel = "base"
 allowed_in_other = ["perl-File-UserDirs"]
 reason           = "perl-File-UserDirs depends on xdg-user-dirs which is sdk-tier in AZL (desktop XDG dir helper); rest of perl-File-BaseDir SRPM stays in base."
+
+[[exception]]
+srpm             = "pcp"
+expected_channel = "base"
+allowed_in_other = ["pcp-pmda-nutcracker"]
+reason           = "pcp-pmda-nutcracker is a niche PMDA (Performance Co-Pilot agent) for the nutcracker proxy; depends on perl(YAML::XS) which is sdk-tier. Rest of pcp stays in base."

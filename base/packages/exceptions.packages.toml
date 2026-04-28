@@ -362,4 +362,6 @@ packages = [
     "perl-MojoX-MIME-Types",
     # perl-File-UserDirs requires xdg-user-dirs (sdk-tier desktop helper); not warranted in base for cloud distro.
     "perl-File-UserDirs",
+    # pcp-pmda-nutcracker requires perl(YAML::XS) (perl-YAML-LibYAML, sdk-tier); niche PMDA for the nutcracker memcached/redis proxy, not warranted in base.
+    "pcp-pmda-nutcracker",
 ]

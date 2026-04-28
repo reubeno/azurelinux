@@ -7526,8 +7526,6 @@ packages = [
     "teamd-devel",
     "teckit",
     "teckit-devel",
-    "tecla",
-    "tecla-devel",
     "telnet",
     "telnet-server",
     "testng",

@@ -17646,6 +17646,8 @@ packages = [
     "tdx-attest-devel",
     "tdx-attest-libs",
     "tdx-qgs",
+    "tecla",
+    "tecla-devel",
     "tesseract",
     "tesseract-common",
     "tesseract-devel",

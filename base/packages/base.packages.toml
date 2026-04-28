@@ -6981,8 +6981,6 @@ packages = [
     "rocm-omp",
     "rocm-omp-devel",
     "rocm-omp-static",
-    "rocm-opencl",
-    "rocm-opencl-devel",
     "rocm-rpm-macros",
     "rocm-rpm-macros-modules",
     "rocm-runtime",

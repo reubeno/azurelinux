@@ -364,4 +364,7 @@ packages = [
     "perl-File-UserDirs",
     # pcp-pmda-nutcracker requires perl(YAML::XS) (perl-YAML-LibYAML, sdk-tier); niche PMDA for the nutcracker memcached/redis proxy, not warranted in base.
     "pcp-pmda-nutcracker",
+    # rocm-opencl + -devel carved to sdk: ROCm OpenCL runtime; -devel pulls OpenCL-ICD-Loader-devel which is sdk-tier. ROCm GPU compute is sdk-tier in AZL.
+    "rocm-opencl",
+    "rocm-opencl-devel",
 ]

@@ -885,3 +885,9 @@ srpm             = "rocclr"
 expected_channel = "base"
 allowed_in_other = ["rocm-opencl", "rocm-opencl-devel"]
 reason           = "rocm-opencl(-devel) is the ROCm OpenCL runtime; AMD GPU compute is sdk-tier in AZL and OpenCL-ICD-Loader-devel is sdk-only."
+
+[[exception]]
+srpm             = "javapackages-tools"
+expected_channel = "base"
+allowed_in_other = ["ivy-local", "javapackages-compat"]
+reason           = "ivy-local needs apache-ivy + xmvn-connector-ivy (sdk-tier) and javapackages-compat is a legacy shim with no base consumers. Both carved to sdk."

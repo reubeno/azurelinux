@@ -367,4 +367,7 @@ packages = [
     # rocm-opencl + -devel carved to sdk: ROCm OpenCL runtime; -devel pulls OpenCL-ICD-Loader-devel which is sdk-tier. ROCm GPU compute is sdk-tier in AZL.
     "rocm-opencl",
     "rocm-opencl-devel",
+    # ivy-local + javapackages-compat carved to sdk: ivy-local depends on apache-ivy + xmvn-connector-ivy (both sdk-tier); javapackages-compat is a legacy shim. Both have zero consumers in base. Rest of javapackages-tools stays in base.
+    "ivy-local",
+    "javapackages-compat",
 ]

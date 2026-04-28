@@ -927,3 +927,9 @@ srpm             = "gssdp"
 expected_channel = "base"
 allowed_in_other = ["gssdp-utils"]
 reason           = "gssdp-utils CLI tool; not needed for headless cloud."
+
+[[exception]]
+srpm             = "vte291"
+expected_channel = "base"
+allowed_in_other = ["vte291-gtk4", "vte291-gtk4-devel"]
+reason           = "GTK4 variant of VTE terminal widget; gtk4 itself moving to sdk."

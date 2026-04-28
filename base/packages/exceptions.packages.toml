@@ -385,4 +385,7 @@ packages = [
     "glycin-gtk4-libs",
     # gssdp-utils carved to sdk: a CLI tool for SSDP/UPnP discovery. The rest of the gssdp SRPM (gssdp library, gssdp-devel, gssdp-docs) stays in base because gupnp + gupnp-igd link libgssdp-1.6.so.0.
     "gssdp-utils",
+    # vte291-gtk4 + vte291-gtk4-devel carved to sdk: GTK4 build of the VTE terminal widget. The rest of the vte291 SRPM (vte291 (gtk3), vte291-devel, vte-profile) stays in base because qemu-ui-gtk and amtterm link libvte-2.91.so.0 (gtk3 build) and vte-profile is shell-window-title integration usable in any terminal.
+    "vte291-gtk4",
+    "vte291-gtk4-devel",
 ]

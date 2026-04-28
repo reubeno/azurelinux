@@ -360,4 +360,6 @@ packages = [
     "picocli-shell-jline2",
     # perl-MojoX-MIME-Types carved to sdk: Mojolicious adapter (perl-Mojolicious is sdk-tier); rest of perl-MIME-Types stays in base.
     "perl-MojoX-MIME-Types",
+    # perl-File-UserDirs requires xdg-user-dirs (sdk-tier desktop helper); not warranted in base for cloud distro.
+    "perl-File-UserDirs",
 ]

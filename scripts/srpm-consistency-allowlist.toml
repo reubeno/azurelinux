@@ -867,3 +867,9 @@ srpm             = "perl-MIME-Types"
 expected_channel = "base"
 allowed_in_other = ["perl-MojoX-MIME-Types"]
 reason           = "perl-MojoX-MIME-Types is a Mojolicious adapter; perl-Mojolicious is sdk-tier in AZL. Rest of perl-MIME-Types SRPM stays in base."
+
+[[exception]]
+srpm             = "perl-File-BaseDir"
+expected_channel = "base"
+allowed_in_other = ["perl-File-UserDirs"]
+reason           = "perl-File-UserDirs depends on xdg-user-dirs which is sdk-tier in AZL (desktop XDG dir helper); rest of perl-File-BaseDir SRPM stays in base."

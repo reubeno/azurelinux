@@ -5274,7 +5274,6 @@ packages = [
     "perl-File-Slurper-tests",
     "perl-File-Temp",
     "perl-File-Temp-tests",
-    "perl-File-UserDirs",
     "perl-File-Which",
     "perl-File-pushd",
     "perl-File-stat",

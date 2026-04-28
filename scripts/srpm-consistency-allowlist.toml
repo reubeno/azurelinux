@@ -921,3 +921,9 @@ srpm             = "glycin"
 expected_channel = "base"
 allowed_in_other = ["glycin-gtk4-devel", "glycin-gtk4-libs"]
 reason           = "GTK4 bindings sub-package; gtk4 itself moving to sdk."
+
+[[exception]]
+srpm             = "gssdp"
+expected_channel = "base"
+allowed_in_other = ["gssdp-utils"]
+reason           = "gssdp-utils CLI tool; not needed for headless cloud."

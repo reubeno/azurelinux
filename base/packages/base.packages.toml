@@ -2014,7 +2014,6 @@ packages = [
     "gssdp",
     "gssdp-devel",
     "gssdp-docs",
-    "gssdp-utils",
     "gssproxy",
     "gstreamer1",
     "gstreamer1-devel",

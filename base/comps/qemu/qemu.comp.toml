@@ -84,3 +84,45 @@ description = "Remove %files audio-pa - sub-package no longer built"
 type = "spec-remove-section"
 section = "%files"
 package = "audio-pa"
+
+# Disable PipeWire audio backend. AZL is a headless cloud distro;
+# pipewire is sdk-tier, so qemu-audio-pipewire (links libpipewire-0.3)
+# cannot stay in base. Same surgical pattern as PA: empty the
+# requires_audio_pipewire macro, drop 'pipewire' from --audio-drv-list,
+# switch configure to --disable-pipewire, and remove the sub-package.
+
+[[components.qemu.overlays]]
+description = "Empty requires_audio_pipewire macro - unhook qemu-audio-pipewire Requires from emulators"
+type = "spec-search-replace"
+regex = '^%define requires_audio_pipewire Requires: %\{name\}-audio-pipewire = %\{evr\}$'
+replacement = '%define requires_audio_pipewire %{nil}'
+
+[[components.qemu.overlays]]
+description = "Drop pipewire from --audio-drv-list (PipeWire backend disabled)"
+type = "spec-search-replace"
+regex = '--audio-drv-list=pipewire,sdl,alsa,'
+replacement = '--audio-drv-list=sdl,alsa,'
+
+[[components.qemu.overlays]]
+description = "configure: --enable-pipewire -> --disable-pipewire"
+type = "spec-search-replace"
+regex = '^  --enable-pipewire \\$'
+replacement = '  --disable-pipewire \'
+
+[[components.qemu.overlays]]
+description = "Remove %package audio-pipewire - sub-package no longer built"
+type = "spec-remove-section"
+section = "%package"
+package = "audio-pipewire"
+
+[[components.qemu.overlays]]
+description = "Remove %description audio-pipewire - sub-package no longer built"
+type = "spec-remove-section"
+section = "%description"
+package = "audio-pipewire"
+
+[[components.qemu.overlays]]
+description = "Remove %files audio-pipewire - sub-package no longer built"
+type = "spec-remove-section"
+section = "%files"
+package = "audio-pipewire"

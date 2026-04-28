@@ -424,3 +424,12 @@ reason             = "gtk4.comp.toml disables media-gstreamer; rebuilt gtk4-deve
 confidence         = "high"
 overlay            = "base/comps/gtk4/gtk4.comp.toml"
 verified_at_commit = "2fbe340a6f"
+
+[[ignore]]
+package = "qemu-audio-pipewire"
+requires = "libpipewire-0.3.so.0()(64bit)"
+scope = "base"
+reason = "qemu PipeWire audio backend disabled via overlay (--disable-pipewire, audio-pipewire sub-package removed). Stale RPM still in published snapshot until republish."
+confidence = "high"
+overlay = "base/comps/qemu/qemu.comp.toml"
+verified_at_commit = "978d56a9af"

@@ -370,4 +370,6 @@ packages = [
     # ivy-local + javapackages-compat carved to sdk: ivy-local depends on apache-ivy + xmvn-connector-ivy (both sdk-tier); javapackages-compat is a legacy shim. Both have zero consumers in base. Rest of javapackages-tools stays in base.
     "ivy-local",
     "javapackages-compat",
+    # perl-Log-Dispatch-ApacheLog carved to sdk: requires perl(Apache2::Log) from mod_perl which is sdk-tier. Zero consumers in base. Rest of perl-Log-Dispatch SRPM stays in base.
+    "perl-Log-Dispatch-ApacheLog",
 ]

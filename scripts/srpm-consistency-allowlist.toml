@@ -891,3 +891,9 @@ srpm             = "javapackages-tools"
 expected_channel = "base"
 allowed_in_other = ["ivy-local", "javapackages-compat"]
 reason           = "ivy-local needs apache-ivy + xmvn-connector-ivy (sdk-tier) and javapackages-compat is a legacy shim with no base consumers. Both carved to sdk."
+
+[[exception]]
+srpm             = "perl-Log-Dispatch"
+expected_channel = "base"
+allowed_in_other = ["perl-Log-Dispatch-ApacheLog"]
+reason           = "ApacheLog sub-package needs mod_perl (sdk-tier); no base consumers."

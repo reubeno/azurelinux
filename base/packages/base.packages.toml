@@ -5355,7 +5355,6 @@ packages = [
     "perl-Locale-Maketext-tests",
     "perl-Locale-gettext",
     "perl-Log-Dispatch",
-    "perl-Log-Dispatch-ApacheLog",
     "perl-Log-Dispatch-FileRotate",
     "perl-Log-Log4perl",
     "perl-Log-Log4perl-Appender-DBI",

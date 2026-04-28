@@ -373,3 +373,19 @@ reason             = "hwloc.comp.toml sets rhel=10; rebuilt hwloc-plugins no lon
 confidence         = "high"
 overlay            = "base/comps/hwloc/hwloc.comp.toml"
 verified_at_commit = "47b909dd09"
+
+# ----------------------------------------------------------------------
+# rubygems-devel: rdoc version skew with stale ruby in published feed
+#
+# Current ruby.spec defines `%global rdoc_version 6.14.0` and builds
+# rubygem-rdoc at 6.14.0, satisfying rubygems-devel-3.6.9's
+# `Requires: rubygem(rdoc) >= 6.14.0`. The published feed still ships
+# rubygem-rdoc-6.4.0-208 (older ruby). Will resolve once ruby is
+# rebuilt and republished. No spec change needed - just stale snapshot.
+[[ignore]]
+package            = "rubygems-devel"
+requires           = "rubygem(rdoc) >= 6.14.0"
+scope              = "any"
+reason             = "Current ruby.spec sets rdoc_version=6.14.0 and builds rubygem-rdoc=6.14.0. Stale published feed still has 6.4.0-208; will resolve on next ruby rebuild + publish."
+confidence         = "high"
+verified_at_commit = "602c3e10ac"

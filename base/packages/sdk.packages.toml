@@ -24577,6 +24577,8 @@ packages = [
     "tomcli+tomli",
     "tomcli+tomlkit",
     "toml11-devel",
+    "toolbox",
+    "toolbox-tests",
     "tox",
     "transfig",
     "treelayout",

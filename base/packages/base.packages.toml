@@ -7597,8 +7597,6 @@ packages = [
     "tomcat-lib",
     "tomcat-servlet-6.0-api",
     "tomcat-webapps",
-    "toolbox",
-    "toolbox-tests",
     "tpm2-abrmd",
     "tpm2-abrmd-devel",
     "tpm2-abrmd-selinux",

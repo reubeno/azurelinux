@@ -395,4 +395,7 @@ packages = [
     "cmake-gui",
     # Qt6 GUI front-end for PCP; not needed in base (cloud/headless)
     "pcp-gui",
+    # Qt6 bindings for poppler PDF library; not needed in base
+    "poppler-qt6",
+    "poppler-qt6-devel",
 ]

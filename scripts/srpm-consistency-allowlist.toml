@@ -168,8 +168,8 @@ reason           = "Windows cross-compile sub-packages published to sdk; not par
 [[exception]]
 srpm             = "libvirt"
 expected_channel = "base"
-allowed_in_other = ["mingw32-libvirt", "mingw64-libvirt"]
-reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+allowed_in_other = ["mingw32-libvirt", "mingw64-libvirt", "libvirt-wireshark"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime. | libvirt-wireshark is a wireshark dissector plugin; lives wherever wireshark lives (sdk)."
 
 [[exception]]
 srpm             = "libvirt-glib"
@@ -204,8 +204,8 @@ reason           = "Windows cross-compile sub-packages published to sdk; not par
 [[exception]]
 srpm             = "nbdkit"
 expected_channel = "base"
-allowed_in_other = ["mingw32-nbdkit", "mingw64-nbdkit"]
-reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+allowed_in_other = ["mingw32-nbdkit", "mingw64-nbdkit", "nbdkit-gcs-plugin", "nbdkit-torrent-plugin"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime. | nbdkit-gcs-plugin carved to sdk; GCP storage stack stays sdk-only. | torrent plugin pulls libtorrent-rasterbar; specialty plugin for serving torrents over NBD"
 
 [[exception]]
 srpm             = "openjpeg"
@@ -294,8 +294,8 @@ reason           = "LaTeX/PDF output backend pulls full TeXLive; core python3-sp
 [[exception]]
 srpm             = "poppler"
 expected_channel = "base"
-allowed_in_other = ["poppler-qt5", "poppler-qt5-devel"]
-reason           = "Qt5 binding sub-packages carved out to sdk; core poppler PDF library, glib binding, and utils remain in base."
+allowed_in_other = ["poppler-qt5", "poppler-qt5-devel", "poppler-qt6", "poppler-qt6-devel"]
+reason           = "Qt5 binding sub-packages carved out to sdk; core poppler PDF library, glib binding, and utils remain in base. | poppler-qt6(-devel) carved to sdk: Qt6 bindings not needed in base; pulls qt6-qtbase"
 
 [[exception]]
 srpm             = "erlang"
@@ -336,8 +336,8 @@ reason           = "*-tests sub-pkg ships upstream test corpus only; never used 
 [[exception]]
 srpm             = "perl-DBI"
 expected_channel = "base"
-allowed_in_other = ["perl-DBI-tests"]
-reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+allowed_in_other = ["perl-DBI-tests", "perl-DBI-Coro"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs. | perl-DBI-Coro carved to sdk to avoid dragging the perl-Coro/AnyEvent/EV/Event/Guard/BDB cascade into base; rest of perl-DBI stays in base"
 
 [[exception]]
 srpm             = "perl-Date-Manip"
@@ -468,14 +468,14 @@ reason           = "*-tests sub-pkg ships upstream test corpus only; never used 
 [[exception]]
 srpm             = "gpgme"
 expected_channel = "base"
-allowed_in_other = ["qgpgme-qt5", "qgpgme-qt5-devel"]
-reason           = "Optional Qt5 binding sub-pkg; pulls qt5-qtbase from sdk."
+allowed_in_other = ["qgpgme-qt5", "qgpgme-qt5-devel", "qgpgme-qt6", "qgpgme-qt6-devel"]
+reason           = "Optional Qt5 binding sub-pkg; pulls qt5-qtbase from sdk. | qgpgme-qt6(-devel) carved to sdk: Qt6 bindings not needed in base; pulls qt6-qtbase"
 
 [[exception]]
 srpm             = "pinentry"
 expected_channel = "base"
-allowed_in_other = ["pinentry-qt"]
-reason           = "GUI sub-pkg; pulls KF6 (kf6-kguiaddons, kf6-kwindowsystem) from sdk."
+allowed_in_other = ["pinentry-qt", "pinentry-gnome3"]
+reason           = "GUI sub-pkg; pulls KF6 (kf6-kguiaddons, kf6-kwindowsystem) from sdk. | GNOME GUI sub-pkg, no GNOME stack in base"
 
 [[exception]]
 srpm             = "usermode"
@@ -516,8 +516,8 @@ reason           = "Optional Qt event-loop bindings sub-pkgs; pull PyQt4/python3
 [[exception]]
 srpm             = "pcp"
 expected_channel = "base"
-allowed_in_other = ["pcp-testsuite"]
-reason           = "Testsuite sub-pkg pulls setools meta (carved); testsuites kept in sdk."
+allowed_in_other = ["pcp-testsuite", "pcp-pmda-nutcracker", "pcp-gui"]
+reason           = "Testsuite sub-pkg pulls setools meta (carved); testsuites kept in sdk. | pcp-pmda-nutcracker is a niche PMDA (Performance Co-Pilot agent) for the nutcracker proxy; depends on perl(YAML::XS) which is sdk-tier. Rest of pcp stays in base. | pcp-gui carved to sdk: Qt6 GUI front-end not needed in base; pulls qt6-qtbase + qt6-qtsvg"
 
 [[exception]]
 srpm             = "vim"
@@ -666,21 +666,14 @@ reason           = "mariadb-sphinx-engine carved to sdk; sphinx search server st
 [[exception]]
 srpm             = "fence-agents"
 expected_channel = "base"
-allowed_in_other = ["fence-agents-all", "fence-agents-aws", "fence-agents-aws-vpc-net", "fence-agents-compute", "fence-agents-gce"]
-reason           = "fence-agents-compute carved to sdk (Nova-Pacemaker bridge; OpenStack sdk-only); fence-agents-aws and -aws-vpc-net carved to sdk (AWS fencing not core for Azure distro); fence-agents-gce carved to sdk (GCE fencing not core for Azure distro); fence-agents-all dragged along (meta-pkg Requires every individual fence agent)."
+allowed_in_other = ["fence-agents-all", "fence-agents-aws", "fence-agents-aws-vpc-net", "fence-agents-compute", "fence-agents-gce", "fence-agents-amt", "fence-agents-amt-ws"]
+reason           = "fence-agents-compute carved to sdk (Nova-Pacemaker bridge; OpenStack sdk-only); fence-agents-aws and -aws-vpc-net carved to sdk (AWS fencing not core for Azure distro); fence-agents-gce carved to sdk (GCE fencing not core for Azure distro); fence-agents-all dragged along (meta-pkg Requires every individual fence agent). | fence-agents-amt/-amt-ws Require amtterm which moved to sdk. Intel AMT cluster fencing not a cloud workload."
 
 [[exception]]
 srpm             = "python-fsspec"
 expected_channel = "base"
-allowed_in_other = ["python3-fsspec+gcs", "python3-fsspec+gs"]
-reason           = "python3-fsspec+gcs/+gs carved to sdk; GCP storage integration not core for Azure distro."
-
-[[exception]]
-srpm             = "nbdkit"
-expected_channel = "base"
-allowed_in_other = ["nbdkit-gcs-plugin"]
-reason           = "nbdkit-gcs-plugin carved to sdk; GCP storage stack stays sdk-only."
-
+allowed_in_other = ["python3-fsspec+gcs", "python3-fsspec+gs", "python3-fsspec+dask"]
+reason           = "python3-fsspec+gcs/+gs carved to sdk; GCP storage integration not core for Azure distro. | PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
 
 [[exception]]
 srpm             = "python-systemd"
@@ -692,12 +685,6 @@ reason           = "PEP-508 +extras carved to sdk; their optional deps are not a
 srpm             = "python-dns"
 expected_channel = "base"
 allowed_in_other = ["python3-dns+doh", "python3-dns+doq", "python3-dns+trio"]
-reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
-
-[[exception]]
-srpm             = "python-fsspec"
-expected_channel = "base"
-allowed_in_other = ["python3-fsspec+dask"]
 reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
 
 [[exception]]
@@ -749,22 +736,10 @@ allowed_in_other = ["python3-sqlalchemy+aiomysql", "python3-sqlalchemy+postgresq
 reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
 
 [[exception]]
-srpm             = "libvirt"
-expected_channel = "base"
-allowed_in_other = ["libvirt-wireshark"]
-reason           = "libvirt-wireshark is a wireshark dissector plugin; lives wherever wireshark lives (sdk)."
-
-[[exception]]
 srpm             = "mpg123"
 expected_channel = "base"
-allowed_in_other = ["mpg123-plugins-jack"]
-reason           = "mpg123-plugins-jack carved to sdk to allow jack-audio-connection-kit demote; rest of mpg123 sub-pkgs stay in base"
-
-[[exception]]
-srpm             = "mpg123"
-expected_channel = "base"
-allowed_in_other = ["mpg123-plugins-portaudio", "mpg123-plugins-pulseaudio"]
-reason           = "mpg123-plugins-portaudio + -pulseaudio carved to sdk to close repoclosure leaks (libportaudio.so.2); mpg123/-libs/-devel stay in base"
+allowed_in_other = ["mpg123-plugins-jack", "mpg123-plugins-portaudio", "mpg123-plugins-pulseaudio"]
+reason           = "mpg123-plugins-jack carved to sdk to allow jack-audio-connection-kit demote; rest of mpg123 sub-pkgs stay in base | mpg123-plugins-portaudio + -pulseaudio carved to sdk to close repoclosure leaks (libportaudio.so.2); mpg123/-libs/-devel stay in base"
 
 [[exception]]
 srpm             = "blosc"
@@ -779,12 +754,6 @@ allowed_in_other = ["systemtap-testsuite"]
 reason           = "systemtap-testsuite carved to sdk to drop 'stress' dep from base; rest of systemtap stays in base"
 
 [[exception]]
-srpm             = "perl-DBI"
-expected_channel = "base"
-allowed_in_other = ["perl-DBI-Coro"]
-reason           = "perl-DBI-Coro carved to sdk to avoid dragging the perl-Coro/AnyEvent/EV/Event/Guard/BDB cascade into base; rest of perl-DBI stays in base"
-
-[[exception]]
 srpm             = "cups"
 expected_channel = "base"
 allowed_in_other = ["cups", "cups-ipptool", "cups-lpd", "cups-printerapp"]
@@ -795,18 +764,6 @@ srpm             = "bluez"
 expected_channel = "base"
 allowed_in_other = ["bluez-cups"]
 reason           = "Sole base consumer of cups server pkg, also carved"
-
-[[exception]]
-srpm             = "pinentry"
-expected_channel = "base"
-allowed_in_other = ["pinentry-gnome3"]
-reason           = "GNOME GUI sub-pkg, no GNOME stack in base"
-
-[[exception]]
-srpm             = "nbdkit"
-expected_channel = "base"
-allowed_in_other = ["nbdkit-torrent-plugin"]
-reason           = "torrent plugin pulls libtorrent-rasterbar; specialty plugin for serving torrents over NBD"
 
 [[exception]]
 srpm             = "resource-agents"
@@ -829,8 +786,8 @@ reason           = "kernel selftests sub-pkg requires nmh /usr/bin/inc (not in e
 [[exception]]
 srpm             = "perl-File-BaseDir"
 expected_channel = "base"
-allowed_in_other = ["perl-File-BaseDir-tests"]
-reason           = "perl-File-BaseDir-tests carved to sdk - xdg-user-dirs is sdk-tier and only needed by this dev/test sub-pkg."
+allowed_in_other = ["perl-File-BaseDir-tests", "perl-File-UserDirs"]
+reason           = "perl-File-BaseDir-tests carved to sdk - xdg-user-dirs is sdk-tier and only needed by this dev/test sub-pkg. | perl-File-UserDirs depends on xdg-user-dirs which is sdk-tier in AZL (desktop XDG dir helper); rest of perl-File-BaseDir SRPM stays in base."
 
 [[exception]]
 srpm             = "xmlto"
@@ -869,18 +826,6 @@ allowed_in_other = ["perl-MojoX-MIME-Types"]
 reason           = "perl-MojoX-MIME-Types is a Mojolicious adapter; perl-Mojolicious is sdk-tier in AZL. Rest of perl-MIME-Types SRPM stays in base."
 
 [[exception]]
-srpm             = "perl-File-BaseDir"
-expected_channel = "base"
-allowed_in_other = ["perl-File-UserDirs"]
-reason           = "perl-File-UserDirs depends on xdg-user-dirs which is sdk-tier in AZL (desktop XDG dir helper); rest of perl-File-BaseDir SRPM stays in base."
-
-[[exception]]
-srpm             = "pcp"
-expected_channel = "base"
-allowed_in_other = ["pcp-pmda-nutcracker"]
-reason           = "pcp-pmda-nutcracker is a niche PMDA (Performance Co-Pilot agent) for the nutcracker proxy; depends on perl(YAML::XS) which is sdk-tier. Rest of pcp stays in base."
-
-[[exception]]
 srpm             = "rocclr"
 expected_channel = "base"
 allowed_in_other = ["rocm-opencl", "rocm-opencl-devel"]
@@ -889,26 +834,14 @@ reason           = "rocm-opencl(-devel) is the ROCm OpenCL runtime; AMD GPU comp
 [[exception]]
 srpm             = "javapackages-tools"
 expected_channel = "base"
-allowed_in_other = ["ivy-local", "javapackages-compat"]
-reason           = "ivy-local needs apache-ivy + xmvn-connector-ivy (sdk-tier) and javapackages-compat is a legacy shim with no base consumers. Both carved to sdk."
+allowed_in_other = ["ivy-local", "javapackages-compat", "javapackages-local-openjdk25", "maven-local-openjdk25"]
+reason           = "ivy-local needs apache-ivy + xmvn-connector-ivy (sdk-tier) and javapackages-compat is a legacy shim with no base consumers. Both carved to sdk. | javapackages-local-openjdk25 chain pulls xmvn-generator -> dola-bsx (sdk-tier Java build-tooling fork). Whole chain carved to sdk; rest of javapackages-tools stays in base."
 
 [[exception]]
 srpm             = "perl-Log-Dispatch"
 expected_channel = "base"
 allowed_in_other = ["perl-Log-Dispatch-ApacheLog"]
 reason           = "ApacheLog sub-package needs mod_perl (sdk-tier); no base consumers."
-
-[[exception]]
-srpm             = "javapackages-tools"
-expected_channel = "base"
-allowed_in_other = ["javapackages-local-openjdk25", "maven-local-openjdk25"]
-reason           = "javapackages-local-openjdk25 chain pulls xmvn-generator -> dola-bsx (sdk-tier Java build-tooling fork). Whole chain carved to sdk; rest of javapackages-tools stays in base."
-
-[[exception]]
-srpm             = "fence-agents"
-expected_channel = "base"
-allowed_in_other = ["fence-agents-amt", "fence-agents-amt-ws"]
-reason           = "fence-agents-amt/-amt-ws Require amtterm which moved to sdk. Intel AMT cluster fencing not a cloud workload."
 
 [[exception]]
 srpm             = "sysprof"
@@ -946,20 +879,3 @@ expected_channel = "base"
 allowed_in_other = ["cmake-gui"]
 reason           = "cmake-gui carved to sdk: Qt6 GUI front-end not needed in base"
 
-[[exception]]
-srpm             = "pcp"
-expected_channel = "base"
-allowed_in_other = ["pcp-gui"]
-reason           = "pcp-gui carved to sdk: Qt6 GUI front-end not needed in base; pulls qt6-qtbase + qt6-qtsvg"
-
-[[exception]]
-srpm             = "poppler"
-expected_channel = "base"
-allowed_in_other = ["poppler-qt6", "poppler-qt6-devel"]
-reason           = "poppler-qt6(-devel) carved to sdk: Qt6 bindings not needed in base; pulls qt6-qtbase"
-
-[[exception]]
-srpm             = "gpgme"
-expected_channel = "base"
-allowed_in_other = ["qgpgme-qt6", "qgpgme-qt6-devel"]
-reason           = "qgpgme-qt6(-devel) carved to sdk: Qt6 bindings not needed in base; pulls qt6-qtbase"

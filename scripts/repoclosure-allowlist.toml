@@ -446,3 +446,22 @@ reason = "anaconda-core no longer Requires flatpak-libs (overlay drops the Requi
 confidence = "high"
 overlay = "base/comps/anaconda/anaconda.comp.toml"
 verified_at_commit = "036f4766e8"
+
+# ----------------------------------------------------------------------
+# libisoburn: drop kf5-filesystem Requires from xorriso
+#
+# A comp.toml overlay defines _without_kde for libisoburn, flipping the
+# %if 0%{!?_without_kde:1} gate that wrapped the unconditional Requires
+# on kde-filesystem and kf5-filesystem in the xorriso sub-package.
+# Verified locally with prep-sources + build that the rebuilt xorriso
+# RPM no longer carries the Requires. Until the rebuilt RPM lands in
+# the next published-RPM snapshot, repoclosure still sees the dep on
+# kf5-filesystem (now in sdk via the kf5 SRPM demote).
+[[ignore]]
+package            = "xorriso"
+requires           = "kf5-filesystem >= 5"
+scope              = "base"
+reason             = "Overlay defines _without_kde; rebuilt xorriso RPM no longer Requires kf5-filesystem."
+confidence         = "high"
+overlay            = "base/comps/libisoburn/libisoburn.comp.toml"
+verified_at_commit = "76fa794ea0"

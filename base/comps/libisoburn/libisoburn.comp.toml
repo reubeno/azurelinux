@@ -1,0 +1,12 @@
+# Drop the unconditional Requires on kde-filesystem / kf5-filesystem
+# from the xorriso sub-package. The upstream spec gates those Requires
+# behind `%if 0%{!?_without_kde:1} && (0%{?fedora} || ...)`; defining
+# `_without_kde` flips the gate off. Xorriso has no actual KDE/KF5
+# usage; the Requires only existed because the package historically
+# shipped a KIO slave (no longer present in this build path). Dropping
+# them lets us keep kf5-filesystem (and the rest of the kf5 SRPM) out
+# of base.
+[components.libisoburn]
+
+[components.libisoburn.build.defines]
+_without_kde = "1"

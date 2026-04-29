@@ -1922,7 +1922,7 @@ includes = ["**/*.comp.toml", "component-check-disablement.toml"]
 [components.libipt]
 [components.libiptcdata]
 [components.libiscsi]
-[components.libisoburn]
+# libisoburn defined in libisoburn/libisoburn.comp.toml
 [components.libisofs]
 [components.libjaylink]
 [components.libjcat]

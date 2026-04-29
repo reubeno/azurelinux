@@ -6715,6 +6715,8 @@ packages = [
     "qt6-qtquick3d",
     "qt6-qtquick3d-devel",
     "qt6-qtquick3d-examples",
+    "qt6-qtquicktimeline",
+    "qt6-qtquicktimeline-devel",
     "qt6-qtserialbus",
     "qt6-qtserialbus-devel",
     "qt6-qtserialbus-examples",

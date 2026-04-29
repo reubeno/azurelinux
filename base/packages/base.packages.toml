@@ -6805,8 +6805,6 @@ packages = [
     "qt6-qtpositioning",
     "qt6-qtpositioning-devel",
     "qt6-qtpositioning-examples",
-    "qt6-qtquicktimeline",
-    "qt6-qtquicktimeline-devel",
     "qt6-qtremoteobjects",
     "qt6-qtremoteobjects-devel",
     "qt6-qtremoteobjects-examples",

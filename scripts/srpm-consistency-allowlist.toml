@@ -933,3 +933,9 @@ srpm             = "vte291"
 expected_channel = "base"
 allowed_in_other = ["vte291-gtk4", "vte291-gtk4-devel"]
 reason           = "GTK4 variant of VTE terminal widget; gtk4 itself moving to sdk."
+
+[[exception]]
+srpm             = "appstream"
+expected_channel = "base"
+allowed_in_other = ["appstream-qt", "appstream-qt-devel"]
+reason           = "appstream-qt(-devel) carved to sdk: Qt6 bindings not needed in base; pulled qt6-qtbase chain"

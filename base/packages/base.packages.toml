@@ -187,8 +187,6 @@ packages = [
     "appstream-compose",
     "appstream-compose-devel",
     "appstream-devel",
-    "appstream-qt",
-    "appstream-qt-devel",
     "appx-util",
     "apr",
     "apr-devel",

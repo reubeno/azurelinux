@@ -6776,8 +6776,6 @@ packages = [
     "qpid-proton-cpp-docs",
     "qpid-proton-tests",
     "qt5-srpm-macros",
-    "qt6-filesystem",
-    "qt6-rpm-macros",
     "qt6-srpm-macros",
     "quota",
     "quota-devel",

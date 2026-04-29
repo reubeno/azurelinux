@@ -885,3 +885,9 @@ srpm             = "qt5"
 expected_channel = "base"
 allowed_in_other = ["qt5-filesystem", "qt5-rpm-macros"]
 reason           = "qt5-filesystem and qt5-rpm-macros carved to sdk (GUI/devel infra); qt5-srpm-macros stays in base"
+
+[[exception]]
+srpm             = "qt6"
+expected_channel = "base"
+allowed_in_other = ["qt6-filesystem", "qt6-rpm-macros"]
+reason           = "qt6-filesystem and qt6-rpm-macros carved to sdk (GUI/devel infra); qt6-srpm-macros stays in base"

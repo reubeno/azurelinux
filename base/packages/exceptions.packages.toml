@@ -404,4 +404,7 @@ packages = [
     # qt5 GUI/devel macro infra carved to sdk; qt5-srpm-macros remains in base for azurelinux-rpm-config Requires
     "qt5-filesystem",
     "qt5-rpm-macros",
+    # qt6 GUI/devel macro infra carved to sdk; qt6-srpm-macros remains in base for azurelinux-rpm-config Requires
+    "qt6-filesystem",
+    "qt6-rpm-macros",
 ]

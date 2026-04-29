@@ -2925,6 +2925,7 @@ packages = [
     "kdsoap6",
     "kdsoap6-devel",
     "kdump-anaconda-addon",
+    "kernelshark",
     "keybinder3",
     "keybinder3-devel",
     "keybinder3-doc",

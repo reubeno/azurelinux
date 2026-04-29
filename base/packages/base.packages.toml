@@ -2599,7 +2599,6 @@ packages = [
     "kernel-tools-libs-devel",
     "kernel-uki-virt",
     "kernel-uki-virt-addons",
-    "kernelshark",
     "kexec-tools",
     "keycloak-httpd-client-install",
     "keylime",

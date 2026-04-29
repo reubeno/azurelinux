@@ -6732,6 +6732,8 @@ packages = [
     "qt6-qtserialport",
     "qt6-qtserialport-devel",
     "qt6-qtserialport-examples",
+    "qt6-qtshadertools",
+    "qt6-qtshadertools-devel",
     "qt6-qtspeech",
     "qt6-qtspeech-devel",
     "qt6-qtspeech-examples",

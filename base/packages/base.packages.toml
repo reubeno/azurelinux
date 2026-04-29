@@ -6805,8 +6805,6 @@ packages = [
     "qt6-qtpositioning",
     "qt6-qtpositioning-devel",
     "qt6-qtpositioning-examples",
-    "qt6-qtshadertools",
-    "qt6-qtshadertools-devel",
     "qt6-qtsvg",
     "qt6-qtsvg-devel",
     "qt6-qtsvg-examples",

@@ -891,3 +891,9 @@ srpm             = "qt6"
 expected_channel = "base"
 allowed_in_other = ["qt6-filesystem", "qt6-rpm-macros"]
 reason           = "qt6-filesystem and qt6-rpm-macros carved to sdk (GUI/devel infra); qt6-srpm-macros stays in base"
+
+[[exception]]
+srpm             = "NetworkManager"
+expected_channel = "base"
+allowed_in_other = ["NetworkManager-bluetooth"]
+reason           = "NetworkManager-bluetooth carved to sdk; bluez stack lives in sdk"

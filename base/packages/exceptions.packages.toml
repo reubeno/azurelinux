@@ -407,4 +407,6 @@ packages = [
     # qt6 GUI/devel macro infra carved to sdk; qt6-srpm-macros remains in base for azurelinux-rpm-config Requires
     "qt6-filesystem",
     "qt6-rpm-macros",
+    # NetworkManager-bluetooth carved to sdk; bluez stack lives in sdk for headless cloud-focused base
+    "NetworkManager-bluetooth",
 ]

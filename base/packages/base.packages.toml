@@ -28,7 +28,6 @@ packages = [
     "ModemManager-vala",
     "NetworkManager",
     "NetworkManager-adsl",
-    "NetworkManager-bluetooth",
     "NetworkManager-cloud-setup",
     "NetworkManager-config-connectivity-fedora",
     "NetworkManager-config-server",

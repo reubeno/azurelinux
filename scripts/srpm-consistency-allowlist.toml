@@ -945,3 +945,9 @@ srpm             = "cmake"
 expected_channel = "base"
 allowed_in_other = ["cmake-gui"]
 reason           = "cmake-gui carved to sdk: Qt6 GUI front-end not needed in base"
+
+[[exception]]
+srpm             = "pcp"
+expected_channel = "base"
+allowed_in_other = ["pcp-gui"]
+reason           = "pcp-gui carved to sdk: Qt6 GUI front-end not needed in base; pulls qt6-qtbase + qt6-qtsvg"

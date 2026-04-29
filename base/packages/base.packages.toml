@@ -4927,7 +4927,6 @@ packages = [
     "pcp-export-pcp2zabbix",
     "pcp-export-zabbix-agent",
     "pcp-geolocate",
-    "pcp-gui",
     "pcp-import-benchmarks",
     "pcp-import-collectl2pcp",
     "pcp-import-ganglia2pcp",

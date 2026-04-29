@@ -401,4 +401,7 @@ packages = [
     # Qt6 bindings for gpgme; not needed in base (cloud/headless)
     "qgpgme-qt6",
     "qgpgme-qt6-devel",
+    # qt5 GUI/devel macro infra carved to sdk; qt5-srpm-macros remains in base for azurelinux-rpm-config Requires
+    "qt5-filesystem",
+    "qt5-rpm-macros",
 ]

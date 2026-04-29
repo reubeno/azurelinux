@@ -879,3 +879,9 @@ expected_channel = "base"
 allowed_in_other = ["cmake-gui"]
 reason           = "cmake-gui carved to sdk: Qt6 GUI front-end not needed in base"
 
+
+[[exception]]
+srpm             = "qt5"
+expected_channel = "base"
+allowed_in_other = ["qt5-filesystem", "qt5-rpm-macros"]
+reason           = "qt5-filesystem and qt5-rpm-macros carved to sdk (GUI/devel infra); qt5-srpm-macros stays in base"

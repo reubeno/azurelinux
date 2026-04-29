@@ -2615,8 +2615,6 @@ packages = [
     "keyutils",
     "keyutils-libs",
     "keyutils-libs-devel",
-    "kf5-filesystem",
-    "kf5-rpm-macros",
     "kfdtest",
     "kiwi-cli",
     "kiwi-pxeboot",

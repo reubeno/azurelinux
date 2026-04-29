@@ -205,17 +205,78 @@ def append_pkgs_block(toml: Path, comment: str, pkgs: list[str]) -> None:
 
 def append_allowlist_entry(toml: Path, srpm: str, expected_channel: str,
                            allowed_in_other: list[str], reason: str) -> None:
-    """Append one ``[[exception]]`` block to the SRPM-consistency allow-list."""
+    """Add ``allowed_in_other`` pkgs to the SRPM-consistency allow-list.
+
+    The loader (split-repo-by-channel.py:load_srpm_allowlist) is last-match-
+    wins per ``srpm``, so we MUST merge into any existing block for the same
+    SRPM rather than appending a new one. If no block exists yet, append a
+    fresh one.
+    """
     text = toml.read_text()
     if not text.endswith("\n"):
         text += "\n"
+
+    import re
+    # Find an existing [[exception]] block for this SRPM.
+    block_re = re.compile(
+        r'(\[\[exception\]\]\s*\n'
+        r'(?:[^\n]*\n)*?'
+        r'srpm\s*=\s*"' + re.escape(srpm) + r'"\s*\n'
+        r'(?:[^\n]*\n)*?)'  # rest of the block
+        r'(?=\n\[\[exception\]\]|\Z)',
+        re.MULTILINE)
+
+    m = block_re.search(text)
+    if m:
+        block = m.group(1)
+        # Parse existing allowed_in_other (single-line list assumed).
+        aio_re = re.compile(r'allowed_in_other\s*=\s*\[(.*?)\]', re.DOTALL)
+        am = aio_re.search(block)
+        existing: list[str] = []
+        if am:
+            existing = re.findall(r'"([^"]+)"', am.group(1))
+        merged = list(existing)
+        for p in allowed_in_other:
+            if p not in merged:
+                merged.append(p)
+        new_pkgs_str = ", ".join(f'"{p}"' for p in merged)
+
+        # Replace allowed_in_other line.
+        if am:
+            new_block = aio_re.sub(
+                f'allowed_in_other = [{new_pkgs_str}]', block, count=1)
+        else:
+            new_block = block.rstrip("\n") + (
+                f'\nallowed_in_other = [{new_pkgs_str}]\n')
+
+        # Append the new reason to existing reason (delimited).
+        reason_re = re.compile(r'reason\s*=\s*"((?:[^"\\]|\\.)*)"')
+        rm = reason_re.search(new_block)
+        if rm:
+            old_reason = rm.group(1)
+            if reason and reason not in old_reason:
+                merged_reason = (old_reason + " | " + reason).replace('"', "'")
+                new_block = reason_re.sub(
+                    f'reason           = "{merged_reason}"',
+                    new_block, count=1)
+        else:
+            safe_reason = reason.replace('"', "'")
+            new_block = new_block.rstrip("\n") + (
+                f'\nreason           = "{safe_reason}"\n')
+
+        text = text[: m.start(1)] + new_block + text[m.end(1):]
+        toml.write_text(text)
+        return
+
+    # No existing block; append a fresh one.
     pkgs_str = ", ".join(f'"{p}"' for p in allowed_in_other)
+    safe_reason = reason.replace('"', "'")
     entry = (
         "\n[[exception]]\n"
         f'srpm             = "{srpm}"\n'
         f'expected_channel = "{expected_channel}"\n'
         f'allowed_in_other = [{pkgs_str}]\n'
-        f'reason           = "{reason}"\n'
+        f'reason           = "{safe_reason}"\n'
     )
     toml.write_text(text + entry)
 

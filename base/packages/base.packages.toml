@@ -575,7 +575,6 @@ packages = [
     "cmake-data",
     "cmake-doc",
     "cmake-filesystem",
-    "cmake-gui",
     "cmake-rpm-macros",
     "cmake-srpm-macros",
     "cmocka-doc",

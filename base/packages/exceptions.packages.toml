@@ -391,4 +391,6 @@ packages = [
     # Qt6 GUI bindings; not needed in base (cloud/headless)
     "appstream-qt",
     "appstream-qt-devel",
+    # Qt6 GUI front-end for cmake; not needed in base (cloud/headless)
+    "cmake-gui",
 ]

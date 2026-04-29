@@ -939,3 +939,9 @@ srpm             = "appstream"
 expected_channel = "base"
 allowed_in_other = ["appstream-qt", "appstream-qt-devel"]
 reason           = "appstream-qt(-devel) carved to sdk: Qt6 bindings not needed in base; pulled qt6-qtbase chain"
+
+[[exception]]
+srpm             = "cmake"
+expected_channel = "base"
+allowed_in_other = ["cmake-gui"]
+reason           = "cmake-gui carved to sdk: Qt6 GUI front-end not needed in base"

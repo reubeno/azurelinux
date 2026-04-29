@@ -6764,8 +6764,6 @@ packages = [
     "qemu-user-static-x86",
     "qemu-user-static-xtensa",
     "qgpgme-common-devel",
-    "qgpgme-qt6",
-    "qgpgme-qt6-devel",
     "qhull",
     "qhull-devel",
     "qpdf",

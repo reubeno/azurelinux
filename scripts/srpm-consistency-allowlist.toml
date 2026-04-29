@@ -957,3 +957,9 @@ srpm             = "poppler"
 expected_channel = "base"
 allowed_in_other = ["poppler-qt6", "poppler-qt6-devel"]
 reason           = "poppler-qt6(-devel) carved to sdk: Qt6 bindings not needed in base; pulls qt6-qtbase"
+
+[[exception]]
+srpm             = "gpgme"
+expected_channel = "base"
+allowed_in_other = ["qgpgme-qt6", "qgpgme-qt6-devel"]
+reason           = "qgpgme-qt6(-devel) carved to sdk: Qt6 bindings not needed in base; pulls qt6-qtbase"

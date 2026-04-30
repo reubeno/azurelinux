@@ -65,10 +65,12 @@
         </type>
     </preferences>
 
-    <repository type="rpm-md" alias="fedora-43-everything">
-        <source
-            path="https://fedora.mirrorservice.org/fedora/linux/releases/43/Everything/x86_64/os/" />
-    </repository>
+    <!--
+        RPM repository sources are injected by `azldev image build` from the
+        active project's [resources.rpm-repos] / inputs.image-build TOML. Cloud
+        builds (Koji) provide their own --add-repo overrides. Do not hardcode
+        <repository> blocks here.
+    -->
 
     <packages type="image" profiles="core">
         <package name="filesystem" />

@@ -87,16 +87,18 @@ module_platform_id=platform:f{{ releasever }}
 protected_packages=
 user_agent={{ user_agent }}
 
-[base]
-name=base
-baseurl=https://stcontroltowerdevjwisitg.blob.core.windows.net/alpha2-prod/base/$basearch
+# Repositories below are injected by azldev from [resources.rpm-repos] +
+# [distros.<name>.versions.'<ver>'.inputs].rpm-build (see
+# distro/azurelinux.distro.toml). The list `azl_repos` is set by a generated
+# site-defaults.cfg that mock loads before this template.
+{% for r in azl_repos|default([]) %}
+[{{ r.name }}]
+name={{ r.name }}
+{% if r.baseurl %}baseurl={{ r.baseurl }}
+{% endif %}{% if r.metalink %}metalink={{ r.metalink }}
+{% endif %}{% if r.gpgkey %}gpgkey={{ r.gpgkey }}
+{% endif %}gpgcheck={{ 1 if r.gpgcheck else 0 }}
 enabled=1
 skip_if_unavailable=False
-
-[sdk]
-name=sdk
-baseurl=https://stcontroltowerdevjwisitg.blob.core.windows.net/alpha2-prod/sdk/$basearch
-enabled=1
-skip_if_unavailable=False
-
+{% endfor %}
 """

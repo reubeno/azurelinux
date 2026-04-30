@@ -16,6 +16,12 @@ release-ver = "4.0"
 mock-config-x86_64 = "mock/azl4/stage1/azurelinux-4.0-x86_64.cfg"
 mock-config-aarch64 = "mock/azl4/stage1/azurelinux-4.0-aarch64.cfg"
 
+# Stage1 builds against Fedora 43. Today the stage1 mock template is
+# hand-maintained (no `inputs.rpm-build`); only image-build is wired through
+# the TOML-driven repo plumbing. Cloud builds override at the kiwi command line.
+[distros.azurelinux.versions.'4.0-stage1'.inputs]
+image-build = ["fedora-43-everything"]
+
 [distros.azurelinux.versions.'4.0-stage1'.default-component-config]
 # NOTE: Ensure that the snapshot date matches the snapshot date used below for stage2.
 spec = { type = "upstream", upstream-distro = { name = "fedora", version = "43", snapshot = "2026-02-24T00:00:00-08:00" } }
@@ -33,6 +39,33 @@ release-ver = "4.0"
 mock-config-x86_64 = "mock/azl4/stage2/azurelinux-4.0-x86_64.cfg"
 mock-config-aarch64 = "mock/azl4/stage2/azurelinux-4.0-aarch64.cfg"
 
+# Repos to wire into local builds for stage2. Cloud/Koji builds override
+# these via mock --config-opts and kiwi --add-repo.
+[distros.azurelinux.versions.'4.0-stage2'.inputs]
+rpm-build   = ["azl-4-alpha2-prod-base", "azl-4-alpha2-prod-sdk"]
+image-build = ["azl-4-alpha2-prod-base", "azl-4-alpha2-prod-sdk"]
+
 [distros.azurelinux.versions.'4.0-stage2'.default-component-config]
 # NOTE: Ensure that the snapshot date matches the snapshot date used above for stage1.
 spec = { type = "upstream", upstream-distro = { name = "fedora", version = "43", snapshot = "2026-02-24T00:00:00-08:00" } }
+
+#
+# Reusable RPM repository definitions, referenced by per-distro-version
+# `inputs` mappings above. `$basearch`/`$releasever` are dnf/kiwi variables
+# expanded at consumption time.
+#
+
+[resources.rpm-repos.azl-4-alpha2-prod-base]
+description       = "Azure Linux 4.0 alpha2-prod base channel"
+base-uri          = "https://stcontroltowerdevjwisitg.blob.core.windows.net/alpha2-prod/base/$basearch"
+disable-gpg-check = true   # alpha2-prod packages are not yet signed.
+
+[resources.rpm-repos.azl-4-alpha2-prod-sdk]
+description       = "Azure Linux 4.0 alpha2-prod sdk channel"
+base-uri          = "https://stcontroltowerdevjwisitg.blob.core.windows.net/alpha2-prod/sdk/$basearch"
+disable-gpg-check = true   # alpha2-prod packages are not yet signed.
+
+[resources.rpm-repos.fedora-43-everything]
+description       = "Fedora 43 Everything (used for stage1 image-build)"
+metalink          = "https://mirrors.fedoraproject.org/metalink?repo=fedora-43&arch=$basearch"
+disable-gpg-check = true   # TODO: thread Fedora 43 GPG key once we have a stable on-host path.

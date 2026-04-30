@@ -34,10 +34,12 @@
         </type>
     </preferences>
 
-    <repository type="rpm-md" alias="fedora-43-everything">
-        <source
-            path="https://stcontroltowerdevjwisitg.blob.core.windows.net/daily-repo-non-prod/20260303/x86_64/" />
-    </repository>
+    <!--
+        RPM repository sources are injected by `azldev image build` from the
+        active project's [resources.rpm-repos] / inputs.image-build TOML. Cloud
+        builds (Koji) provide their own --add-repo overrides. Do not hardcode
+        <repository> blocks here.
+    -->
 
     <packages type="image">
         <!-- Core group -->

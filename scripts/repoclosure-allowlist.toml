@@ -1,0 +1,448 @@
+# Allowlist of intentionally-unresolved dependencies for repoclosure.
+#
+# Each [[ignore]] entry suppresses a single (consumer package, missing
+# requirement) pair from the filtered repoclosure report. The "raw" report
+# is always preserved unfiltered, and a "hits" report records which entries
+# matched (so we can spot stale entries).
+#
+# Fields:
+#   package             Consumer package name (or list of names). Glob
+#                       patterns supported (fnmatch). When a list is given,
+#                       the entry matches any consumer matching any pattern
+#                       in the list. This is the package whose unresolved
+#                       dependency we accept.
+#   requires            The exact unresolved requirement string as printed by
+#                       `dnf repoclosure` (e.g. "libfoo.so.1()(64bit)" or
+#                       "perl(Some::Module)"), or a list of such strings.
+#                       Glob patterns supported. When a list is given, the
+#                       entry matches any requires matching any pattern in
+#                       the list. The combination of package-list and
+#                       requires-list lets one entry suppress an entire
+#                       Cartesian product of (consumer, dep) pairs in one
+#                       shot — essential for "overlay-pending" suppressions
+#                       where a single overlay (e.g. flipping a
+#                       %global __with_<feature> toggle) eliminates many
+#                       feature-conditional Requires lines across many
+#                       sub-packages at once.
+#   scope               Which repoclosure run this applies to:
+#                         "base"     - base-only run
+#                         "base+sdk" - base + sdk run
+#                         "any"      - both (default)
+#   reason              Free-form rationale.
+#   confidence          "high" | "medium" | "low" - our confidence that
+#                       dropping this dependency is safe.
+#
+# Optional provenance for "overlay-pending" suppressions (the case where
+# we have already authored a comp.toml overlay that drops the offending
+# Requires from the rebuilt RPM, but the prebuilt RPM corpus our pipeline
+# checks against was published *before* the overlay landed, so the dep
+# still appears in the raw findings until the next published-RPM snapshot):
+#   overlay             Path to the comp.toml that holds the overlay.
+#                       Reviewers can read it to understand the pending fix.
+#   verified_at_commit  Git short-sha at which we last locally rebuilt the
+#                       affected RPM with `azldev component build` and
+#                       confirmed via `rpm -qpR` that the dep is gone.
+#                       Bump this whenever the overlay or upstream changes.
+#                       Once the next published-RPM snapshot includes the
+#                       overlay, the raw finding disappears, this entry
+#                       stops hitting (visible in repoclosure-base.allowlist-hits.txt
+#                       — the entry will simply not appear), and the entry
+#                       can be deleted.
+
+# Example (commented out):
+# [[ignore]]
+# package    = "examplepkg"
+# requires   = "libexample.so.1()(64bit)"
+# scope      = "base"
+# reason     = "Pulled in only by an optional plugin we do not ship."
+# confidence = "high"
+#
+# Example overlay-pending suppression:
+# [[ignore]]
+# package            = "frobnicator"
+# requires           = "libobsolete.so.1()(64bit)"
+# scope              = "base"
+# reason             = "Overlay drops this Requires; verified rebuilt RPM no longer carries it."
+# confidence         = "high"
+# overlay            = "base/comps/frobnicator/frobnicator.comp.toml"
+# verified_at_commit = "abc1234"
+
+# ----------------------------------------------------------------------
+# erlang: erlang-wx GUI sub-package elimination
+#
+# Two overlays in base/comps/erlang/erlang.comp.toml flip
+# `%global __with_wxwidgets` from 1 to 0 and strip the unconditional
+# `Requires: %{name}-wx` line from the erlang-src %package preamble.
+# That toggle wraps not only the wx-related Requires but also the
+# `%package debugger|dialyzer|et|observer|reltool` definitions and
+# every `Requires: %{name}-{debugger,dialyzer,et,observer,reltool}`
+# line that appears across the in-base erlang sub-package preambles
+# (erlang meta, common_test, megaco, src). When the rebuilt RPMs land
+# in the next published-RPM snapshot, all of those Requires disappear
+# and those five sub-packages cease to be produced.
+#
+# In the interim our pipeline runs against a pre-overlay snapshot,
+# which still carries every wx-conditional Requires. The five
+# sub-packages have already been removed from base/packages/base.packages.toml
+# (their successor RPMs will not exist), so each consumer that
+# Requires them shows up as a leftover finding that is purely an
+# artifact of the snapshot lag. The single entry below absorbs the
+# entire Cartesian product (4 consumers x 6 deps); not every
+# combination corresponds to an actual finding, but suppressing
+# non-existent findings is a no-op.
+#
+# Once the next snapshot incorporates the overlays, this entry will
+# go to zero hits in repoclosure-base.allowlist-hits.txt and can be
+# deleted in one go.
+[[ignore]]
+package            = ["erlang", "erlang-common_test", "erlang-megaco", "erlang-src", "erlang-rebar3"]
+requires           = [
+    "erlang-wx",
+    "erlang-wx(*",
+    "erlang-debugger",
+    "erlang-debugger(*",
+    "erlang-dialyzer",
+    "erlang-dialyzer(*",
+    "erlang-et",
+    "erlang-et(*",
+    "erlang-observer",
+    "erlang-observer(*",
+    "erlang-reltool",
+    "erlang-reltool(*",
+]
+scope              = "any"
+reason             = "All such Requires are wx-conditional in the upstream spec; the overlay flips %global __with_wxwidgets to 0 (plus strips the one unconditional Requires in erlang-src), so the rebuilt erlang RPMs no longer Require any of these and the wx-conditional sub-packages are no longer produced. Applies to base AND base+sdk closure since the five wx-conditional sub-packages are removed from BOTH channels."
+confidence         = "high"
+overlay            = "base/comps/erlang/erlang.comp.toml"
+verified_at_commit = "84390c4d7d"
+
+
+# ----------------------------------------------------------------------
+# openscap: drop the optional apt-libs Requires
+#
+# openscap's spec wraps `Requires: apt-libs` (and its apt-devel
+# BuildRequires) in `%if %{with apt}`; upstream is `%bcond_without apt`,
+# so AZL inherits the dep until we explicitly disable it. The dedicated
+# component override at base/comps/openscap/openscap.comp.toml sets
+# `build.without = ["apt"]`, which drops the apt-libs Requires from the
+# rebuilt openscap RPM (verified locally with `azldev component build
+# -p openscap` + `rpm -qpR`). Suppress the leftover finding against the
+# pre-overlay published snapshot until the next snapshot picks up the
+# new build; at that point this entry will go to zero hits and can be
+# deleted.
+[[ignore]]
+package            = "openscap"
+requires           = "apt-libs"
+scope              = "base"
+reason             = "build.without = [\"apt\"] in base/comps/openscap/openscap.comp.toml drops the optional apt integration at upstream-supported %bcond level; rebuilt openscap RPM no longer Requires apt-libs."
+confidence         = "high"
+overlay            = "base/comps/openscap/openscap.comp.toml"
+verified_at_commit = "0f614bd9c0"
+
+
+# ----------------------------------------------------------------------
+# qemu: drop have_brlapi / qemu-char-baum cascade (brltty demote enabler)
+#
+# brltty (15 sub-packages) is desktop accessibility tooling and was
+# demoted to sdk. The blocker was qemu-char-baum — qemu's BrlAPI
+# chardev backend that bridges a host Baum Braille terminal into a
+# guest — which is hard-Required by all 19 qemu-system-* emulators
+# with versioned exact-version Requires. The overlay in
+# base/comps/qemu/qemu.comp.toml flips `%global have_brlapi 1` to 0,
+# which both stops producing the qemu-char-baum sub-package and
+# drops the per-emulator `Requires: %{name}-char-baum` line entirely.
+# Verified locally with `azldev component build -p qemu --no-check`
+# + `rpm -qpR`: no qemu RPM Requires anything brl/baum-related, and
+# qemu-char-baum is not built.
+#
+# (--no-check used due to a flaky qtest aspeed_smc-test timeout in
+# the build environment unrelated to the overlay; skipping %check is
+# safe for a Requires-only validation.)
+[[ignore]]
+package            = ["qemu-system-aarch64", "qemu-system-alpha", "qemu-system-arm", "qemu-system-avr", "qemu-system-hppa", "qemu-system-loongarch64", "qemu-system-m68k", "qemu-system-microblaze", "qemu-system-mips", "qemu-system-or1k", "qemu-system-ppc", "qemu-system-riscv", "qemu-system-rx", "qemu-system-s390x", "qemu-system-sh4", "qemu-system-sparc", "qemu-system-tricore", "qemu-system-x86", "qemu-system-xtensa"]
+requires           = ["qemu-char-baum", "qemu-char-baum(*", "qemu-char-baum = *"]
+scope              = "any"
+reason             = "qemu overlay flips %global have_brlapi to 0; qemu-char-baum sub-pkg is no longer produced and the per-emulator Requires line is no longer emitted in the rebuilt RPMs."
+confidence         = "high"
+overlay            = "base/comps/qemu/qemu.comp.toml"
+verified_at_commit = "61673f0d25"
+
+
+# ----------------------------------------------------------------------
+# qemu: drop have_jack / qemu-audio-jack cascade (jack/ffado demote enabler)
+#
+# jack-audio-connection-kit (the JACK pro-audio routing daemon, 3
+# sub-pkgs) and libffado (FireWire pro-audio, 3 sub-pkgs) were demoted
+# to sdk. The blocker was qemu-audio-jack — qemu's JACK audio backend —
+# which is hard-Required (versioned exact-version) by all 19
+# qemu-system-* emulators. The overlay in
+# base/comps/qemu/qemu.comp.toml flips `%global have_jack 1` to 0,
+# which both stops producing the qemu-audio-jack sub-package and
+# drops the per-emulator `Requires: %{name}-audio-jack` line entirely.
+# Verified locally with `azldev component build -p qemu --no-check`
+# + `rpm -qpR`: no qemu RPM Requires anything jack-related, and
+# qemu-audio-jack is not built.
+[[ignore]]
+package            = ["qemu-system-aarch64", "qemu-system-alpha", "qemu-system-arm", "qemu-system-avr", "qemu-system-hppa", "qemu-system-loongarch64", "qemu-system-m68k", "qemu-system-microblaze", "qemu-system-mips", "qemu-system-or1k", "qemu-system-ppc", "qemu-system-riscv", "qemu-system-rx", "qemu-system-s390x", "qemu-system-sh4", "qemu-system-sparc", "qemu-system-tricore", "qemu-system-x86", "qemu-system-xtensa"]
+requires           = ["qemu-audio-jack", "qemu-audio-jack(*", "qemu-audio-jack = *"]
+scope              = "any"
+reason             = "qemu overlay flips %global have_jack to 0; qemu-audio-jack sub-pkg is no longer produced and the per-emulator Requires line is no longer emitted in the rebuilt RPMs."
+confidence         = "high"
+overlay            = "base/comps/qemu/qemu.comp.toml"
+verified_at_commit = "d85ef67af9"
+
+
+# Snapshot-lag: qemu-audio-jack itself still exists in the published
+# snapshot and Requires libjack.so.0; once the snapshot rebuilds qemu
+# this sub-pkg disappears entirely (covered by the cascade entry above).
+[[ignore]]
+package            = "qemu-audio-jack"
+requires           = "libjack.so.0()(64bit)"
+scope              = "any"
+reason             = "qemu-audio-jack will not be built once snapshot picks up the have_jack=0 overlay; libjack moved to sdk."
+confidence         = "high"
+overlay            = "base/comps/qemu/qemu.comp.toml"
+verified_at_commit = "d85ef67af9"
+
+
+# ----------------------------------------------------------------------
+# po4a: drop texlive-kpathsea Requires
+#
+# po4a is a multi-format documentation translation tool. Its only use
+# of texlive-kpathsea is via Locale::Po4a::TeX (which shells out to
+# kpsewhich to resolve TeX include paths). All other format modules
+# (man, sgml, xml, asciidoc, markdown, docbook, dia, halibut, ...)
+# work without it. The overlay in base/comps/po4a/po4a.comp.toml
+# drops both runtime Requires lines so po4a can stay in base while
+# texlive-kpathsea(-bin) live in sdk.
+[[ignore]]
+package            = "po4a"
+requires           = ["texlive-kpathsea", "texlive-kpathsea-bin"]
+scope              = "any"
+reason             = "po4a overlay drops the runtime Requires on texlive-kpathsea(-bin); rebuilt RPM verified to have no texlive Requires."
+confidence         = "high"
+overlay            = "base/comps/po4a/po4a.comp.toml"
+verified_at_commit = "ecc3137503"
+
+
+# ----------------------------------------------------------------------
+# tuna: drop oscilloscope sub-package (matplotlib-gtk3 enabler)
+#
+# tuna's optional `oscilloscope` sub-package is a matplotlib-GTK3
+# real-time visualizer that hard-Required python3-matplotlib-gtk3
+# (the GUI matplotlib bindings, sdk-tier in AZL). The overlay in
+# base/comps/tuna/tuna.comp.toml passes `--without oscilloscope` to
+# disable the bcond and removes the unpackaged-file fallout from
+# `%pyproject_install` via spec-search-replace.
+# Verified locally with `azldev component build -p tuna`: no
+# oscilloscope sub-package is produced.
+[[ignore]]
+package            = "oscilloscope"
+requires           = "python3-matplotlib-gtk3"
+scope              = "any"
+reason             = "tuna overlay disables the oscilloscope bcond; the oscilloscope sub-package is no longer built once the snapshot picks up the rebuilt tuna."
+confidence         = "high"
+overlay            = "base/comps/tuna/tuna.comp.toml"
+verified_at_commit = "05b1cfa20c"
+
+
+# ----------------------------------------------------------------------
+# ostree: drop installed-tests sub-package (gjs enabler)
+#
+# ostree-tests is the GNOME installed-tests harness; its only base
+# unresolved dep was /usr/bin/gjs (sdk-tier). The overlay in
+# base/comps/ostree/ostree.comp.toml passes `--without tests` to
+# disable the bcond and stop building the sub-package entirely.
+# Verified locally with `azldev component build -p ostree`: no
+# ostree-tests RPM is produced.
+[[ignore]]
+package            = "ostree-tests"
+requires           = "/usr/bin/gjs"
+scope              = "any"
+reason             = "ostree overlay disables the tests bcond; the ostree-tests sub-package is no longer built once the snapshot picks up the rebuilt ostree."
+confidence         = "high"
+overlay            = "base/comps/ostree/ostree.comp.toml"
+verified_at_commit = "73e7158634"
+
+
+# ----------------------------------------------------------------------
+# sblim-cmpi-base: drop test sub-package (sblim-testsuite enabler)
+#
+# sblim-cmpi-base-test was the optional test harness for the SBLIM
+# CMPI base provider; its only base unresolved dep was sblim-testsuite
+# (sdk-tier). The overlay in
+# base/comps/sblim-cmpi-base/sblim-cmpi-base.comp.toml flips
+# `%global with_test_subpackage 1` to 0, stopping the test sub-pkg
+# from being built. Verified by local rebuild: no
+# sblim-cmpi-base-test RPM produced.
+[[ignore]]
+package            = "sblim-cmpi-base-test"
+requires           = "sblim-testsuite"
+scope              = "any"
+reason             = "overlay flips %global with_test_subpackage to 0; sub-pkg no longer built once snapshot picks up rebuild."
+confidence         = "high"
+overlay            = "base/comps/sblim-cmpi-base/sblim-cmpi-base.comp.toml"
+verified_at_commit = "807a983921"
+
+
+# ----------------------------------------------------------------------
+# gpm whole-SRPM demote: emacs/mc/vim no longer link libgpm
+#
+# Demoting the gpm SRPM (console mouse-event daemon - relic of bare-
+# metal text consoles, irrelevant for cloud / headless workloads)
+# entirely to sdk. Three base consumers - emacs-nw, mc, vim-enhanced -
+# linked libgpm.so.2 in the upstream Fedora-built snapshot, but this
+# is gated behind a bcond in each spec. Overlays in
+# base/comps/{emacs,mc,vim}/*.comp.toml flip the bcond to OFF; locally
+# rebuilt RPMs no longer require libgpm. Allowlist these stale
+# Requires until the snapshot picks up our rebuilt RPMs.
+[[ignore]]
+package            = "emacs-nw"
+requires           = "libgpm.so.2()(64bit)"
+scope              = "any"
+reason             = "emacs.spec %bcond gpm flipped OFF via comp.toml; rebuilt emacs-nw has no libgpm Requires."
+confidence         = "high"
+overlay            = "base/comps/emacs/emacs.comp.toml"
+verified_at_commit = "e4a3ee9b87"
+
+
+[[ignore]]
+package            = "mc"
+requires           = "libgpm.so.2()(64bit)"
+scope              = "any"
+reason             = "mc.spec %bcond gpm flipped OFF via comp.toml; rebuilt mc has no libgpm Requires."
+confidence         = "high"
+overlay            = "base/comps/mc/mc.comp.toml"
+verified_at_commit = "e4a3ee9b87"
+
+
+[[ignore]]
+package            = "vim-enhanced"
+requires           = "libgpm.so.2()(64bit)"
+scope              = "any"
+reason             = "vim.spec gpm bcond flipped OFF via comp.toml; rebuilt vim-enhanced has no libgpm Requires."
+confidence         = "high"
+overlay            = "base/comps/vim/vim.comp.toml"
+verified_at_commit = "e4a3ee9b87"
+
+
+# ----------------------------------------------------------------------
+# m17n-lib-anthy: drop optional Anthy IME module via bcond
+#
+# m17n-lib-anthy was the only base consumer of anthy-unicode (sdk-tier
+# Japanese IME). m17n-lib.spec gates it via `%bcond_without anthy`
+# (default ON when fedora is set). Overlay flips to OFF; rebuilt
+# m17n-lib no longer produces the anthy sub-package.
+[[ignore]]
+package            = "m17n-lib-anthy"
+requires           = "anthy-unicode"
+scope              = "any"
+reason             = "overlay flips %bcond_without anthy to OFF; m17n-lib-anthy no longer built once snapshot picks up rebuild."
+confidence         = "high"
+overlay            = "base/comps/m17n-lib/m17n-lib.comp.toml"
+verified_at_commit = "4478d4e811"
+
+
+# ----------------------------------------------------------------------
+# qemu-audio-pa: PulseAudio backend dropped via overlay
+#
+# qemu.comp.toml overlays remove the audio-pa sub-package entirely
+# (--disable-pa configure, %package/%description/%files audio-pa
+# removed via spec-remove-section, requires_audio_pa macro emptied).
+# Allowlist the stale published-snapshot Requires until the rebuilt
+# qemu RPMs hit the published feed - at which point audio-pa won't
+# exist and these entries can be retired.
+[[ignore]]
+package            = "qemu-audio-pa"
+requires           = "libpulse.so.0()(64bit)"
+scope              = "any"
+reason             = "qemu-audio-pa sub-package removed via overlay; entry stale until published feed picks up rebuild."
+confidence         = "high"
+overlay            = "base/comps/qemu/qemu.comp.toml"
+verified_at_commit = "a45fd86611"
+
+
+[[ignore]]
+package            = "qemu-audio-pa"
+requires           = "libpulse.so.0(PULSE_0)(64bit)"
+scope              = "any"
+reason             = "qemu-audio-pa sub-package removed via overlay; entry stale until published feed picks up rebuild."
+confidence         = "high"
+overlay            = "base/comps/qemu/qemu.comp.toml"
+verified_at_commit = "a45fd86611"
+
+
+# ----------------------------------------------------------------------
+# hwloc-plugins: drop oneapi-level-zero BR via rhel=10 macro
+#
+# hwloc.spec gates oneapi-level-zero-devel BuildRequires behind
+# %if %{undefined rhel}. hwloc.comp.toml defines rhel=10 so AZL builds
+# follow the RHEL flow and skip the BR; rebuilt hwloc-plugins no longer
+# Requires libze_loader.so.1. Allowlist the stale published-snapshot
+# Requires until the rebuilt RPMs hit the published feed.
+[[ignore]]
+package            = "hwloc-plugins"
+requires           = "libze_loader.so.1()(64bit)"
+scope              = "any"
+reason             = "hwloc.comp.toml sets rhel=10; rebuilt hwloc-plugins no longer Requires libze_loader. Stale until published feed picks up rebuild."
+confidence         = "high"
+overlay            = "base/comps/hwloc/hwloc.comp.toml"
+verified_at_commit = "47b909dd09"
+
+
+# ----------------------------------------------------------------------
+# rubygems-devel: rdoc version skew with stale ruby in published feed
+#
+# Current ruby.spec defines `%global rdoc_version 6.14.0` and builds
+# rubygem-rdoc at 6.14.0, satisfying rubygems-devel-3.6.9's
+# `Requires: rubygem(rdoc) >= 6.14.0`. The published feed still ships
+# rubygem-rdoc-6.4.0-208 (older ruby). Will resolve once ruby is
+# rebuilt and republished. No spec change needed - just stale snapshot.
+[[ignore]]
+package            = "rubygems-devel"
+requires           = "rubygem(rdoc) >= 6.14.0"
+scope              = "any"
+reason             = "Current ruby.spec sets rdoc_version=6.14.0 and builds rubygem-rdoc=6.14.0. Stale published feed still has 6.4.0-208; will resolve on next ruby rebuild + publish."
+confidence         = "high"
+verified_at_commit = "602c3e10ac"
+
+
+# ----------------------------------------------------------------------
+# gtk4: GtkMedia/GtkVideo widget disabled in AZL
+#
+# gtk4.comp.toml drops the Requires on gstreamer1-plugins-bad-free-libs,
+# the BR on gstreamer-player-1.0, and configures meson with
+# -Dmedia-gstreamer=disabled. Rebuilt gtk4 / gtk4-devel no longer link
+# libgstplay-1.0.so.0. Allowlist the stale published-snapshot Requires
+# until the rebuilt RPMs hit the published feed.
+
+
+
+[[ignore]]
+package = "qemu-audio-pipewire"
+requires = "libpipewire-0.3.so.0()(64bit)"
+scope = "base"
+reason = "qemu PipeWire audio backend disabled via overlay (--disable-pipewire, audio-pipewire sub-package removed). Stale RPM still in published snapshot until republish."
+confidence = "high"
+overlay = "base/comps/qemu/qemu.comp.toml"
+verified_at_commit = "978d56a9af"
+
+
+[[ignore]]
+package = "anaconda-core"
+requires = "flatpak"
+scope = "base"
+reason = "anaconda-core no longer Requires flatpak (overlay drops the Requires; AZL doesn't ship the flatpak installer source-type). Stale published RPM until republish."
+confidence = "high"
+overlay = "base/comps/anaconda/anaconda.comp.toml"
+verified_at_commit = "036f4766e8"
+
+
+[[ignore]]
+package = "anaconda-core"
+requires = "flatpak-libs"
+scope = "base"
+reason = "anaconda-core no longer Requires flatpak-libs (overlay drops the Requires). Stale published RPM until republish."
+confidence = "high"
+overlay = "base/comps/anaconda/anaconda.comp.toml"
+verified_at_commit = "036f4766e8"

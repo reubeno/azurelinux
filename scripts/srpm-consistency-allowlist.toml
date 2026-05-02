@@ -1,0 +1,935 @@
+# Allowlist of accepted per-SRPM channel exceptions.
+#
+# Policy: every binary RPM produced by an SRPM must publish to the same
+# channel (rpm-base or rpm-sdk). The split-repo-by-channel.py script flags
+# any SRPM whose binary RPMs span multiple channels.
+#
+# Each [[exception]] entry below documents an *intentional* deviation:
+#
+#   srpm              The SRPM name.
+#   expected_channel  The channel the bulk of this SRPM's binary RPMs
+#                     publish to ("base" or "sdk"). All non-matching pkgs
+#                     must be covered by allowed_in_other.
+#   allowed_in_other  A list of binary-RPM-name patterns (fnmatch globs)
+#                     allowed to publish to a *different* channel from
+#                     expected_channel.
+#   reason            Why this exception exists.
+#
+# Any SRPM not listed here whose binaries span channels is a hard violation
+# and the script exits non-zero.
+
+# Example (commented out):
+# [[exception]]
+# srpm             = "examplepkg"
+# expected_channel = "base"
+# allowed_in_other = ["examplepkg-doc", "examplepkg-test"]
+# reason           = "Doc and test sub-packages intentionally kept out of base."
+
+# ---------------------------------------------------------------------------
+# mingw / Windows cross-compile carve-outs from base SRPMs.
+# Each of these SRPMs has its main Linux sub-packages in `base`, while its
+# Windows cross-compile sub-packages publish to `sdk` (and live in
+# `base/packages/exceptions.packages.toml`). These are not part of a
+# supported Linux runtime.
+# ---------------------------------------------------------------------------
+
+[[exception]]
+srpm             = "check"
+expected_channel = "base"
+allowed_in_other = ["mingw32-check", "mingw64-check"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "dtc"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libfdt", "mingw64-libfdt", "mingw32-libfdt-static", "mingw64-libfdt-static"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "eigen3"
+expected_channel = "base"
+allowed_in_other = ["mingw32-eigen3", "mingw64-eigen3"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "enchant2"
+expected_channel = "base"
+allowed_in_other = ["mingw32-enchant2", "mingw64-enchant2"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "freexl"
+expected_channel = "base"
+allowed_in_other = ["mingw32-freexl", "mingw64-freexl"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "gcab"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libgcab1", "mingw64-libgcab1"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "geos"
+expected_channel = "base"
+allowed_in_other = ["mingw32-geos", "mingw64-geos"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "giflib"
+expected_channel = "base"
+allowed_in_other = ["mingw32-giflib", "mingw32-giflib-tools", "mingw64-giflib", "mingw64-giflib-tools"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "gnutls"
+expected_channel = "base"
+allowed_in_other = ["mingw32-gnutls", "mingw64-gnutls"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "hidapi"
+expected_channel = "base"
+allowed_in_other = ["mingw32-hidapi", "mingw64-hidapi"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "inih"
+expected_channel = "base"
+allowed_in_other = ["mingw32-inih", "mingw64-inih"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "json-c"
+expected_channel = "base"
+allowed_in_other = ["mingw32-json-c", "mingw64-json-c"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "leptonica"
+expected_channel = "base"
+allowed_in_other = ["mingw32-leptonica", "mingw64-leptonica"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libgeotiff"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libgeotiff", "mingw32-libgeotiff-tools", "mingw64-libgeotiff", "mingw64-libgeotiff-tools"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libgsf"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libgsf", "mingw64-libgsf"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libkml"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libkml", "mingw32-python3-libkml", "mingw64-libkml", "mingw64-python3-libkml"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "liblerc"
+expected_channel = "base"
+allowed_in_other = ["mingw32-liblerc", "mingw64-liblerc"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libosinfo"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libosinfo", "mingw64-libosinfo"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "librttopo"
+expected_channel = "base"
+allowed_in_other = ["mingw32-librttopo", "mingw64-librttopo"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libsodium"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libsodium", "mingw64-libsodium"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libspatialite"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libspatialite", "mingw64-libspatialite"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libusb1"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libusb1", "mingw64-libusb1"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libvirt"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libvirt", "mingw64-libvirt"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libvirt-glib"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libvirt-gconfig", "mingw32-libvirt-glib", "mingw32-libvirt-gobject", "mingw64-libvirt-gconfig", "mingw64-libvirt-glib", "mingw64-libvirt-gobject"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libwebp"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libwebp", "mingw64-libwebp"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libxmlb"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libxmlb", "mingw64-libxmlb"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "libyaml"
+expected_channel = "base"
+allowed_in_other = ["mingw32-libyaml", "mingw64-libyaml"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "nuspell"
+expected_channel = "base"
+allowed_in_other = ["mingw32-nuspell", "mingw64-nuspell"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "nbdkit"
+expected_channel = "base"
+allowed_in_other = ["mingw32-nbdkit", "mingw64-nbdkit"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "openjpeg"
+expected_channel = "base"
+allowed_in_other = ["mingw32-openjpeg", "mingw32-openjpeg-tools", "mingw64-openjpeg", "mingw64-openjpeg-tools"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "opus"
+expected_channel = "base"
+allowed_in_other = ["mingw32-opus", "mingw64-opus"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "osinfo-db-tools"
+expected_channel = "base"
+allowed_in_other = ["mingw32-osinfo-db-tools", "mingw64-osinfo-db-tools"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "p11-kit"
+expected_channel = "base"
+allowed_in_other = ["mingw32-p11-kit", "mingw64-p11-kit"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "proj"
+expected_channel = "base"
+allowed_in_other = ["mingw32-proj", "mingw64-proj"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "rust"
+expected_channel = "base"
+allowed_in_other = ["rust-std-static-i686-pc-windows-gnu", "rust-std-static-x86_64-pc-windows-gnu"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "shapelib"
+expected_channel = "base"
+allowed_in_other = ["mingw32-shapelib", "mingw32-shapelib-tools", "mingw64-shapelib", "mingw64-shapelib-tools", "mingw32-shapelib-static", "mingw64-shapelib-static"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "uriparser"
+expected_channel = "base"
+allowed_in_other = ["mingw32-uriparser", "mingw64-uriparser"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "xerces-c"
+expected_channel = "base"
+allowed_in_other = ["mingw32-xerces-c", "mingw64-xerces-c"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "osinfo-db"
+expected_channel = "base"
+allowed_in_other = ["mingw32-osinfo-db", "mingw64-osinfo-db"]
+reason           = "Windows cross-compile sub-packages published to sdk; not part of supported Linux runtime."
+
+[[exception]]
+srpm             = "doxygen"
+expected_channel = "base"
+allowed_in_other = ["doxygen-doxywizard", "doxygen-latex"]
+reason           = "Optional add-on sub-packages: doxywizard is a Qt5 GUI; -latex pulls full TeXLive. Core doxygen CLI/library and js-doxygen remain in base."
+
+[[exception]]
+srpm             = "avahi"
+expected_channel = "base"
+allowed_in_other = ["avahi-qt3", "avahi-qt3-devel", "avahi-qt4", "avahi-qt4-devel", "avahi-qt5", "avahi-qt5-devel", "avahi-sharp", "avahi-ui", "avahi-ui-devel", "avahi-ui-gtk3", "avahi-ui-sharp", "avahi-ui-sharp-devel", "avahi-ui-tools"]
+reason           = "Qt/GTK/Mono GUI bindings (qt3/qt4/qt5/ui/sharp/gtk3 sub-packages) carved out to sdk; the core avahi daemon, libs, and dnsconfd remain in base."
+
+[[exception]]
+srpm             = "wireshark"
+expected_channel = "base"
+allowed_in_other = ["wireshark"]
+reason           = "Qt6 GUI app sub-package carved out to sdk; wireshark-cli (tshark/dumpcap) and wireshark-devel remain in base."
+
+[[exception]]
+srpm             = "python-sphinx"
+expected_channel = "base"
+allowed_in_other = ["python3-sphinx-latex"]
+reason           = "LaTeX/PDF output backend pulls full TeXLive; core python3-sphinx and themes remain in base."
+
+[[exception]]
+srpm             = "poppler"
+expected_channel = "base"
+allowed_in_other = ["poppler-qt5", "poppler-qt5-devel"]
+reason           = "Qt5 binding sub-packages carved out to sdk; core poppler PDF library, glib binding, and utils remain in base."
+
+[[exception]]
+srpm             = "erlang"
+expected_channel = "base"
+allowed_in_other = ["erlang-wx"]
+reason           = "wxWidgets-based Observer GUI carved out to sdk; Erlang runtime, OTP libraries, and other sub-packages remain in base."
+
+[[exception]]
+srpm             = "subversion"
+expected_channel = "base"
+allowed_in_other = ["subversion-kde"]
+reason           = "KDE Wallet integration sub-package carved out to sdk; svn CLI, libs, Apache modules, and Perl/Python/Ruby/Java bindings remain in base."
+
+[[exception]]
+srpm             = "anaconda"
+expected_channel = "base"
+allowed_in_other = ["anaconda", "anaconda-gui", "anaconda-install-img-deps", "anaconda-live", "anaconda-widgets-devel"]
+reason           = "GUI/live/install-image/devel sub-packages carved out to sdk; anaconda-core/-tui/-widgets/-dracut/-install-env-deps remain in base for non-GUI installer flows."
+
+[[exception]]
+srpm             = "thrift"
+expected_channel = "base"
+allowed_in_other = ["thrift-qt"]
+reason           = "thrift-qt is a Qt5 GUI binding; CLI/glib bindings supported in base."
+
+[[exception]]
+srpm             = "vala"
+expected_channel = "base"
+allowed_in_other = ["vala-doc"]
+reason           = "vala-doc is a GUI doc-browser integration; vala compiler/runtime supported in base."
+
+[[exception]]
+srpm             = "perl-Carp-Clan"
+expected_channel = "base"
+allowed_in_other = ["perl-Carp-Clan-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-DBI"
+expected_channel = "base"
+allowed_in_other = ["perl-DBI-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-Date-Manip"
+expected_channel = "base"
+allowed_in_other = ["perl-Date-Manip-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-DateTime-Locale"
+expected_channel = "base"
+allowed_in_other = ["perl-DateTime-Locale-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-DateTime-TimeZone"
+expected_channel = "base"
+allowed_in_other = ["perl-DateTime-TimeZone-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-Devel-CheckLib"
+expected_channel = "base"
+allowed_in_other = ["perl-Devel-CheckLib-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-FCGI"
+expected_channel = "base"
+allowed_in_other = ["perl-FCGI-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-HTTP-Daemon"
+expected_channel = "base"
+allowed_in_other = ["perl-HTTP-Daemon-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-HTTP-Message"
+expected_channel = "base"
+allowed_in_other = ["perl-HTTP-Message-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-LDAP"
+expected_channel = "base"
+allowed_in_other = ["perl-LDAP-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-LWP-Protocol-https"
+expected_channel = "base"
+allowed_in_other = ["perl-LWP-Protocol-https-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-List-SomeUtils"
+expected_channel = "base"
+allowed_in_other = ["perl-List-SomeUtils-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-Log-Log4perl"
+expected_channel = "base"
+allowed_in_other = ["perl-Log-Log4perl-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-Module-Build"
+expected_channel = "base"
+allowed_in_other = ["perl-Module-Build-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-Module-Install"
+expected_channel = "base"
+allowed_in_other = ["perl-Module-Install-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-Module-ScanDeps"
+expected_channel = "base"
+allowed_in_other = ["perl-Module-ScanDeps-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-Syntax-Keyword-Try"
+expected_channel = "base"
+allowed_in_other = ["perl-Syntax-Keyword-Try-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-Test-Simple"
+expected_channel = "base"
+allowed_in_other = ["perl-Test-Simple-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-URI"
+expected_channel = "base"
+allowed_in_other = ["perl-URI-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-XML-LibXML"
+expected_channel = "base"
+allowed_in_other = ["perl-XML-LibXML-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-XML-XPath"
+expected_channel = "base"
+allowed_in_other = ["perl-XML-XPath-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-bignum"
+expected_channel = "base"
+allowed_in_other = ["perl-bignum-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "perl-libwww-perl"
+expected_channel = "base"
+allowed_in_other = ["perl-libwww-perl-tests"]
+reason           = "*-tests sub-pkg ships upstream test corpus only; never used at runtime by anything other than test re-runs."
+
+[[exception]]
+srpm             = "gpgme"
+expected_channel = "base"
+allowed_in_other = ["qgpgme-qt5", "qgpgme-qt5-devel"]
+reason           = "Optional Qt5 binding sub-pkg; pulls qt5-qtbase from sdk."
+
+[[exception]]
+srpm             = "pinentry"
+expected_channel = "base"
+allowed_in_other = ["pinentry-qt"]
+reason           = "GUI sub-pkg; pulls KF6 (kf6-kguiaddons, kf6-kwindowsystem) from sdk."
+
+[[exception]]
+srpm             = "usermode"
+expected_channel = "base"
+allowed_in_other = ["usermode-gtk"]
+reason           = "GTK GUI sub-pkg; pulls gtk2 from sdk."
+
+[[exception]]
+srpm             = "postgresql18-postgis"
+expected_channel = "base"
+allowed_in_other = ["postgis-gui"]
+reason           = "GUI sub-pkg; pulls gtk2 from sdk."
+
+[[exception]]
+srpm             = "setools"
+expected_channel = "base"
+allowed_in_other = ["setools-gui", "setools"]
+reason           = "GUI sub-pkg; pulls python3-pyqt6 from sdk."
+
+[[exception]]
+srpm             = "firewalld"
+expected_channel = "base"
+allowed_in_other = ["firewall-applet"]
+reason           = "GUI sub-pkg; pulls python3-pyqt6-base from sdk."
+
+[[exception]]
+srpm             = "rest"
+expected_channel = "base"
+allowed_in_other = ["rest-demo"]
+reason           = "Demo GUI sub-pkg; pulls libgtksourceview5 from sdk."
+
+[[exception]]
+srpm             = "python-pyudev"
+expected_channel = "base"
+allowed_in_other = ["python3-pyudev-qt4", "python3-pyudev-qt5"]
+reason           = "Optional Qt event-loop bindings sub-pkgs; pull PyQt4/python3-qt5 from sdk."
+
+[[exception]]
+srpm             = "pcp"
+expected_channel = "base"
+allowed_in_other = ["pcp-testsuite"]
+reason           = "Testsuite sub-pkg pulls setools meta (carved); testsuites kept in sdk."
+
+[[exception]]
+srpm             = "vim"
+expected_channel = "base"
+allowed_in_other = ["vim-X11"]
+reason           = "X11 GUI vim sub-pkg pulls libcanberra/X11 stack; CLI/enhanced/minimal vim stay in base."
+
+[[exception]]
+srpm             = "virt-manager"
+expected_channel = "base"
+allowed_in_other = ["virt-manager"]
+reason           = "GTK GUI sub-pkg only; CLI virt-install + shared virt-manager-common stay in base."
+
+[[exception]]
+srpm             = "ghostscript"
+expected_channel = "base"
+allowed_in_other = ["ghostscript-tools-dvipdf"]
+reason           = "ghostscript dvipdf tool requires /usr/bin/dvips from texlive (sdk); core ghostscript stays in base."
+
+[[exception]]
+srpm             = "cvs"
+expected_channel = "base"
+allowed_in_other = ["cvs-contrib"]
+reason           = "Legacy CVS contrib scripts require perl(getopts.pl) (removed from modern Perl); CVS core stays in base."
+
+[[exception]]
+srpm             = "asciidoc"
+expected_channel = "base"
+allowed_in_other = ["asciidoc-latex"]
+reason           = "asciidoc LaTeX backend pulls dblatex + texlive-dvipng-bin from sdk; core asciidoc stays in base."
+
+[[exception]]
+srpm             = "syslinux"
+expected_channel = "base"
+allowed_in_other = ["syslinux-perl"]
+reason           = "Perl helpers for SYSLINUX (legacy bootloader) require unpackaged perl(Crypt::PasswdMD5); irrelevant for Azure cloud-distro base."
+
+[[exception]]
+srpm             = "emacs"
+expected_channel = "base"
+allowed_in_other = ["emacs-gtk+x11", "emacs-pgtk"]
+reason           = "GUI emacs builds (gtk+x11, pgtk) pull libpixbufloader-xpm + GTK stack from sdk; emacs-nox/lucid stay in base."
+
+[[exception]]
+srpm             = "texinfo"
+expected_channel = "base"
+allowed_in_other = ["texinfo-tex"]
+reason           = "GUI/extra texlive backend not appropriate for base; only texinfo CLI is in base"
+
+[[exception]]
+srpm             = "mythes-eo"
+expected_channel = "base"
+allowed_in_other = ["mythes-eo"]
+reason           = "Locale-specific LO thesaurus data; the rest of mythes ecosystem (mythes core lib) lives in sdk"
+
+[[exception]]
+srpm             = "hunspell-lb"
+expected_channel = "base"
+allowed_in_other = ["mythes-lb"]
+reason           = "Locale-specific MyThes data; needs mythes core which lives in sdk"
+
+[[exception]]
+srpm             = "openoffice-lv"
+expected_channel = "base"
+allowed_in_other = ["mythes-lv"]
+reason           = "Locale-specific MyThes data; needs mythes core which lives in sdk"
+
+[[exception]]
+srpm             = "hunspell-no"
+expected_channel = "base"
+allowed_in_other = ["mythes-nb", "mythes-nn"]
+reason           = "Locale-specific MyThes data; needs mythes core which lives in sdk"
+
+[[exception]]
+srpm             = "389-ds-base"
+expected_channel = "base"
+allowed_in_other = ["cockpit-389-ds"]
+reason           = "Cockpit web UI plugin; cockpit framework lives in sdk"
+
+[[exception]]
+srpm             = "pcs"
+expected_channel = "base"
+allowed_in_other = ["cockpit-ha-cluster"]
+reason           = "Cockpit web UI plugin; cockpit framework lives in sdk"
+
+[[exception]]
+srpm             = "maven-doxia"
+expected_channel = "base"
+allowed_in_other = ["maven-doxia-module-markdown"]
+reason           = "Sub-pkg pulls flexmark-java (54 sub-pkgs); markdown rendering not needed by base maven plumbing consumers"
+
+[[exception]]
+srpm             = "graphviz"
+expected_channel = "base"
+allowed_in_other = ["graphviz-sharp", "graphviz-guile"]
+reason           = "Niche language bindings carved to sdk: graphviz-sharp (C#/Mono runtime in sdk), graphviz-guile (libgc + libguile-3.0 in sdk)."
+
+[[exception]]
+srpm             = "docbook-utils"
+expected_channel = "base"
+allowed_in_other = ["docbook-utils-pdf"]
+reason           = "PDF variant carved to sdk; HTML and core docbook-utils tooling stays in base."
+
+[[exception]]
+srpm             = "policycoreutils"
+expected_channel = "base"
+allowed_in_other = ["policycoreutils-sandbox"]
+reason           = "GUI sandbox sub-package carved out to sdk; core SELinux policycoreutils tooling remains in base."
+
+[[exception]]
+srpm             = "net-snmp"
+expected_channel = "base"
+allowed_in_other = ["net-snmp-gui"]
+reason           = "Tk GUI monitoring sub-package carved out to sdk; core net-snmp stack remains in base."
+
+[[exception]]
+srpm             = "crun"
+expected_channel = "base"
+allowed_in_other = ["crun-krun", "crun-wasm"]
+reason           = "libkrun + wasmedge runtime variants of crun carved to sdk; core crun + crun-criu remain in base."
+
+[[exception]]
+srpm             = "DevIL"
+expected_channel = "base"
+allowed_in_other = ["DevIL-ILUT", "DevIL-ILUT-devel"]
+reason           = "DevIL-ILUT/-devel carved to sdk; Allegro 4 not in base."
+
+[[exception]]
+srpm             = "kiwi"
+expected_channel = "base"
+allowed_in_other = ["kiwi-systemdeps-pkgmgr-zypper"]
+reason           = "kiwi-systemdeps-pkgmgr-zypper requires zypper which is sdk-only."
+
+[[exception]]
+srpm             = "glusterfs"
+expected_channel = "base"
+allowed_in_other = ["glusterfs-ganesha"]
+reason           = "glusterfs-ganesha carved to sdk; nfs-ganesha stack is sdk-only, consistent with ceph stack."
+
+[[exception]]
+srpm             = "mariadb"
+expected_channel = "base"
+allowed_in_other = ["mariadb-sphinx-engine"]
+reason           = "mariadb-sphinx-engine carved to sdk; sphinx search server stays sdk-only."
+
+[[exception]]
+srpm             = "fence-agents"
+expected_channel = "base"
+allowed_in_other = ["fence-agents-all", "fence-agents-aws", "fence-agents-aws-vpc-net", "fence-agents-compute", "fence-agents-gce"]
+reason           = "fence-agents-compute carved to sdk (Nova-Pacemaker bridge; OpenStack sdk-only); fence-agents-aws and -aws-vpc-net carved to sdk (AWS fencing not core for Azure distro); fence-agents-gce carved to sdk (GCE fencing not core for Azure distro); fence-agents-all dragged along (meta-pkg Requires every individual fence agent)."
+
+[[exception]]
+srpm             = "python-fsspec"
+expected_channel = "base"
+allowed_in_other = ["python3-fsspec+gcs", "python3-fsspec+gs"]
+reason           = "python3-fsspec+gcs/+gs carved to sdk; GCP storage integration not core for Azure distro."
+
+[[exception]]
+srpm             = "nbdkit"
+expected_channel = "base"
+allowed_in_other = ["nbdkit-gcs-plugin"]
+reason           = "nbdkit-gcs-plugin carved to sdk; GCP storage stack stays sdk-only."
+
+
+[[exception]]
+srpm             = "python-systemd"
+expected_channel = "base"
+allowed_in_other = ["python-systemd-doc"]
+reason           = "PEP-508 +extras carved to sdk; their optional deps are not appropriate for the supported base channel"
+
+[[exception]]
+srpm             = "python-dns"
+expected_channel = "base"
+allowed_in_other = ["python3-dns+doh", "python3-dns+doq", "python3-dns+trio"]
+reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
+
+[[exception]]
+srpm             = "python-fsspec"
+expected_channel = "base"
+allowed_in_other = ["python3-fsspec+dask"]
+reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
+
+[[exception]]
+srpm             = "python-jsonschema"
+expected_channel = "base"
+allowed_in_other = ["python3-jsonschema+format", "python3-jsonschema+format-nongpl"]
+reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
+
+[[exception]]
+srpm             = "python-lxml"
+expected_channel = "base"
+allowed_in_other = ["python3-lxml+cssselect"]
+reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
+
+[[exception]]
+srpm             = "python-networkx"
+expected_channel = "base"
+allowed_in_other = ["python3-networkx+extra"]
+reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
+
+[[exception]]
+srpm             = "python-oauthlib"
+expected_channel = "base"
+allowed_in_other = ["python3-oauthlib+signals"]
+reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
+
+[[exception]]
+srpm             = "python-pooch"
+expected_channel = "base"
+allowed_in_other = ["python3-pooch+xxhash"]
+reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
+
+[[exception]]
+srpm             = "python-pymongo"
+expected_channel = "base"
+allowed_in_other = ["python3-pymongo+ocsp"]
+reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
+
+[[exception]]
+srpm             = "python-qrcode"
+expected_channel = "base"
+allowed_in_other = ["python3-qrcode+all", "python3-qrcode+pil"]
+reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
+
+[[exception]]
+srpm             = "python-sqlalchemy"
+expected_channel = "base"
+allowed_in_other = ["python3-sqlalchemy+aiomysql", "python3-sqlalchemy+postgresql_pg8000"]
+reason           = "PEP-508 +extras sub-package carved to sdk; optional deps inappropriate for supported base channel"
+
+[[exception]]
+srpm             = "libvirt"
+expected_channel = "base"
+allowed_in_other = ["libvirt-wireshark"]
+reason           = "libvirt-wireshark is a wireshark dissector plugin; lives wherever wireshark lives (sdk)."
+
+[[exception]]
+srpm             = "mpg123"
+expected_channel = "base"
+allowed_in_other = ["mpg123-plugins-jack"]
+reason           = "mpg123-plugins-jack carved to sdk to allow jack-audio-connection-kit demote; rest of mpg123 sub-pkgs stay in base"
+
+[[exception]]
+srpm             = "mpg123"
+expected_channel = "base"
+allowed_in_other = ["mpg123-plugins-portaudio", "mpg123-plugins-pulseaudio"]
+reason           = "mpg123-plugins-portaudio + -pulseaudio carved to sdk to close repoclosure leaks (libportaudio.so.2); mpg123/-libs/-devel stay in base"
+
+[[exception]]
+srpm             = "blosc"
+expected_channel = "base"
+allowed_in_other = ["blosc-bench"]
+reason           = "blosc-bench carved to sdk to drop python3-matplotlib dep from base; rest of blosc stays in base"
+
+[[exception]]
+srpm             = "systemtap"
+expected_channel = "base"
+allowed_in_other = ["systemtap-testsuite"]
+reason           = "systemtap-testsuite carved to sdk to drop 'stress' dep from base; rest of systemtap stays in base"
+
+[[exception]]
+srpm             = "perl-DBI"
+expected_channel = "base"
+allowed_in_other = ["perl-DBI-Coro"]
+reason           = "perl-DBI-Coro carved to sdk to avoid dragging the perl-Coro/AnyEvent/EV/Event/Guard/BDB cascade into base; rest of perl-DBI stays in base"
+
+[[exception]]
+srpm             = "cups"
+expected_channel = "base"
+allowed_in_other = ["cups", "cups-ipptool", "cups-lpd", "cups-printerapp"]
+reason           = "Server-side cups; only bluez-cups in base depends on it (also carved)"
+
+[[exception]]
+srpm             = "bluez"
+expected_channel = "base"
+allowed_in_other = ["bluez-cups"]
+reason           = "Sole base consumer of cups server pkg, also carved"
+
+[[exception]]
+srpm             = "pinentry"
+expected_channel = "base"
+allowed_in_other = ["pinentry-gnome3"]
+reason           = "GNOME GUI sub-pkg, no GNOME stack in base"
+
+[[exception]]
+srpm             = "nbdkit"
+expected_channel = "base"
+allowed_in_other = ["nbdkit-torrent-plugin"]
+reason           = "torrent plugin pulls libtorrent-rasterbar; specialty plugin for serving torrents over NBD"
+
+[[exception]]
+srpm             = "resource-agents"
+expected_channel = "base"
+allowed_in_other = ["ldirectord"]
+reason           = "ldirectord's perl-Net-IMAP-Simple-SSL chain (and family) is a niche IPVS LB monitoring stack"
+
+[[exception]]
+srpm             = "clamav"
+expected_channel = "base"
+allowed_in_other = ["clamav-milter"]
+reason           = "milter integration is sendmail-specific; libmilter not in base"
+
+[[exception]]
+srpm             = "kernel"
+expected_channel = "base"
+allowed_in_other = ["kernel-selftests-internal"]
+reason           = "kernel selftests sub-pkg requires nmh /usr/bin/inc (not in either channel); developer/test artifact"
+
+[[exception]]
+srpm             = "perl-File-BaseDir"
+expected_channel = "base"
+allowed_in_other = ["perl-File-BaseDir-tests"]
+reason           = "perl-File-BaseDir-tests carved to sdk - xdg-user-dirs is sdk-tier and only needed by this dev/test sub-pkg."
+
+[[exception]]
+srpm             = "xmlto"
+expected_channel = "base"
+allowed_in_other = ["xmlto-tex"]
+reason           = "xmlto-tex carved to sdk - tex-passivetex isn't packaged anywhere; only xmlto-tex consumed it."
+
+[[exception]]
+srpm             = "unbound"
+expected_channel = "base"
+allowed_in_other = ["unbound-munin"]
+reason           = "unbound-munin carved to sdk - munin-node is sdk-tier monitoring agent not warranted in base."
+
+[[exception]]
+srpm             = "libreport"
+expected_channel = "base"
+allowed_in_other = ["libreport-plugin-mailx"]
+reason           = "libreport-plugin-mailx carved to sdk - /usr/bin/mailx provider isn't packaged anywhere in AZL."
+
+[[exception]]
+srpm             = "gtk3"
+expected_channel = "base"
+allowed_in_other = ["gtk3-immodules"]
+reason           = "gtk3-immodules carved to sdk - gtk-immodules-imsettings is sdk-tier and only needed by IM modules sub-pkg."
+
+[[exception]]
+srpm             = "picocli"
+expected_channel = "base"
+allowed_in_other = ["picocli-shell-jline2"]
+reason           = "picocli-shell-jline2 carved to sdk because it depends on the legacy jline2 library (sdk-tier); rest of picocli stays in base."
+
+[[exception]]
+srpm             = "perl-MIME-Types"
+expected_channel = "base"
+allowed_in_other = ["perl-MojoX-MIME-Types"]
+reason           = "perl-MojoX-MIME-Types is a Mojolicious adapter; perl-Mojolicious is sdk-tier in AZL. Rest of perl-MIME-Types SRPM stays in base."
+
+[[exception]]
+srpm             = "perl-File-BaseDir"
+expected_channel = "base"
+allowed_in_other = ["perl-File-UserDirs"]
+reason           = "perl-File-UserDirs depends on xdg-user-dirs which is sdk-tier in AZL (desktop XDG dir helper); rest of perl-File-BaseDir SRPM stays in base."
+
+[[exception]]
+srpm             = "pcp"
+expected_channel = "base"
+allowed_in_other = ["pcp-pmda-nutcracker"]
+reason           = "pcp-pmda-nutcracker is a niche PMDA (Performance Co-Pilot agent) for the nutcracker proxy; depends on perl(YAML::XS) which is sdk-tier. Rest of pcp stays in base."
+
+[[exception]]
+srpm             = "rocclr"
+expected_channel = "base"
+allowed_in_other = ["rocm-opencl", "rocm-opencl-devel"]
+reason           = "rocm-opencl(-devel) is the ROCm OpenCL runtime; AMD GPU compute is sdk-tier in AZL and OpenCL-ICD-Loader-devel is sdk-only."
+
+[[exception]]
+srpm             = "javapackages-tools"
+expected_channel = "base"
+allowed_in_other = ["ivy-local", "javapackages-compat"]
+reason           = "ivy-local needs apache-ivy + xmvn-connector-ivy (sdk-tier) and javapackages-compat is a legacy shim with no base consumers. Both carved to sdk."
+
+[[exception]]
+srpm             = "perl-Log-Dispatch"
+expected_channel = "base"
+allowed_in_other = ["perl-Log-Dispatch-ApacheLog"]
+reason           = "ApacheLog sub-package needs mod_perl (sdk-tier); no base consumers."
+
+[[exception]]
+srpm             = "javapackages-tools"
+expected_channel = "base"
+allowed_in_other = ["javapackages-local-openjdk25", "maven-local-openjdk25"]
+reason           = "javapackages-local-openjdk25 chain pulls xmvn-generator -> dola-bsx (sdk-tier Java build-tooling fork). Whole chain carved to sdk; rest of javapackages-tools stays in base."
+
+[[exception]]
+srpm             = "fence-agents"
+expected_channel = "base"
+allowed_in_other = ["fence-agents-amt", "fence-agents-amt-ws"]
+reason           = "fence-agents-amt/-amt-ws Require amtterm which moved to sdk. Intel AMT cluster fencing not a cloud workload."
+
+[[exception]]
+srpm             = "sysprof"
+expected_channel = "base"
+allowed_in_other = ["sysprof"]
+reason           = "sysprof GUI binary moved with libpanel/libadwaita/gtk4 demote."
+
+[[exception]]
+srpm             = "glycin"
+expected_channel = "base"
+allowed_in_other = ["glycin-gtk4-devel", "glycin-gtk4-libs"]
+reason           = "GTK4 bindings sub-package; gtk4 itself moving to sdk."
+
+[[exception]]
+srpm             = "gssdp"
+expected_channel = "base"
+allowed_in_other = ["gssdp-utils"]
+reason           = "gssdp-utils CLI tool; not needed for headless cloud."
+
+[[exception]]
+srpm             = "vte291"
+expected_channel = "base"
+allowed_in_other = ["vte291-gtk4", "vte291-gtk4-devel"]
+reason           = "GTK4 variant of VTE terminal widget; gtk4 itself moving to sdk."

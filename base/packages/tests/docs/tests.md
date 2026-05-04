@@ -1,0 +1,288 @@
+# Test catalogue & contributor guide
+
+This document describes every test in [`../cases/`](../cases/) — what it
+asserts, which markers and fixtures it uses, what its failure looks
+like — and explains how to add a new one.
+
+For the architecture and design of the framework itself, see
+[`architecture.md`](architecture.md). For user-facing invocation,
+see [`../README.md`](../README.md).
+
+## Reading this catalogue
+
+Each entry covers:
+
+* **What it asserts** — the rule the test enforces.
+* **Markers / fan-out** — which `(repo, arch)` pairs the test fans
+  out across.
+* **Fixtures used** — what data the test pulls from the framework.
+* **Failure shape** — aggregate vs data-parametrized, what the failure
+  message looks like.
+* **Rules-as-code** — the constants at the top of the test file you
+  edit to change behavior.
+
+## Catalogue
+
+### `test_no_srpms_in_binary.py`
+
+* **Asserts:** Every package in a binary repo has a binary arch
+  (i.e., not `src` and not `nosrc`).
+* **Markers:** `@pytest.mark.repo_kind("binary")`.
+* **Fan-out:** one test per binary repo per arch.
+* **Fixtures:** `repo`, `arch`, `repo_packages`.
+* **Failure:** aggregated — lists every offending NEVRA in one
+  failure message per `(repo, arch)`.
+* **Rules-as-code:** none — the rule is structural.
+
+### `test_only_srpms_in_srpm_repo.py`
+
+* **Asserts:** Every package in an SRPM repo has arch `src` or `nosrc`.
+* **Markers:** `@pytest.mark.repo_kind("srpm")`.
+* **Fan-out:** one test per srpm repo per arch.
+* **Fixtures:** `repo`, `arch`, `repo_packages`.
+* **Failure:** aggregated.
+* **Rules-as-code:** `_SRPM_ARCHES = frozenset({"src", "nosrc"})`.
+
+### `test_blocklist.py`
+
+* **Asserts:** No package whose name (the *N* of *NEVR*) appears in
+  the hard-coded `GLOBAL_BLOCKLIST` may exist in *any* provided
+  repo, regardless of kind (`binary`, `srpm`, `debuginfo`) or arch.
+* **Markers:** none — fans out over every provided `--repo` via the
+  default `repo` parametrization.
+* **Fan-out:** one collected test per `(repo, arch, blocked_name)`
+  triple. Data-parametrized over `GLOBAL_BLOCKLIST` so each name
+  shows up as its own pytest result.
+* **Fixtures:** `repo`, `arch`, `repo_packages`.
+* **Failure:** per `(repo, arch, blocked_name)`. The current
+  `GLOBAL_BLOCKLIST` covers upstream packages that AZL replaces
+  (`fedora-release`, `fedora-repos`, `fedora-logos`,
+  `redhat-rpm-config`) and licensing-constrained packages
+  (`ffmpeg`).
+* **Rules-as-code:** `GLOBAL_BLOCKLIST = (...)` at the top of the
+  file. If you ever need a *per-repo* blocklist, add it as a
+  separate test alongside this one rather than overloading this
+  function with two shapes.
+
+### `test_vendor_tag.py`
+
+* **Asserts:** Every non-source package in a binary repo has
+  `Vendor == "Microsoft Corporation"`.
+* **Markers:** `@pytest.mark.repo_kind("binary")`.
+* **Fan-out:** one test per binary repo per arch.
+* **Fixtures:** `repo`, `arch`, `repo_packages`.
+* **Failure:** aggregated — lists each offending package and its
+  observed vendor string.
+* **Rules-as-code:** `EXPECTED_VENDOR = "Microsoft Corporation"`.
+
+### `test_release_suffix.py`
+
+* **Asserts:** Every non-source package's `Release` tag matches the
+  regex `\.azl4(~.*)?$` — i.e., ends with `.azl4`, optionally
+  followed by `~<arbitrary-suffix>` (used for pre-release / hotfix
+  builds).
+* **Markers:** `@pytest.mark.repo_kind("binary")`.
+* **Fan-out:** one test per binary repo per arch.
+* **Fixtures:** `repo`, `arch`, `repo_packages`.
+* **Failure:** aggregated.
+* **Rules-as-code:** `RELEASE_SUFFIX_RE = re.compile(...)`.
+
+### `test_repoclosure_base.py`
+
+* **Asserts:** The `base` repo is closed over its package universe's
+  runtime dependencies (i.e., every `Requires:` resolves within the
+  repo plus `noarch`).
+* **Markers:** none — repos are hard-coded.
+* **Fan-out:** one test per arch.
+* **Fixtures:** `arch`, `require_named_repos`, `repoclosure`.
+* **Fail behavior:** if `--repo name=base,...` is not provided, the
+  test fails with a clear "misconfigured run" message — hard-coded
+  release-gating closure tests treat missing inputs as
+  misconfiguration, never silent skips.
+* **Failure:** per `(target-set, arch)`. The `RepoclosureResult.__str__`
+  lists each unresolved package and its missing requires.
+
+### `test_repoclosure_base_plus_sdk.py`
+
+* **Asserts:** `base ∪ sdk` is closed over runtime dependencies as a
+  unit.
+* **Markers:** none — repos are hard-coded.
+* **Fan-out:** one test per arch.
+* **Fixtures:** `arch`, `require_named_repos`, `repoclosure`.
+* **Fail behavior:** all of `{base, sdk}` provided → run; any missing
+  → fail (hard-coded closure tests don't silently skip).
+* **Failure:** per `(target-set, arch)`.
+
+### `test_repoclosure_base_srpms_buildtime.py`
+
+* **Asserts:** Every SRPM in `base-srpms` is build-time-closed
+  against `base ∪ sdk`. dnf5 surfaces an SRPM's `BuildRequires:` as
+  `Requires:` on the source-arch package, so `dnf5 repoclosure` over
+  the SRPM repo with the binary universe enabled checks build-time
+  closure naturally.
+* **Markers:** none — repos are hard-coded.
+* **Fan-out:** one test per arch.
+* **Fixtures:** `arch`, `require_named_repos`, `repoclosure` (used
+  with `check_kind="buildtime"`).
+* **Fail behavior:** all of `{base-srpms, base, sdk}` provided →
+  run; any missing → fail.
+* **Failure:** per `(target-set, arch)`. The "buildtime" check kind
+  examines packages of arch ∈ {*arch*, `noarch`, `src`, `nosrc`}, so
+  findings include both unresolved BuildRequires *and* runtime breakage
+  in the binary packages that provide those BuildRequires (a broken
+  provider would otherwise silently still be considered a valid build
+  dep — the transitive failure is what makes a daily build fail).
+
+### `test_no_duplicate_subpackage_names.py`
+
+* **Asserts:** Across all binary repos provided, no two distinct
+  SRPMs (compared by SRPM *name*, parsed from `<rpm:sourcerpm>`) may
+  produce a binary sub-package of the same name. Identical NEVRAs
+  across repos are deduped before comparison.
+* **Markers:** none — uses `binary_repos` directly.
+* **Fan-out:** one test per arch.
+* **Fixtures:** `arch`, `binary_repos`, `all_binary_packages`.
+* **Failure:** aggregated. Each offending binary name lists the SRPMs
+  contributing it, with one example NEVRA per SRPM.
+* **Rules-as-code:** `ALLOWLIST: dict[str, frozenset[str]]` keyed by
+  binary name → allowed SRPM-name set.
+
+### `test_file_conflicts_cross_repo.py`
+
+* **Asserts:** Across all binary repos, distinct binary packages from
+  *different SRPMs* that own the same file path are mutually marked
+  with `Conflicts:` (either by literal name or via a `Provides:` /
+  `Conflicts:` virtual-name pair). This is a heuristic check on top of
+  repodata — not a perfect simulation of `rpm -i`'s install-time
+  conflict resolution.
+* **Heuristic limitations** (see also the module docstring):
+  * **Name-only conflict matching.** `Provides:` and `Conflicts:` are
+    treated as bare-name sets — version ranges (e.g.
+    `Conflicts: foo >= 2.0`) are not modeled. A ranged `Conflicts:`
+    that only covers some versions of the other side may produce a
+    false positive here (we'll report it as unsatisfied even though
+    the install-time resolver would accept the actually-published
+    version), and conversely an effective conflict that only fires
+    on a version *range* the published packages happen to fall outside
+    of may pass here. Treat the test as high signal but not gospel.
+  * **Single-arch perspective.** Each test instance compares only
+    same-arch packages (the test fans out per-arch). Multilib
+    (`glibc.i686` next to `glibc.x86_64` on an `x86_64` host) is out
+    of scope.
+* **Markers:** none — uses `binary_repos` directly.
+* **Fan-out:** one test per arch.
+* **Fixtures:** `arch`, `binary_repos`, `all_binary_packages`,
+  `cross_repo_file_index`.
+* **Filtering applied (in order):**
+  * Directory entries — RPM permits shared directory ownership
+    (filtered by the metadata service).
+  * `%ghost` entries — RPM's canonical mechanism for non-conflicting
+    shared "ownership" of a path (filtered by the metadata service).
+  * Identical NEVRAs across repos are deduped (one owner per unique
+    NEVRA).
+  * Same-SRPM sibling pairs are exempted in this test — `rpmbuild`
+    already prevents same-SRPM siblings from genuinely conflicting at
+    install time; cross-SRPM pairs are the real signal here.
+* **Failure:** aggregated, **grouped by package pair** with sample
+  paths per pair (5 by default). Sorted worst-offenders-first so a
+  single high-volume issue (e.g., `mariadb-test` vs `mysql-test-data`
+  sharing thousands of test fixtures) doesn't drown out the smaller
+  ones.
+* **Rules-as-code:** `PATH_ALLOWLIST: dict[str, str]` for legitimate
+  shared-ownership cases (e.g., `alternatives`-managed slots that
+  somehow escape the ghost-filter). `_SAMPLE_PATHS_PER_PAIR` controls
+  how many sample paths show up per group in the failure message.
+
+## How to add a new test
+
+The framework is shaped so most new tests are short — five to twenty
+lines.
+
+### 1. Decide the scope
+
+Pick the markers / fixtures that match the assertion:
+
+| Assertion is about... | Use |
+| --- | --- |
+| Every package in a single binary repo | `@pytest.mark.repo_kind("binary")` + `repo`, `arch`, `repo_packages` |
+| Every package in a single SRPM repo | `@pytest.mark.repo_kind("srpm")` + same fixtures |
+| One specific named repo | `@pytest.mark.repo_name("base")` + same fixtures |
+| All binary repos at once | no marker, `binary_repos` fixture |
+| Cross-repo file overlaps | `cross_repo_file_index(arch)` |
+| Solver-level closure | `repoclosure(target_repos, arch)` |
+
+### 2. Decide the failure-reporting style
+
+Three patterns are used in this suite; pick the one that fits:
+
+| Style | When | How |
+| --- | --- | --- |
+| **Aggregated** | Rule has at most one failure per `(test, arch)`, or violations are tightly related and reading them together is more useful than splitting | Collect violations into a list, then `pytest.fail("\n".join(...))` once at the end |
+| **Data-parametrized** | Rule applies to a small *fixed* list of inputs known at collection time (e.g., a hard-coded `BLOCKLIST`) | `@pytest.mark.parametrize("input", LIST)`; each input becomes its own collected test case |
+| **Subtests** | Rule produces a *dynamic* list of violations discovered at run time, and each one deserves its own report entry (e.g., per-package repoclosure failures, per-pair file conflicts) | Take a `subtests` fixture (provided by `pytest-subtests`) and wrap each violation in `with subtests.test(...)`; each surfaces as its own `SUBFAILED` entry without inflating the collected test count |
+
+In the current suite:
+
+* Aggregated: `test_no_srpms_in_binary`, `test_only_srpms_in_srpm_repo`,
+  `test_vendor_tag`, `test_release_suffix`.
+* Data-parametrized: `test_blocklist`.
+* Subtests: `test_no_duplicate_subpackage_names`,
+  `test_file_conflicts_cross_repo`, `test_repoclosure_*`.
+
+### 3. Decide where the rules live
+
+* If the rule is a small set of literals (a regex, a vendor string,
+  a tuple of names, a dict allowlist), put them at the top of the test
+  file as `UPPER_CASE` constants under a `# rules-as-code:` comment.
+* If the rule needs new data from the repos (e.g., a new tag from
+  RPM headers), extend `Package` in
+  [`../utils/types.py`](../utils/types.py) and add the parsing in
+  [`../utils/repodata.py`](../utils/repodata.py). The fixture
+  surface should not need to change.
+
+### 4. Write the test
+
+Template:
+
+```python
+# SPDX-License-Identifier: MIT
+"""<one-line summary>."""
+
+from __future__ import annotations
+
+import pytest
+
+from utils.repos import Repo
+
+
+# rules-as-code: edit me to ...
+SOME_RULE = ...
+
+
+@pytest.mark.repo_kind("binary")
+def test_<rule_name>(repo: Repo, arch: str, repo_packages) -> None:
+    packages = repo_packages(repo, arch)
+    offenders = [p for p in packages if not _passes(p)]
+    if offenders:
+        listing = "\n".join(f"  - {p.nevra}" for p in offenders)
+        pytest.fail(
+            f"binary repo {repo.name!r} (arch {arch}) has "
+            f"{len(offenders)} offending package(s):\n{listing}"
+        )
+```
+
+### 5. Run it
+
+```bash
+uv run pytest cases/test_<your_test>.py -v --repo ...
+```
+
+If it doesn't apply to the repo set you have, it'll skip cleanly.
+If it does apply but doesn't have the data it needs from the
+fixtures, it should fail loudly — not silently — at the point where
+the data is requested.
+
+### 6. Update this catalogue
+
+Add an entry under "Catalogue" so future contributors don't have to
+read the test file to understand its scope.

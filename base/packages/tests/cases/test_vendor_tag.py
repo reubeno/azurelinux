@@ -1,5 +1,10 @@
 # SPDX-License-Identifier: MIT
-"""Every binary package must carry the expected Vendor tag."""
+"""Every binary package must carry the expected Vendor tag.
+
+The expected vendor is configurable via ``--expected-vendor`` so the
+same suite can validate both AZL4 (default: ``Microsoft Corporation``)
+and any future vendor string without a fork.
+"""
 
 from __future__ import annotations
 
@@ -8,19 +13,15 @@ import pytest
 from utils.repos import Repo
 
 
-# rules-as-code: edit me if the expected vendor changes.
-EXPECTED_VENDOR = "Microsoft Corporation"
-
-
 @pytest.mark.repo_kind("binary")
 def test_binary_packages_have_expected_vendor(
-    repo: Repo, arch: str, repo_packages
+    repo: Repo, arch: str, repo_packages, expected_vendor: str
 ) -> None:
-    """Aggregate: every non-source package must have Vendor == EXPECTED_VENDOR."""
+    """Aggregate: every non-source package must have ``Vendor == expected_vendor``."""
     packages = repo_packages(repo, arch)
     offenders = [
         p for p in packages
-        if not p.is_source and (p.vendor or "").strip() != EXPECTED_VENDOR
+        if not p.is_source and (p.vendor or "").strip() != expected_vendor
     ]
     if offenders:
         listing = "\n".join(
@@ -30,5 +31,5 @@ def test_binary_packages_have_expected_vendor(
         pytest.fail(
             f"binary repo {repo.name!r} (arch {arch}) has "
             f"{len(offenders)} package(s) with unexpected Vendor "
-            f"(expected {EXPECTED_VENDOR!r}):\n{listing}"
+            f"(expected {expected_vendor!r}):\n{listing}"
         )

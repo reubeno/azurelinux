@@ -116,7 +116,11 @@ class HostBackend:
         repos_dir.mkdir(parents=True, exist_ok=True)
         cache_dir.mkdir(parents=True, exist_ok=True)
         repo_file = repos_dir / "repos.repo"
-        repo_file.write_text(render_repo_file(universe_repos))
+        repo_file.write_text(
+            render_repo_file(
+                universe_repos, arch=arch, releasever=self._releasever
+            )
+        )
         return repo_file, cache_dir
 
     def repoclosure(
@@ -179,9 +183,23 @@ class HostBackend:
             if check_kind == "all"
             else set(_arches_to_check(check_kind, arch))
         )
+        # For "buildtime", the *point* of the check is to surface BOTH
+        # unresolved BuildRequires of source packages AND broken runtime
+        # closure of the binary providers that satisfy them — so we
+        # must NOT drop findings whose source repo is outside
+        # ``target_repos``. Filtering by target repo would silently
+        # erase exactly the binary-provider failures the kind exists
+        # to catch (and would do so only on dnf5 builds with --json
+        # support, since text output has no per-finding repo, making
+        # the bug a host-version-dependent split-brain).
+        target_filter = (
+            None
+            if check_kind == "buildtime"
+            else {r.name for r in target_repos}
+        )
         return filter_repoclosure_result(
             outcome,
-            target_repo_names={r.name for r in target_repos},
+            target_repo_names=target_filter,
             arches_to_keep=arch_set,
             raw_target_repo_names=target_names,
         )

@@ -19,6 +19,7 @@ Responsibilities:
 from __future__ import annotations
 
 import logging
+import os
 from collections import defaultdict
 from pathlib import Path
 
@@ -59,11 +60,24 @@ class MetadataService:
         # MetadataService instance has a fixed releasever; but we
         # prefix with a "rv-" segment so post-mortem inspection of a
         # workdir is unambiguous.
+        #
+        # Scope by xdist worker the same way both backends do (see
+        # ``utils/backends/host.py:_xdist_worker_slug``). Without this,
+        # two workers fetching the same repo race through
+        # ``_http_get`` (atomic per call, fine) but then can clobber
+        # each other in the verify-then-unlink window of
+        # ``RepodataLoader._download``: worker A's ``unlink`` of a
+        # file that worker B just atomically replaced produces
+        # confusing ``FileNotFoundError`` cascades during checksum
+        # anomalies. Per-worker cache dirs give each worker its own
+        # tree and eliminate the race entirely.
         rv = self._releasever or "none"
+        worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
         return (
             self._workdir
             / "repodata"
             / f"rv-{rv}"
+            / worker
             / arch
             / f"{repo.name}-{repo.fingerprint}"
         )

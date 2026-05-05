@@ -64,6 +64,22 @@ def releasever(request: pytest.FixtureRequest) -> str | None:
 
 
 @pytest.fixture(scope="session")
+def expected_vendor(request: pytest.FixtureRequest) -> str:
+    """The expected RPM Vendor: tag (driven by ``--expected-vendor``)."""
+    return getattr(
+        request.config, "_azl_expected_vendor", "Microsoft Corporation"
+    )
+
+
+@pytest.fixture(scope="session")
+def release_suffix_pattern(request: pytest.FixtureRequest) -> str:
+    """The expected Release-tag regex (driven by ``--release-suffix``)."""
+    return getattr(
+        request.config, "_azl_release_suffix", r"\.azl4(~.*)?$"
+    )
+
+
+@pytest.fixture(scope="session")
 def all_repos(request: pytest.FixtureRequest) -> list[Repo]:
     """Every repo passed via ``--repo`` (in input order)."""
     return list(getattr(request.config, "_azl_repos", []))
@@ -218,19 +234,27 @@ def require_named_repos(all_repos: list[Repo]):
     :class:`Repo` objects. Behavior:
 
     * If **all** are provided: returns them in input order.
+    * If **none** are provided: skips the test with a clear message.
+      A user who deliberately scoped the run to a different repo set
+      (e.g., only ``--repo name=base,...`` when this test wants
+      ``base + sdk``) is opting out, not misconfiguring; silent-skip
+      the right behavior here.
     * If **some but not all** are provided: fails the test with a
-      clear message — partial provision is treated as misconfiguration.
-    * If **none** are provided: also fails. Hard-coded tests describe
-      release-gating invariants for *named* repos; if you ran the
-      suite at all but didn't supply the inputs they need, that is
-      itself a misconfiguration. (A green CI run that silently
-      skipped the most important closure check is worse than not
-      running at all.)
+      clear message — partial provision means the caller plausibly
+      *intended* to run this test but typo'd a name or omitted one,
+      and silently skipping a release-gating closure check is worse
+      than failing loudly.
     """
     by_name = {r.name: r for r in all_repos}
 
     def _require(expected: list[str], *, kind: str | None = None) -> list[Repo]:
         present = [n for n in expected if n in by_name]
+        if not present:
+            pytest.skip(
+                f"none of the required --repo(s) {expected} were provided; "
+                f"this test is hard-coded for that named repo set. "
+                f"Provided: {[(r.name, r.kind) for r in all_repos] or '<none>'}"
+            )
         if len(present) != len(expected):
             missing = sorted(set(expected) - set(present))
             pytest.fail(

@@ -43,6 +43,30 @@ class FileEntry:
     mechanism for non-conflicting shared file ownership)."""
 
 
+@dataclass(frozen=True)
+class ConflictEntry:
+    """A single ``Conflicts:`` entry parsed from primary repodata.
+
+    *flags* is the dnf-style operator string (``EQ``, ``LT``, ``LE``,
+    ``GT``, ``GE``) when the conflict is versioned, or ``None`` for a
+    bare ``Conflicts: <name>`` with no version constraint. *epoch*,
+    *version*, and *release* are populated only when the conflict
+    declares them; consumers that don't need version-aware matching
+    can use :attr:`name` alone.
+    """
+
+    name: str
+    flags: str | None = None
+    epoch: int | None = None
+    version: str | None = None
+    release: str | None = None
+
+    @property
+    def is_versioned(self) -> bool:
+        """True iff this conflict declares any version constraint."""
+        return self.flags is not None or self.version is not None
+
+
 @dataclass
 class Package:
     """Rich package record sourced from primary repodata.
@@ -59,7 +83,7 @@ class Package:
     sourcerpm: str | None
     summary: str | None = None
     provides: list[str] = field(default_factory=list)
-    conflicts: list[str] = field(default_factory=list)
+    conflicts: list[ConflictEntry] = field(default_factory=list)
     files: list[FileEntry] = field(default_factory=list)
 
     @property
@@ -74,6 +98,17 @@ class Package:
     def is_source(self) -> bool:
         """True if this is a source RPM (arch is ``src`` or ``nosrc``)."""
         return self.nevra.arch in ("src", "nosrc")
+
+    @property
+    def conflict_names(self) -> list[str]:
+        """The bare names of all ``Conflicts:`` entries.
+
+        Provided for callers that don't care about version constraints
+        (e.g., the cross-repo duplicate-name check). Callers that need
+        version-aware matching should iterate :attr:`conflicts`
+        directly.
+        """
+        return [c.name for c in self.conflicts]
 
 
 @dataclass(frozen=True)

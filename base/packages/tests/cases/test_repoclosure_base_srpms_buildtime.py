@@ -28,10 +28,13 @@ closure of any binary that participates as a provider are checked.
 Skip / fail behavior
 --------------------
 
-Hard-coded for ``base-srpms`` + ``base`` + ``sdk``. If any of those
-``--repo`` flags are missing, the test fails (see
-:func:`require_named_repos` — release-gating closure tests treat
-missing inputs as misconfiguration, never silent skips).
+Hard-coded for ``base-srpms`` + ``base`` + ``sdk``. If **none** of
+those ``--repo`` flags are provided, the test skips (a user who scoped
+the run to a different repo set is opting out, not misconfiguring).
+If **some but not all** are provided, the test fails — partial
+provision is almost certainly a typo or omission rather than a
+deliberate opt-out, and silently skipping a release-gating closure
+check is worse than failing loudly.
 """
 
 from __future__ import annotations

@@ -57,13 +57,15 @@ into the active env, bare `pytest cases/ ...` works too.)
 
 | Option | Repeatable | Default | Description |
 | --- | --- | --- | --- |
-| `--repo` | yes | — (≥1 required) | Add a repo. Format: `name=...,kind=...,url=...` (comma-separated `key=value`). `kind` ∈ `binary` / `srpm` / `debuginfo`. URL is passed verbatim to dnf, including any `$basearch` / `$releasever` placeholders. |
-| `--arch` | yes | `x86_64` | Architecture to test against. dnf substitutes `$basearch` for this value. |
+| `--repo` | yes | — (none required, but most tests skip without it) | Add a repo. Format: `name=...,kind=...,url=...` (comma-separated `key=value`). `kind` ∈ `binary` / `srpm` / `debuginfo`. URL may contain `$basearch` / `$arch` / `$releasever` placeholders — these are pre-substituted by the suite (so cross-arch validation actually fetches the requested arch's metadata, even on a host of a different arch). Repo names must be globally unique across all `--repo` flags. |
+| `--arch` | yes | `x86_64` | Architecture to test against. Substituted for `$basearch` / `$arch` in `--repo` URLs. |
 | `--releasever` | no | unset | Required iff at least one URL contains `$releasever`. Never inherited from the host or container. |
 | `--repoclosure-backend` | no | `host` | `host` shells out to local `dnf5`; `container` runs dnf5 inside `--container-image`. |
 | `--container-image` | no | `fedora:44` | Image used by the container backend. |
 | `--container-runtime` | no | auto | `podman` (preferred) or `docker`. |
 | `--workdir` | no | fresh `tempfile.mkdtemp(prefix="azl-repo-tests-")` | If set, used as-is and not cleaned (post-mortem friendly). |
+| `--expected-vendor` | no | `Microsoft Corporation` | Vendor string every binary package must declare (checked by `test_vendor_tag`). |
+| `--release-suffix` | no | `\.azl4(~.*)?$` | Regex (`re.search`) every binary package's Release tag must match (checked by `test_release_suffix`). Override for AZL3 (e.g., `\.azl3(~.*)?$`) or other distros. |
 
 ### Selecting tests
 
@@ -81,8 +83,18 @@ To run only against the `base` repo:
 uv run pytest cases/ --repo name=base,kind=binary,url=...
 ```
 
-Tests scoped to other repo kinds/names will skip with a clear
-"no --repo matched markers ..." message.
+* Tests scoped to other repo kinds/names will skip with a clear
+  "no --repo matched markers ..." message.
+* Tests hard-coded for a specific repo set you didn't supply (e.g.
+  `test_repoclosure_base_plus_sdk` when only `base` is given) will
+  also skip — `require_named_repos` treats "none of the named set
+  provided" as opting-out, not as misconfiguration. **Partial**
+  provision of a hard-coded set (e.g. `base` but not `sdk`) still
+  fails loudly, since that almost certainly means a typo or omission
+  rather than a deliberate opt-out.
+* Cross-repo tests that need at least one binary repo
+  (`test_no_duplicate_subpackage_names`, `test_file_conflicts_*`)
+  skip when no binary `--repo` is provided.
 
 ## Examples
 

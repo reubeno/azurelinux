@@ -107,14 +107,14 @@ def _build_provides_index(
 
 def _build_conflicts_index(
     by_repo: dict[Repo, list[Package]]
-) -> dict[tuple, set[str]]:
-    """Map ``(NEVRA,)`` -> the set of names the package Conflicts: with."""
-    out: dict[tuple, set[str]] = {}
+) -> dict[tuple, list]:
+    """Map ``(NEVRA,)`` -> the list of :class:`ConflictEntry` records."""
+    out: dict[tuple, list] = {}
     for packages in by_repo.values():
         for pkg in packages:
             if pkg.is_source:
                 continue
-            out[(pkg.nevra,)] = set(pkg.conflicts)
+            out[(pkg.nevra,)] = list(pkg.conflicts)
     return out
 
 
@@ -139,12 +139,11 @@ def test_file_conflicts_across_binary_repos(
     subtests,
 ) -> None:
     if not binary_repos:
-        pytest.fail(
-            "misconfigured run: no binary --repo provided. This test "
-            "validates a cross-repo invariant and cannot pass vacuously. "
-            "Pass at least one --repo name=...,kind=binary,url=... — or "
-            "use pytest -k / --ignore to deselect this test if you "
-            "intentionally want to skip it."
+        pytest.skip(
+            "no binary --repo provided; this test validates a cross-repo "
+            "invariant and cannot run without at least one binary repo. "
+            "(Use pytest -k / --ignore to permanently deselect, or pass "
+            "--repo name=...,kind=binary,url=... to enable.)"
         )
 
     by_repo = all_binary_packages(arch)
@@ -155,14 +154,30 @@ def test_file_conflicts_across_binary_repos(
     srpm_by_nevra = _build_srpm_index(by_repo)
 
     def _are_marked_conflicting(a_nevra, b_nevra) -> bool:
-        a_conflicts = conflicts_by_nevra.get((a_nevra,), set())
+        # Only **bare** (unversioned) Conflicts: entries are treated as
+        # genuinely suppressing a file overlap. A versioned conflict
+        # (e.g., ``Conflicts: foo < 2.0``) may not actually cover the
+        # observed package version — collapsing it to a name match
+        # would silently hide real install-time conflicts when the
+        # versions don't satisfy the constraint. v1 of this check is
+        # intentionally conservative: only the bare form suppresses;
+        # versioned conflicts let the pair fall through and surface
+        # for manual triage. (See "Known limitations" in the module
+        # docstring.)
+        a_conflicts = conflicts_by_nevra.get((a_nevra,), [])
         b_provides = provides_by_nevra.get((b_nevra,), set())
-        if a_conflicts & b_provides:
-            return True
-        b_conflicts = conflicts_by_nevra.get((b_nevra,), set())
+        for c in a_conflicts:
+            if c.is_versioned:
+                continue
+            if c.name in b_provides:
+                return True
+        b_conflicts = conflicts_by_nevra.get((b_nevra,), [])
         a_provides = provides_by_nevra.get((a_nevra,), set())
-        if b_conflicts & a_provides:
-            return True
+        for c in b_conflicts:
+            if c.is_versioned:
+                continue
+            if c.name in a_provides:
+                return True
         return False
 
     def _same_srpm(a_nevra, b_nevra) -> bool:

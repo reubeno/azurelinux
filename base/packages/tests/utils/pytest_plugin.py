@@ -10,7 +10,7 @@ being interpreted as positional test-path arguments.
 Responsibilities:
 
 * Register all CLI options.
-* Register the ``repo_kind`` / ``repo_name`` / ``allow_no_repos`` markers.
+* Register the ``repo_kind`` / ``repo_name`` markers.
 * Implement ``pytest_generate_tests`` to fan a test out across all
   matching ``(repo, arch)`` pairs at parametrize time, with a no-match
   guard so a typo'd marker can't silently zero out a test.
@@ -20,6 +20,17 @@ The plugin module exposes only pytest hooks and tiny pure helpers.
 Higher-level fixtures (``repo_packages``, ``cross_repo_file_index``,
 ``repoclosure``, ...) live in ``conftest.py`` so tests get the
 familiar pytest fixture-discovery experience.
+
+No-``--repo`` policy
+--------------------
+
+Because this plugin is registered as a ``pytest11`` entry point, it is
+loaded for **every** ``pytest`` invocation in any environment that has
+``azl-repo-tests`` installed (including ``pytest --collect-only`` and
+unrelated test suites that share the venv). It therefore must not fail
+configuration when no ``--repo`` is provided — instead, repo-dependent
+tests skip cleanly via ``pytest_generate_tests`` and the
+``require_named_repos`` fixture.
 """
 
 from __future__ import annotations
@@ -118,6 +129,28 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "cleaned up at session end."
         ),
     )
+    group.addoption(
+        "--expected-vendor",
+        default="Microsoft Corporation",
+        dest="azl_expected_vendor",
+        metavar="VENDOR",
+        help=(
+            "Expected RPM Vendor: tag for every binary package "
+            "(checked by test_vendor_tag). Default: Microsoft Corporation."
+        ),
+    )
+    group.addoption(
+        "--release-suffix",
+        default=r"\.azl4(~.*)?$",
+        dest="azl_release_suffix",
+        metavar="REGEX",
+        help=(
+            "Regex that every binary package's Release tag must match "
+            "(checked by test_release_suffix). Default: '\\.azl4(~.*)?$' "
+            "for AZL4. Override for nightly verification of older "
+            "distros (e.g. AZL3) without forking the test."
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -131,17 +164,24 @@ def pytest_configure(config: pytest.Config) -> None:
     We do parsing/validation here (rather than in fixtures) so a
     misconfiguration is reported once with a clean message, before any
     test collection or fixture setup.
+
+    No-``--repo`` policy: this hook runs for **every** pytest
+    invocation in the active environment (we're loaded as a
+    ``pytest11`` entry point). We therefore must not raise
+    :class:`pytest.UsageError` when the user provides no
+    ``--repo`` — that would break ``pytest --collect-only``, IDE test
+    introspection, and unrelated test suites that share the venv.
+    Repo-dependent tests skip cleanly via
+    :func:`pytest_generate_tests` and the ``require_named_repos``
+    fixture instead.
     """
     raw_repos: list[str] = list(config.getoption("azl_repos"))
-    if not raw_repos:
-        raise pytest.UsageError(
-            "at least one --repo name=...,kind=...,url=... is required"
-        )
-
-    try:
-        repos = parse_repo_specs(raw_repos)
-    except RepoSpecError as exc:
-        raise pytest.UsageError(str(exc)) from exc
+    repos: list[Repo] = []
+    if raw_repos:
+        try:
+            repos = parse_repo_specs(raw_repos)
+        except RepoSpecError as exc:
+            raise pytest.UsageError(str(exc)) from exc
 
     arches: list[str] = list(config.getoption("azl_arches")) or ["x86_64"]
     # Preserve order while de-duping.
@@ -175,6 +215,12 @@ def pytest_configure(config: pytest.Config) -> None:
     config._azl_repos = repos  # type: ignore[attr-defined]
     config._azl_arches = deduped_arches  # type: ignore[attr-defined]
     config._azl_releasever = releasever  # type: ignore[attr-defined]
+    config._azl_expected_vendor = config.getoption(  # type: ignore[attr-defined]
+        "azl_expected_vendor"
+    )
+    config._azl_release_suffix = config.getoption(  # type: ignore[attr-defined]
+        "azl_release_suffix"
+    )
 
 
 def _detect_container_runtime() -> str | None:
@@ -229,10 +275,10 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
       arches via the ``arch`` parameter (also parametrized).
     * If the test only has an ``arch`` parameter (no ``repo``),
       parametrize over arches alone.
-    * If marker filters eliminate every candidate repo for a test that
-      requires one, raise :class:`pytest.UsageError` so the test
-      doesn't silently disappear. The ``allow_no_repos`` marker opts
-      out of this guard.
+    * If marker filters eliminate every candidate repo for a test
+      that requires one, the test is parametrized with a single
+      ``no-matching-repo`` skip so it surfaces in the report rather
+      than silently disappearing.
     """
     config = metafunc.config
     repos: list[Repo] = getattr(config, "_azl_repos", [])

@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import gzip
 import hashlib
+import http.client
 import logging
 import lzma
 import os
@@ -57,7 +58,7 @@ from typing import Generator, Iterable
 from defusedxml.ElementTree import iterparse as _iterparse_safe
 from defusedxml.ElementTree import parse as _parse_safe
 
-from .types import NEVRA, FileEntry, Package
+from .types import NEVRA, ConflictEntry, FileEntry, Package
 
 logger = logging.getLogger(__name__)
 
@@ -176,6 +177,15 @@ def _http_get(url: str, dest: Path) -> None:
     * :class:`urllib.error.URLError` (DNS failures, connection resets)
     * :class:`OSError` (low-level socket errors)
     * :class:`urllib.error.HTTPError` with ``code >= 500`` (server-side)
+    * :class:`http.client.HTTPException` — covers
+      :class:`~http.client.IncompleteRead` (server reset after sending
+      a partial body — the most common transient failure for the
+      multi-MB filelists download) and
+      :class:`~http.client.RemoteDisconnected`. These are not
+      :class:`OSError`/:class:`URLError` subclasses, so without an
+      explicit catch they would bubble unretried even though they're
+      exactly the kind of transient mid-stream failure the retry loop
+      is designed to absorb.
 
     We do **not** retry on 4xx responses (likely permanent — wrong URL,
     auth, etc.) or on SSL/cert errors (likewise permanent and worth
@@ -192,7 +202,7 @@ def _http_get(url: str, dest: Path) -> None:
                     f"failed to fetch {url}: HTTP {exc.code} {exc.reason}"
                 ) from exc
             last_exc = exc
-        except (urllib.error.URLError, OSError) as exc:
+        except (urllib.error.URLError, OSError, http.client.HTTPException) as exc:
             last_exc = exc
         else:
             try:
@@ -432,7 +442,7 @@ def _parse_primary(path: Path) -> Generator[Package, None, None]:
                 vendor: str | None = None
                 sourcerpm: str | None = None
                 provides: list[str] = []
-                conflicts: list[str] = []
+                conflicts: list[ConflictEntry] = []
                 files: list[FileEntry] = []
                 if fmt is not None:
                     sourcerpm = _text(fmt.find(f"{_RPM_NS}sourcerpm"))
@@ -447,8 +457,32 @@ def _parse_primary(path: Path) -> Generator[Package, None, None]:
                     if cf is not None:
                         for entry in cf.findall(f"{_RPM_NS}entry"):
                             n = entry.get("name")
-                            if n:
-                                conflicts.append(n)
+                            if not n:
+                                continue
+                            # Capture flags + EVR so consumers can tell
+                            # bare ``Conflicts: foo`` apart from a
+                            # versioned ``Conflicts: foo < 1.0``. The
+                            # cross-repo file-conflicts test treats
+                            # only the bare form as truly suppressing
+                            # a file overlap; versioned conflicts are
+                            # surfaced as needing-verification because
+                            # they may not actually cover the
+                            # observed package version.
+                            flags_attr = entry.get("flags")
+                            ep = entry.get("epoch")
+                            try:
+                                ep_int = int(ep) if ep is not None else None
+                            except ValueError:
+                                ep_int = None
+                            conflicts.append(
+                                ConflictEntry(
+                                    name=n,
+                                    flags=flags_attr or None,
+                                    epoch=ep_int,
+                                    version=entry.get("ver") or None,
+                                    release=entry.get("rel") or None,
+                                )
+                            )
                     for fent in fmt.findall(f"{_PRIMARY_NS}file"):
                         if not fent.text:
                             continue

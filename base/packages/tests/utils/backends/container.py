@@ -85,15 +85,24 @@ class ContainerBackend:
         return ["-v", opt]
 
     def _proxy_env_args(self) -> list[str]:
-        """Forward proxy/CA env vars into the container if set on the host."""
-        forwarded = []
+        """Forward proxy/CA env vars into the container if set on the host.
+
+        We deliberately use the bare ``-e KEY`` form (no ``=value``)
+        so the runtime *inherits* each variable from this process's
+        environment instead of inlining the value into argv. The argv
+        gets logged (debug) and embedded in the ``RuntimeError`` raised
+        on timeout; with values like ``HTTPS_PROXY=http://user:pass@…``
+        that would leak credentials into captured logs and CI artifacts.
+        Passing only the key keeps the secret out of argv entirely.
+        """
+        forwarded: list[str] = []
         for key in (
             "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY",
             "http_proxy", "https_proxy", "no_proxy",
             "SSL_CERT_FILE", "REQUESTS_CA_BUNDLE",
         ):
             if key in os.environ:
-                forwarded.extend(["-e", f"{key}={os.environ[key]}"])
+                forwarded.extend(["-e", key])
         return forwarded
 
     def _ensure_dnf5(self) -> None:
@@ -195,7 +204,11 @@ class ContainerBackend:
         cache_dir = host_dir / "cache"
         repos_dir.mkdir(parents=True, exist_ok=True)
         cache_dir.mkdir(parents=True, exist_ok=True)
-        (repos_dir / "repos.repo").write_text(render_repo_file(universe_repos))
+        (repos_dir / "repos.repo").write_text(
+            render_repo_file(
+                universe_repos, arch=arch, releasever=self._releasever
+            )
+        )
         rel_repo_file = rel / "reposdir" / "repos.repo"
         rel_cache = rel / "cache"
         return (
@@ -258,9 +271,17 @@ class ContainerBackend:
             if check_kind == "all"
             else set(_arches_to_check(check_kind, arch))
         )
+        # See HostBackend.repoclosure for why "buildtime" disables the
+        # per-target-repo filter — this is the same fix in both
+        # backends to keep their semantics aligned.
+        target_filter = (
+            None
+            if check_kind == "buildtime"
+            else {r.name for r in target_repos}
+        )
         return filter_repoclosure_result(
             outcome,
-            target_repo_names={r.name for r in target_repos},
+            target_repo_names=target_filter,
             arches_to_keep=arch_set,
             raw_target_repo_names=target_names,
         )

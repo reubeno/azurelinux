@@ -9,7 +9,8 @@ Behavior:
 * If both ``--repo name=base,...`` and ``--repo name=sdk,...`` were
   provided, run repoclosure with the union as the universe.
 * If exactly one of the two is provided, fail (treats partial
-  provision as misconfiguration).
+  provision as misconfiguration — almost certainly a typo or
+  omission rather than a deliberate opt-out).
 * If neither is provided, skip.
 """
 

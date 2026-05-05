@@ -119,13 +119,21 @@ actually consume:
 | `repoclosure(target_repos, arch)` | function | `RepoclosureResult` | the repoclosure tests |
 | `require_named_repos(names, kind=...)` | function | `list[Repo]` | tests with hard-coded repo expectations |
 
-> **`require_named_repos` semantics.** This fixture enforces a *strict
-> match*: every name in *names* must be present (filtered by *kind* if
-> given), or it fails the test with `pytest.fail`. A partial match —
-> some requested names present, others missing — does **not** silently
-> proceed with the available subset; it fails. Tests that use it are
-> declaring "I cannot pass without all of these specific repos." Use
-> the looser `binary_repos` / `srpm_repos` / `debuginfo_repos`
+> **`require_named_repos` semantics.** Tests that use this fixture
+> declare "I cannot pass without all of these specific repos."
+> Behavior:
+>
+> * **All names present** — returns the matching `Repo` list in input
+>   order.
+> * **None of the names present** — calls `pytest.skip(...)` so the
+>   test is reported as skipped. A user who scoped the run to a
+>   different repo set is opting out, not misconfiguring.
+> * **Some but not all present** — calls `pytest.fail(...)`. Partial
+>   provision is almost certainly a typo or omission rather than a
+>   deliberate opt-out, and silently skipping a release-gating
+>   closure check is worse than failing loudly.
+>
+> Use the looser `binary_repos` / `srpm_repos` / `debuginfo_repos`
 > fixtures when partial coverage should be tolerated.
 
 `repo_packages`, `all_binary_packages`, and `cross_repo_file_index`
@@ -209,10 +217,17 @@ basename in different subdirs don't collide.
 
 Pure helpers shared by both backends:
 
-* `render_repo_file(repos)` — emit a `.repo` file body.
+* `render_repo_file(repos, *, arch, releasever)` — emit a `.repo`
+  file body. **Pre-substitutes** `$basearch` / `$arch` / `$releasever`
+  in each `baseurl` so cross-arch validation actually fetches the
+  requested arch's metadata. (Without this, dnf would substitute
+  `$basearch` from the running host's arch, then `--arch=<other>`
+  would filter checks to zero packages — silently green.)
 * `build_repoclosure_argv(...)` — construct the argv consistently.
   Always passes `--arch=<arch> --arch=noarch` for repoclosure (per
-  dnf5 docs; this is the documented surface, not `--forcearch`).
+  dnf5 docs; this is the documented surface for filtering *which
+  packages get checked*. URL substitution is handled by
+  `render_repo_file` above, not by `--forcearch`).
 * `probe_repoclosure_json(run)` — detect `--json` support.
 * `parse_json_repoclosure_output(...)` /
   `parse_text_repoclosure_output(...)` — turn dnf5 output into a

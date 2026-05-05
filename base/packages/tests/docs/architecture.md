@@ -125,13 +125,13 @@ actually consume:
 >
 > * **All names present** — returns the matching `Repo` list in input
 >   order.
-> * **None of the names present** — calls `pytest.skip(...)` so the
->   test is reported as skipped. A user who scoped the run to a
->   different repo set is opting out, not misconfiguring.
-> * **Some but not all present** — calls `pytest.fail(...)`. Partial
->   provision is almost certainly a typo or omission rather than a
->   deliberate opt-out, and silently skipping a release-gating
->   closure check is worse than failing loudly.
+> * **Any names missing** (including the all-missing case) — calls
+>   `pytest.fail(...)` with a clear "misconfigured run" message.
+>   Hard-coded closure tests are release-gating invariants that are
+>   only meaningful with the full named set provided; silently
+>   skipping such a check is worse than failing loudly. Use
+>   `pytest -k` / `--ignore` to deselect a hard-coded test if you
+>   intentionally don't want to run it.
 >
 > Use the looser `binary_repos` / `srpm_repos` / `debuginfo_repos`
 > fixtures when partial coverage should be tolerated.

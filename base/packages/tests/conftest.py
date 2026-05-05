@@ -234,35 +234,32 @@ def require_named_repos(all_repos: list[Repo]):
     :class:`Repo` objects. Behavior:
 
     * If **all** are provided: returns them in input order.
-    * If **none** are provided: skips the test with a clear message.
-      A user who deliberately scoped the run to a different repo set
-      (e.g., only ``--repo name=base,...`` when this test wants
-      ``base + sdk``) is opting out, not misconfiguring; silent-skip
-      the right behavior here.
-    * If **some but not all** are provided: fails the test with a
-      clear message — partial provision means the caller plausibly
-      *intended* to run this test but typo'd a name or omitted one,
-      and silently skipping a release-gating closure check is worse
-      than failing loudly.
+    * If **any are missing** (including the all-missing case): fails
+      the test with a clear message. Hard-coded tests describe
+      release-gating invariants that are only meaningful with the
+      full named repo set; missing inputs are treated as
+      misconfiguration, never silent skips. (A green CI run that
+      silently skipped the most important closure check is worse
+      than not running at all.) Use ``pytest -k`` / ``--ignore`` to
+      deselect a hard-coded test if you intentionally don't want to
+      run it.
+
+    This may be revisited later (e.g., zero-of-set could become a
+    skip if a clear use case for "scoped runs against a subset"
+    materializes), but for now we want loud alarms.
     """
     by_name = {r.name: r for r in all_repos}
 
     def _require(expected: list[str], *, kind: str | None = None) -> list[Repo]:
         present = [n for n in expected if n in by_name]
-        if not present:
-            pytest.skip(
-                f"none of the required --repo(s) {expected} were provided; "
-                f"this test is hard-coded for that named repo set. "
-                f"Provided: {[(r.name, r.kind) for r in all_repos] or '<none>'}"
-            )
         if len(present) != len(expected):
             missing = sorted(set(expected) - set(present))
             pytest.fail(
                 f"misconfigured run: expected --repo for {expected} but "
                 f"missing {missing}; this test is hard-coded for those "
-                f"named repos. Pass them via --repo or use pytest -k / "
-                f"--ignore to deselect this test if you intentionally "
-                f"want to skip it."
+                f"named repos and is only meaningful with the full set. "
+                f"Pass them via --repo or use pytest -k / --ignore to "
+                f"deselect this test if you intentionally want to skip it."
             )
         repos = [by_name[n] for n in expected]
         if kind is not None:

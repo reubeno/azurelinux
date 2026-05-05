@@ -96,9 +96,9 @@ Each entry covers:
 * **Markers:** none — repos are hard-coded.
 * **Fan-out:** one test per arch.
 * **Fixtures:** `arch`, `require_named_repos`, `repoclosure`.
-* **Fail behavior:** see `require_named_repos` semantics —
-  `--repo name=base,...` not provided → skip; provided but wrong
-  kind → fail.
+* **Fail behavior:** see `require_named_repos` semantics — any of
+  `--repo name=base,...` not provided → fail loudly. Hard-coded
+  closure tests are only meaningful with the full named set provided.
 * **Failure:** per `(target-set, arch)`. The `RepoclosureResult.__str__`
   lists each unresolved package and its missing requires.
 
@@ -109,8 +109,8 @@ Each entry covers:
 * **Markers:** none — repos are hard-coded.
 * **Fan-out:** one test per arch.
 * **Fixtures:** `arch`, `require_named_repos`, `repoclosure`.
-* **Fail behavior:** all of `{base, sdk}` provided → run; none
-  provided → skip; partial (e.g., `base` but not `sdk`) → fail.
+* **Fail behavior:** all of `{base, sdk}` provided → run; any
+  missing → fail.
 * **Failure:** per `(target-set, arch)`.
 
 ### `test_repoclosure_base_srpms_buildtime.py`
@@ -125,7 +125,7 @@ Each entry covers:
 * **Fixtures:** `arch`, `require_named_repos`, `repoclosure` (used
   with `check_kind="buildtime"`).
 * **Fail behavior:** all of `{base-srpms, base, sdk}` provided →
-  run; none provided → skip; partial → fail.
+  run; any missing → fail.
 * **Failure:** per `(target-set, arch)`. The "buildtime" check kind
   examines packages of arch ∈ {*arch*, `noarch`, `src`, `nosrc`}, so
   findings include both unresolved BuildRequires *and* runtime breakage

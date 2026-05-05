@@ -56,11 +56,13 @@ def test_no_duplicate_subpackage_names(
 ) -> None:
     if not binary_repos:
         import pytest
-        pytest.skip(
-            "no binary --repo provided; this test validates a cross-repo "
-            "invariant and cannot run without at least one binary repo. "
-            "(Use pytest -k / --ignore to permanently deselect, or pass "
-            "--repo name=...,kind=binary,url=... to enable.)"
+        pytest.fail(
+            "misconfigured run: no binary --repo provided. This test "
+            "validates a cross-repo invariant and is only meaningful "
+            "with the full set of binary repos provided. Pass at least "
+            "one --repo name=...,kind=binary,url=... — or use pytest -k "
+            "/ --ignore to deselect this test if you intentionally want "
+            "to skip it."
         )
 
     by_repo: dict[Repo, list[Package]] = all_binary_packages(arch)

@@ -117,23 +117,38 @@ def parse_repo_spec(raw: str) -> Repo:
 def parse_repo_specs(raws: list[str]) -> list[Repo]:
     """Parse a list of ``--repo`` flag values.
 
-    Uniqueness is enforced by the ``(name, kind)`` pair, not by ``name``
-    alone: a binary repo and an SRPM repo may legitimately share a
-    base name (e.g. ``base`` + ``base-srpms`` is the convention here,
-    but nothing in the framework would prevent a user choosing the
-    same ``name`` for both kinds).
+    Repo *names* must be globally unique across the whole CLI
+    invocation. Earlier versions of this parser allowed two repos to
+    share a base name as long as their kinds differed, but that
+    invariant proved unenforceable downstream:
+
+    * the rendered ``.repo`` file uses ``[name]`` as the section
+      header — duplicate sections cause dnf to merge or reject;
+    * fixture lookups (``require_named_repos``, repoclosure result
+      attribution) key on name alone and silently overwrote the
+      earlier entry;
+    * dnf5 ``repoclosure --json`` reports source repos by name only,
+      so per-repo filtering can't disambiguate same-named binary vs
+      srpm repos.
+
+    Tightening the parser is the single fix that keeps every
+    consumer honest. The conventional naming is ``base`` for the
+    binary repo and ``base-srpms`` for the matching SRPM repo —
+    distinct names, no behavior change for well-formed inputs.
     """
     repos: list[Repo] = []
-    seen: dict[tuple[str, str], str] = {}
+    seen: dict[str, str] = {}
     for raw in raws:
         repo = parse_repo_spec(raw)
-        key = (repo.name, repo.kind)
-        if key in seen:
+        if repo.name in seen:
             raise RepoSpecError(
-                f"--repo (name={repo.name!r}, kind={repo.kind!r}) "
-                f"specified more than once (previously: {seen[key]!r})"
+                f"--repo name={repo.name!r} specified more than once "
+                f"(previously: {seen[repo.name]!r}). Repo names must be "
+                f"globally unique across all --repo flags — pick distinct "
+                f"names (e.g. 'base' for the binary repo and 'base-srpms' "
+                f"for the matching SRPM repo)."
             )
-        seen[key] = raw
+        seen[repo.name] = raw
         repos.append(repo)
     if not repos:
         raise RepoSpecError("at least one --repo argument is required")

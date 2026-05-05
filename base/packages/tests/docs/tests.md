@@ -67,25 +67,26 @@ Each entry covers:
 ### `test_vendor_tag.py`
 
 * **Asserts:** Every non-source package in a binary repo has
-  `Vendor == "Microsoft Corporation"`.
+  `Vendor == "Microsoft Corporation"` (the vendor is configurable via
+  the `--expected-vendor` CLI option; default value shown).
 * **Markers:** `@pytest.mark.repo_kind("binary")`.
 * **Fan-out:** one test per binary repo per arch.
-* **Fixtures:** `repo`, `arch`, `repo_packages`.
+* **Fixtures:** `repo`, `arch`, `repo_packages`, `expected_vendor`.
 * **Failure:** aggregated — lists each offending package and its
   observed vendor string.
-* **Rules-as-code:** `EXPECTED_VENDOR = "Microsoft Corporation"`.
 
 ### `test_release_suffix.py`
 
 * **Asserts:** Every non-source package's `Release` tag matches the
   regex `\.azl4(~.*)?$` — i.e., ends with `.azl4`, optionally
   followed by `~<arbitrary-suffix>` (used for pre-release / hotfix
-  builds).
+  builds). The pattern is configurable via the `--release-suffix`
+  CLI option (default shown); set it to e.g. `\.azl3(~.*)?$` for
+  AZL3 nightly verification.
 * **Markers:** `@pytest.mark.repo_kind("binary")`.
 * **Fan-out:** one test per binary repo per arch.
-* **Fixtures:** `repo`, `arch`, `repo_packages`.
+* **Fixtures:** `repo`, `arch`, `repo_packages`, `release_suffix_pattern`.
 * **Failure:** aggregated.
-* **Rules-as-code:** `RELEASE_SUFFIX_RE = re.compile(...)`.
 
 ### `test_repoclosure_base.py`
 
@@ -95,10 +96,9 @@ Each entry covers:
 * **Markers:** none — repos are hard-coded.
 * **Fan-out:** one test per arch.
 * **Fixtures:** `arch`, `require_named_repos`, `repoclosure`.
-* **Fail behavior:** if `--repo name=base,...` is not provided, the
-  test fails with a clear "misconfigured run" message — hard-coded
-  release-gating closure tests treat missing inputs as
-  misconfiguration, never silent skips.
+* **Fail behavior:** see `require_named_repos` semantics —
+  `--repo name=base,...` not provided → skip; provided but wrong
+  kind → fail.
 * **Failure:** per `(target-set, arch)`. The `RepoclosureResult.__str__`
   lists each unresolved package and its missing requires.
 
@@ -109,8 +109,8 @@ Each entry covers:
 * **Markers:** none — repos are hard-coded.
 * **Fan-out:** one test per arch.
 * **Fixtures:** `arch`, `require_named_repos`, `repoclosure`.
-* **Fail behavior:** all of `{base, sdk}` provided → run; any missing
-  → fail (hard-coded closure tests don't silently skip).
+* **Fail behavior:** all of `{base, sdk}` provided → run; none
+  provided → skip; partial (e.g., `base` but not `sdk`) → fail.
 * **Failure:** per `(target-set, arch)`.
 
 ### `test_repoclosure_base_srpms_buildtime.py`
@@ -125,7 +125,7 @@ Each entry covers:
 * **Fixtures:** `arch`, `require_named_repos`, `repoclosure` (used
   with `check_kind="buildtime"`).
 * **Fail behavior:** all of `{base-srpms, base, sdk}` provided →
-  run; any missing → fail.
+  run; none provided → skip; partial → fail.
 * **Failure:** per `(target-set, arch)`. The "buildtime" check kind
   examines packages of arch ∈ {*arch*, `noarch`, `src`, `nosrc`}, so
   findings include both unresolved BuildRequires *and* runtime breakage

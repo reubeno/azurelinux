@@ -15,6 +15,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from .repodata import substitute_url
 from .repos import Repo
 from .types import NEVRA, RepoclosureResult
 
@@ -40,8 +41,25 @@ DEFAULT_REPOCLOSURE_TIMEOUT_SECS = 600
 # ---------------------------------------------------------------------------
 
 
-def render_repo_file(repos: list[Repo]) -> str:
+def render_repo_file(
+    repos: list[Repo],
+    *,
+    arch: str,
+    releasever: str | None,
+) -> str:
     """Render an ini-style .repo file body for *repos*.
+
+    *arch* and *releasever* are pre-substituted into each ``baseurl``
+    via :func:`utils.repodata.substitute_url`. We do NOT leave
+    ``$basearch`` / ``$arch`` / ``$releasever`` for dnf to expand,
+    because dnf substitutes ``$basearch`` from the *running* host's
+    arch — which silently breaks cross-arch validation (e.g., asking
+    for ``--arch aarch64`` on an x86_64 host would otherwise have dnf
+    fetch x86_64 metadata and then ``--arch=aarch64`` would filter
+    to zero packages, making the test pass vacuously). The
+    metadata-only fetch path already uses :func:`substitute_url`;
+    rendering the .repo file the same way is what keeps the two
+    paths in sync.
 
     GPG checks are disabled — we're validating already-published
     metadata structure, not establishing trust. The user's published
@@ -50,9 +68,10 @@ def render_repo_file(repos: list[Repo]) -> str:
     """
     lines: list[str] = []
     for r in repos:
+        baseurl = substitute_url(r.url, arch=arch, releasever=releasever)
         lines.append(f"[{r.name}]")
         lines.append(f"name={r.name}")
-        lines.append(f"baseurl={r.url}")
+        lines.append(f"baseurl={baseurl}")
         lines.append("enabled=1")
         lines.append("gpgcheck=0")
         lines.append("repo_gpgcheck=0")
@@ -210,10 +229,12 @@ def parse_json_repoclosure_output(
 
     unresolved: dict[NEVRA, list[str]] = {}
     repos_by_nevra: dict[NEVRA, str] = {}
+    dropped = 0
     for entry in entries:
         pkg = entry.get("package") or entry.get("nevra") or entry.get("nvra")
         nevra = _parse_nevra_string(pkg) if isinstance(pkg, str) else None
         if nevra is None:
+            dropped += 1
             continue
         missing_raw = (
             entry.get("unresolved_dependencies")
@@ -228,6 +249,19 @@ def parse_json_repoclosure_output(
         if isinstance(repo, str) and repo:
             repos_by_nevra[nevra] = repo
 
+    if dropped:
+        # Surface schema drift: dropping entries silently is what made
+        # an earlier version of this parser hide partial JSON-format
+        # changes from the suite. The text parser already logs a
+        # similar warning when it extracts zero findings from
+        # non-empty output; we mirror that posture here.
+        logger.warning(
+            "parse_json_repoclosure_output: dropped %d malformed entry/entries "
+            "out of %d (unrecognised package field or unparseable NEVRA). "
+            "The dnf5 --json schema may have changed.",
+            dropped, len(entries),
+        )
+
     return RepoclosureResult(
         target_repo_names=target_repo_names,
         arch=arch,
@@ -239,11 +273,7 @@ def parse_json_repoclosure_output(
 
 # Match lines like:
 #   package: foo-1.2-3.azl4.x86_64 (from <repoid>)
-# or
-#     unresolved deps:
-#       libbar.so.1()(64bit)
 _TEXT_PKG_LINE = re.compile(r"^\s*package:\s*(\S+)")
-_TEXT_DEP_LINE = re.compile(r"^\s+(?!unresolved)(\S.*)$")
 
 
 def filter_repoclosure_result(
@@ -351,28 +381,55 @@ def parse_text_repoclosure_output(
     )
 
 
+# NEVRA serialised by dnf may take a few forms:
+#   * ``name-ver-rel.arch``                  (epoch implicitly 0)
+#   * ``name-EPOCH:ver-rel.arch``            (epoch embedded mid-string)
+#   * ``EPOCH:name-ver-rel.arch``            (rare; bare leading epoch)
+# A naive ``s.partition(":")`` over the whole NEVRA breaks the second
+# form (it cuts at the colon and tries to parse the *name* as the
+# epoch). The regex below captures the optional ``EPOCH:`` only when
+# it sits between the name and the version, which is the form dnf5
+# produces in --json output for non-zero-epoch packages.
 _NEVRA_RE = re.compile(
-    r"^(?P<name>.+)-(?P<ver>[^-]+)-(?P<rel>[^-]+)\.(?P<arch>[^.]+)$"
+    r"^(?P<name>.+)-(?:(?P<epoch>\d+):)?(?P<ver>[^-]+)-(?P<rel>[^-]+)\.(?P<arch>[^.]+)$"
 )
 
 
 def _parse_nevra_string(s: str) -> NEVRA | None:
-    """Parse a ``name-ver-rel.arch`` string. Epoch is assumed 0 if absent."""
+    """Parse a NEVRA-ish string into a :class:`NEVRA`.
+
+    Accepts the three forms documented above. Returns ``None`` if no
+    form matches (callers handle that as "skip this finding").
+    """
     s = s.strip().rstrip(",")
     epoch = 0
+    # Handle the bare leading-epoch form (``EPOCH:rest``) — only when
+    # the prefix is purely digits, so we don't misparse a name that
+    # happens to contain ``:``.
     if ":" in s:
         ep, _, rest = s.partition(":")
-        # epoch may appear as ``name-EPOCH:ver-rel.arch`` or as a
-        # bare leading ``EPOCH:`` — handle the latter, leave the
-        # former (which is unusual in dnf output) alone.
-        try:
-            epoch = int(ep)
-            s = rest
-        except ValueError:
-            pass
+        if ep.isdigit() and rest:
+            try:
+                candidate_epoch = int(ep)
+            except ValueError:  # pragma: no cover — guarded by isdigit
+                candidate_epoch = None
+            if candidate_epoch is not None:
+                # Only consume the prefix if the remainder still parses
+                # as NEVRA. Otherwise treat the colon as part of the
+                # mid-string ``name-EPOCH:ver-rel.arch`` form, which
+                # _NEVRA_RE handles below.
+                if _NEVRA_RE.match(rest):
+                    epoch = candidate_epoch
+                    s = rest
     m = _NEVRA_RE.match(s)
     if m is None:
         return None
+    epoch_group = m.group("epoch")
+    if epoch_group is not None:
+        try:
+            epoch = int(epoch_group)
+        except ValueError:  # pragma: no cover — regex guarantees digits
+            return None
     return NEVRA(
         name=m.group("name"),
         epoch=epoch,

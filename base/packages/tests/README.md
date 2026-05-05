@@ -85,16 +85,16 @@ uv run pytest cases/ --repo name=base,kind=binary,url=...
 
 * Tests scoped to other repo kinds/names will skip with a clear
   "no --repo matched markers ..." message.
-* Tests hard-coded for a specific repo set you didn't supply (e.g.
-  `test_repoclosure_base_plus_sdk` when only `base` is given) will
-  also skip — `require_named_repos` treats "none of the named set
-  provided" as opting-out, not as misconfiguration. **Partial**
-  provision of a hard-coded set (e.g. `base` but not `sdk`) still
-  fails loudly, since that almost certainly means a typo or omission
-  rather than a deliberate opt-out.
+* Tests hard-coded for a specific repo set (e.g.
+  `test_repoclosure_base_plus_sdk`, `test_repoclosure_base_srpms_buildtime`)
+  fail loudly if any of their named repos are missing — they are
+  release-gating invariants that are only meaningful with the full
+  set provided. Use `pytest -k` / `--ignore` to deselect them
+  intentionally.
 * Cross-repo tests that need at least one binary repo
   (`test_no_duplicate_subpackage_names`, `test_file_conflicts_*`)
-  skip when no binary `--repo` is provided.
+  also fail when no binary `--repo` is provided, for the same
+  reason.
 
 ## Examples
 

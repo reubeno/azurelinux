@@ -8,10 +8,10 @@ Behavior:
 
 * If both ``--repo name=base,...`` and ``--repo name=sdk,...`` were
   provided, run repoclosure with the union as the universe.
-* If exactly one of the two is provided, fail (treats partial
-  provision as misconfiguration — almost certainly a typo or
-  omission rather than a deliberate opt-out).
-* If neither is provided, skip.
+* If either is missing, fail loudly. Hard-coded closure tests are
+  only meaningful with the full set of named repos provided;
+  silently skipping a release-gating check is worse than failing.
+  Use ``pytest -k`` / ``--ignore`` to deselect intentionally.
 """
 
 from __future__ import annotations

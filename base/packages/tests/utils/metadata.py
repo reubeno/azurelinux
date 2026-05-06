@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Service layer that turns raw repodata into typed package and file
+"""Service layer that turns raw repodata into typed package + file
 records for tests.
 
 This is what conftest.py fixtures call into. Tests do not import this
@@ -26,9 +26,11 @@ from pathlib import Path
 import pytest
 
 from .repodata import (
+    RepoLayout,
     RepodataError,
-    RepodataLoader,
-    substitute_url,
+    fetch_repo,
+    iter_filelist_entries,
+    iter_packages,
 )
 from .repos import Repo
 from .types import FileOwner, Package
@@ -50,27 +52,21 @@ class MetadataService:
         self._file_index_cache: dict[
             tuple[tuple[str, ...], str], dict[str, list[FileOwner]]
         ] = {}
+        self._layout_cache: dict[tuple[str, str], RepoLayout] = {}
 
     # ------------------------------------------------------------------
     # Caching helpers
     # ------------------------------------------------------------------
 
-    def _cache_dir_for(self, repo: Repo, arch: str) -> Path:
-        # The releasever isn't part of the path because a single
-        # MetadataService instance has a fixed releasever; but we
-        # prefix with a "rv-" segment so post-mortem inspection of a
-        # workdir is unambiguous.
-        #
-        # Scope by xdist worker the same way both backends do (see
-        # ``utils/backends/host.py:_xdist_worker_slug``). Without this,
-        # two workers fetching the same repo race through
-        # ``_http_get`` (atomic per call, fine) but then can clobber
-        # each other in the verify-then-unlink window of
-        # ``RepodataLoader._download``: worker A's ``unlink`` of a
-        # file that worker B just atomically replaced produces
-        # confusing ``FileNotFoundError`` cascades during checksum
-        # anomalies. Per-worker cache dirs give each worker its own
-        # tree and eliminate the race entirely.
+    def cache_dir_for(self, repo: Repo, arch: str) -> Path:
+        """Stable per-repo, per-arch cache dir.
+
+        Scoped by xdist worker so concurrent workers never share a
+        librepo destdir (librepo writes the same filenames each run,
+        so two workers fetching the same repo would race on
+        ``repomd.xml`` writes). Also exposed publicly so the
+        repoclosure module can reuse the same on-disk metadata.
+        """
         rv = self._releasever or "none"
         worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
         return (
@@ -82,15 +78,25 @@ class MetadataService:
             / f"{repo.name}-{repo.fingerprint}"
         )
 
-    def _loader_for(self, repo: Repo, arch: str) -> RepodataLoader:
+    def fetch(self, repo: Repo, arch: str) -> RepoLayout:
+        """Fetch (or reuse a cached) metadata layout for ``(repo, arch)``."""
+        key = (repo.fingerprint, arch)
+        if key in self._layout_cache:
+            return self._layout_cache[key]
         try:
-            base = substitute_url(
-                repo.url, arch=arch, releasever=self._releasever
+            layout = fetch_repo(
+                base_url=repo.url,
+                cache_dir=self.cache_dir_for(repo, arch),
+                arch=arch,
+                releasever=self._releasever,
             )
         except RepodataError as exc:
-            pytest.fail(str(exc))
-        cache_dir = self._cache_dir_for(repo, arch)
-        return RepodataLoader(base_url_substituted=base, cache_dir=cache_dir)
+            pytest.fail(
+                f"failed to fetch metadata for repo {repo.name!r} "
+                f"at arch {arch}: {exc}"
+            )
+        self._layout_cache[key] = layout
+        return layout
 
     # ------------------------------------------------------------------
     # Public surface
@@ -101,12 +107,12 @@ class MetadataService:
         key = (repo.fingerprint, arch)
         if key in self._packages_cache:
             return self._packages_cache[key]
-        loader = self._loader_for(repo, arch)
+        layout = self.fetch(repo, arch)
         try:
-            packages = list(loader.packages())
+            packages = list(iter_packages(layout.primary))
         except RepodataError as exc:
             pytest.fail(
-                f"failed to load primary metadata for repo {repo.name!r} "
+                f"failed to parse primary metadata for repo {repo.name!r} "
                 f"at arch {arch}: {exc}"
             )
         self._packages_cache[key] = packages
@@ -142,9 +148,9 @@ class MetadataService:
         path_to_owners: dict[str, dict[object, FileOwner]] = defaultdict(dict)
 
         for repo in repos:
-            loader = self._loader_for(repo, arch)
+            layout = self.fetch(repo, arch)
             try:
-                for entry in loader.filelist_entries():
+                for entry in iter_filelist_entries(layout.filelists):
                     if entry.is_directory or entry.is_ghost:
                         continue
                     owner = FileOwner(

@@ -2,7 +2,7 @@
 """Test-facing fixture surface for Azure Linux repo validation.
 
 This module is the single place tests touch. They never reach below
-into ``utils.metadata``, ``utils.repodata``, or ``utils.backends.*``
+into ``utils.metadata``, ``utils.repodata``, or ``utils.repoclosure``
 directly — those are implementation. To wire new data into a test,
 extend the relevant service and add (or extend) a fixture here.
 
@@ -20,8 +20,8 @@ from typing import Generator
 
 import pytest
 
-from utils.backends import RepoBackend, build_backend
 from utils.metadata import MetadataService
+from utils.repoclosure import Repoclosure, make_repoclosure
 from utils.repos import Repo
 from utils.types import FileOwner, Package, RepoclosureResult
 
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope="session")
 def workdir(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
-    """Working directory for repo metadata caches and dnf state.
+    """Working directory for repo metadata caches.
 
     If ``--workdir`` is set, the directory is reused as-is and never
     removed (post-mortem friendly). Otherwise a fresh temp directory
@@ -81,25 +81,25 @@ def release_suffix_pattern(request: pytest.FixtureRequest) -> str:
 
 @pytest.fixture(scope="session")
 def all_repos(request: pytest.FixtureRequest) -> list[Repo]:
-    """Every repo passed via ``--repo`` (in input order)."""
+    """Every repo passed via ``--repo`` / ``--repos-file`` (in input order)."""
     return list(getattr(request.config, "_azl_repos", []))
 
 
 @pytest.fixture(scope="session")
 def binary_repos(all_repos: list[Repo]) -> list[Repo]:
-    """All ``binary`` repos passed via ``--repo``."""
+    """All ``binary`` repos."""
     return [r for r in all_repos if r.kind == "binary"]
 
 
 @pytest.fixture(scope="session")
 def srpm_repos(all_repos: list[Repo]) -> list[Repo]:
-    """All ``srpm`` repos passed via ``--repo``."""
+    """All ``srpm`` repos."""
     return [r for r in all_repos if r.kind == "srpm"]
 
 
 @pytest.fixture(scope="session")
 def debuginfo_repos(all_repos: list[Repo]) -> list[Repo]:
-    """All ``debuginfo`` repos passed via ``--repo``."""
+    """All ``debuginfo`` repos."""
     return [r for r in all_repos if r.kind == "debuginfo"]
 
 
@@ -114,33 +114,20 @@ def metadata_service(workdir: Path, releasever: str | None) -> MetadataService:
 
     Tests should not call this directly — use the higher-level
     fixtures (``repo_packages``, ``all_binary_packages``,
-    ``cross_repo_file_index``) instead. It's exposed here only so that
-    those fixtures (and any future ones) can share a single, caching
-    instance for the session.
+    ``cross_repo_file_index``) instead.
     """
     return MetadataService(workdir=workdir, releasever=releasever)
 
 
 @pytest.fixture(scope="session")
-def backend(request: pytest.FixtureRequest, workdir: Path, releasever: str | None) -> RepoBackend:
-    """The configured ``RepoBackend`` (host or container) for ``repoclosure``.
+def _repoclosure_runner(metadata_service: MetadataService) -> Repoclosure:
+    """The hawkey-backed in-process repoclosure runner.
 
     Tests should not call this directly — use the ``repoclosure``
-    fixture instead.
+    fixture instead. The metadata cache is shared with
+    ``metadata_service`` so we never double-fetch.
     """
-    config = request.config
-    backend_name: str = config.getoption("azl_repoclosure_backend")
-    container_image: str = config.getoption("azl_container_image")
-    container_runtime: str | None = getattr(
-        config, "_azl_container_runtime", None
-    )
-    return build_backend(
-        name=backend_name,
-        workdir=workdir,
-        releasever=releasever,
-        container_image=container_image,
-        container_runtime=container_runtime,
-    )
+    return make_repoclosure(metadata_service)
 
 
 # ---------------------------------------------------------------------------
@@ -150,12 +137,7 @@ def backend(request: pytest.FixtureRequest, workdir: Path, releasever: str | Non
 
 @pytest.fixture
 def repo_packages(metadata_service: MetadataService):
-    """Return a callable ``(repo, arch) -> list[Package]``.
-
-    Memoized inside :class:`MetadataService` per ``(repo, arch,
-    releasever)``, so calling it from many tests in one session is
-    cheap.
-    """
+    """Return a callable ``(repo, arch) -> list[Package]``."""
     def _load(repo: Repo, arch: str) -> list[Package]:
         return metadata_service.list_packages(repo, arch)
 
@@ -164,7 +146,7 @@ def repo_packages(metadata_service: MetadataService):
 
 @pytest.fixture
 def all_binary_packages(metadata_service: MetadataService, binary_repos: list[Repo]):
-    """Return a callable ``arch -> dict[Repo, list[Package]]`` over all binary repos."""
+    """Return a callable ``arch -> dict[Repo, list[Package]]``."""
     def _load(arch: str) -> dict[Repo, list[Package]]:
         return {r: metadata_service.list_packages(r, arch) for r in binary_repos}
 
@@ -175,12 +157,7 @@ def all_binary_packages(metadata_service: MetadataService, binary_repos: list[Re
 def cross_repo_file_index(
     metadata_service: MetadataService, binary_repos: list[Repo]
 ):
-    """Return a callable ``arch -> dict[path, list[FileOwner]]``.
-
-    Only binary repos contribute; directories are filtered out by the
-    metadata service. Identical NEVRAs that appear in multiple repos
-    are deduped (one ``FileOwner`` per unique NEVRA).
-    """
+    """Return a callable ``arch -> dict[path, list[FileOwner]]``."""
     def _load(arch: str) -> dict[str, list[FileOwner]]:
         return metadata_service.build_file_index(binary_repos, arch)
 
@@ -188,7 +165,7 @@ def cross_repo_file_index(
 
 
 @pytest.fixture
-def repoclosure(backend: RepoBackend):
+def repoclosure(_repoclosure_runner: Repoclosure):
     """Return a callable that runs repoclosure.
 
     Signature::
@@ -201,8 +178,7 @@ def repoclosure(backend: RepoBackend):
             check_kind="binary",    # "binary" | "buildtime" | "all"
         ) -> RepoclosureResult
 
-    See :meth:`utils.backends.base.RepoBackend.repoclosure` for the
-    semantics of each argument.
+    See :class:`utils.repoclosure.Repoclosure` for argument semantics.
     """
     def _run(
         target_repos: list[Repo],
@@ -211,7 +187,7 @@ def repoclosure(backend: RepoBackend):
         universe_repos: list[Repo] | None = None,
         check_kind: str = "binary",
     ) -> RepoclosureResult:
-        return backend.repoclosure(
+        return _repoclosure_runner.run(
             target_repos=target_repos,
             arch=arch,
             universe_repos=universe_repos,
@@ -228,26 +204,7 @@ def repoclosure(backend: RepoBackend):
 
 @pytest.fixture
 def require_named_repos(all_repos: list[Repo]):
-    """Helper used by hard-coded tests like ``test_repoclosure_base_plus_sdk``.
-
-    Given a list of expected repo names, returns the matching
-    :class:`Repo` objects. Behavior:
-
-    * If **all** are provided: returns them in input order.
-    * If **any are missing** (including the all-missing case): fails
-      the test with a clear message. Hard-coded tests describe
-      release-gating invariants that are only meaningful with the
-      full named repo set; missing inputs are treated as
-      misconfiguration, never silent skips. (A green CI run that
-      silently skipped the most important closure check is worse
-      than not running at all.) Use ``pytest -k`` / ``--ignore`` to
-      deselect a hard-coded test if you intentionally don't want to
-      run it.
-
-    This may be revisited later (e.g., zero-of-set could become a
-    skip if a clear use case for "scoped runs against a subset"
-    materializes), but for now we want loud alarms.
-    """
+    """Helper used by hard-coded tests like ``test_repoclosure_base_plus_sdk``."""
     by_name = {r.name: r for r in all_repos}
 
     def _require(expected: list[str], *, kind: str | None = None) -> list[Repo]:
@@ -258,8 +215,9 @@ def require_named_repos(all_repos: list[Repo]):
                 f"misconfigured run: expected --repo for {expected} but "
                 f"missing {missing}; this test is hard-coded for those "
                 f"named repos and is only meaningful with the full set. "
-                f"Pass them via --repo or use pytest -k / --ignore to "
-                f"deselect this test if you intentionally want to skip it."
+                f"Pass them via --repo / --repos-file or use pytest -k / "
+                f"--ignore to deselect this test if you intentionally want "
+                f"to skip it."
             )
         repos = [by_name[n] for n in expected]
         if kind is not None:

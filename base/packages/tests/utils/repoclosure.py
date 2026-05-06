@@ -19,7 +19,6 @@ fixture in ``conftest.py``.
 from __future__ import annotations
 
 import logging
-import warnings
 from typing import TYPE_CHECKING
 
 import pytest
@@ -34,17 +33,14 @@ logger = logging.getLogger(__name__)
 
 
 # Suppress hawkey's "use dnf.repo.Repo instead" DeprecationWarning. We
-# deliberately use ``hawkey.Repo`` because it lets us point the sack
-# at already-downloaded metadata files without pulling in the full
+# deliberately use ``hawkey.Repo`` (via the underlying C class
+# ``hawkey._hawkey.Repo``) because it lets us point the sack at
+# already-downloaded metadata files without pulling in the full
 # dnf.Base initialisation cost (which is what dnf.repo.Repo expects).
 # The deprecation has been "scheduled for 2019-12-31" since libdnf
-# 0.x and shows no sign of actually happening; the warning is just
-# noise in our test reports.
-warnings.filterwarnings(
-    "ignore",
-    message=".*hawkey.Repo is deprecated.*",
-    category=DeprecationWarning,
-)
+# 0.x and shows no sign of actually happening; using the C class
+# directly bypasses the warning, which the Python wrapper emits via
+# ``warnings.simplefilter('always')`` (overriding any user filter).
 
 
 # ---------------------------------------------------------------------------
@@ -112,15 +108,8 @@ class Repoclosure:
     def __init__(self, metadata_service: "MetadataService") -> None:
         self._metadata = metadata_service
 
-    def _build_sack(
-        self, repos: list[Repo], arch: str
-    ) -> "tuple[object, dict[str, str]]":
-        """Build a hawkey ``Sack`` containing every repo's metadata.
-
-        Returns ``(sack, repo_name_by_id)``. The id->name map is used
-        to translate ``pkg.reponame`` (which is the *hawkey* repo id
-        we set when loading) back into our :class:`Repo` name.
-        """
+    def _build_sack(self, repos: list[Repo], arch: str) -> object:
+        """Build a hawkey ``Sack`` containing every repo's metadata."""
         # Imported lazily so module import doesn't fail in environments
         # that have no hawkey installed (e.g. doc builds).
         import hawkey
@@ -128,10 +117,13 @@ class Repoclosure:
         sack = hawkey.Sack(arch=arch, make_cache_dir=False)
         # Hawkey doesn't have a session-cache concept the way dnf
         # does; loading from the librepo destdir is direct.
-        name_by_id: dict[str, str] = {}
         for repo in repos:
             layout = self._metadata.fetch(repo, arch)
-            hk_repo = hawkey.Repo(repo.name)
+            # Use the underlying C class ``hawkey._hawkey.Repo`` (rather
+            # than the Python ``hawkey.Repo`` subclass) to avoid the
+            # always-on deprecation warning the Python wrapper emits;
+            # see module docstring.
+            hk_repo = hawkey._hawkey.Repo(repo.name)
             hk_repo.repomd_fn = str(layout.repomd)
             hk_repo.primary_fn = str(layout.primary)
             hk_repo.filelists_fn = str(layout.filelists)
@@ -139,8 +131,7 @@ class Repoclosure:
             # (e.g. ``Requires: /usr/bin/python3``) resolvable via
             # filelists, matching dnf's default behaviour.
             sack.load_repo(hk_repo, load_filelists=True)
-            name_by_id[repo.name] = repo.name
-        return sack, name_by_id
+        return sack
 
     def run(
         self,
@@ -168,7 +159,7 @@ class Repoclosure:
 
         import hawkey
 
-        sack, _ = self._build_sack(universe_repos, arch)
+        sack = self._build_sack(universe_repos, arch)
         check_arches = _arches_to_check(check_kind, arch)
 
         target_names = tuple(r.name for r in target_repos)

@@ -116,10 +116,10 @@ Each entry covers:
 ### `test_repoclosure_base_srpms_buildtime.py`
 
 * **Asserts:** Every SRPM in `base-srpms` is build-time-closed
-  against `base ∪ sdk`. dnf5 surfaces an SRPM's `BuildRequires:` as
-  `Requires:` on the source-arch package, so `dnf5 repoclosure` over
-  the SRPM repo with the binary universe enabled checks build-time
-  closure naturally.
+  against `base ∪ sdk`. RPM surfaces an SRPM's `BuildRequires:` as
+  `Requires:` on the source-arch package in primary metadata, so
+  walking the SRPM repo's requires against the binary universe
+  checks build-time closure naturally.
 * **Markers:** none — repos are hard-coded.
 * **Fan-out:** one test per arch.
 * **Fixtures:** `arch`, `require_named_repos`, `repoclosure` (used

@@ -14,9 +14,7 @@ Responsibilities:
 * Implement ``pytest_generate_tests`` to fan a test out across all
   matching ``(repo, arch)`` pairs at parametrize time, with a no-match
   guard so a typo'd marker can't silently zero out a test.
-* Provide a small set of helpers used by ``conftest.py``.
 
-The plugin module exposes only pytest hooks and tiny pure helpers.
 Higher-level fixtures (``repo_packages``, ``cross_repo_file_index``,
 ``repoclosure``, ...) live in ``conftest.py`` so tests get the
 familiar pytest fixture-discovery experience.
@@ -36,15 +34,10 @@ tests skip cleanly via ``pytest_generate_tests`` and the
 from __future__ import annotations
 
 import logging
-import shutil
-from typing import TYPE_CHECKING
 
 import pytest
 
-from .repos import Repo, RepoSpecError, parse_repo_specs
-
-if TYPE_CHECKING:
-    pass
+from .repos import Repo, RepoSpecError, collect_repos
 
 logger = logging.getLogger(__name__)
 
@@ -65,10 +58,25 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="azl_repos",
         metavar="name=...,kind=...,url=...",
         help=(
-            "Add a repository under test. Required keys: name, kind "
-            "(binary|srpm|debuginfo), url. The URL is passed verbatim to "
-            "dnf, including any $basearch/$releasever placeholders. "
-            "Repeat for each repo. At least one --repo is required."
+            "Add a repository under test (inline form). Required keys: "
+            "name, kind (binary|srpm|debuginfo), url. The URL is passed "
+            "through librepo, including any $basearch/$releasever "
+            "placeholders. May be repeated. Combine with --repos-file "
+            "as needed; at least one --repo or --repos-file is required "
+            "for any test that touches a repo."
+        ),
+    )
+    group.addoption(
+        "--repos-file",
+        action="append",
+        default=[],
+        dest="azl_repos_files",
+        metavar="PATH",
+        help=(
+            "Load repositories from a yum/dnf-style .repo ini file. Each "
+            "section becomes one repo; the section name is the repo "
+            "name, ``baseurl=`` is the URL, and a custom ``kind=`` key "
+            "(binary|srpm|debuginfo) is required. May be repeated."
         ),
     )
     group.addoption(
@@ -78,8 +86,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="azl_arches",
         metavar="ARCH",
         help=(
-            "Architecture to test against (substituted for $basearch by dnf). "
-            "May be repeated; defaults to x86_64 if not provided."
+            "Architecture to test against (substituted for $basearch by "
+            "librepo). May be repeated; defaults to x86_64 if not provided."
         ),
     )
     group.addoption(
@@ -89,32 +97,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         metavar="RELEASEVER",
         help=(
             "Release version to substitute for $releasever in URLs. "
-            "Required only when at least one --repo URL contains $releasever. "
+            "Required only when at least one repo URL contains $releasever. "
             "We never inherit this from the host or from the container image."
-        ),
-    )
-    group.addoption(
-        "--repoclosure-backend",
-        choices=("host", "container"),
-        default="host",
-        dest="azl_repoclosure_backend",
-        help="How to invoke dnf5 for repoclosure. Default: host.",
-    )
-    group.addoption(
-        "--container-image",
-        default="fedora:44",
-        dest="azl_container_image",
-        metavar="IMAGE",
-        help="Container image used by --repoclosure-backend container.",
-    )
-    group.addoption(
-        "--container-runtime",
-        default=None,
-        dest="azl_container_runtime",
-        metavar="RUNTIME",
-        help=(
-            "Container runtime to use (podman or docker). "
-            "If unset, podman is preferred when available."
         ),
     )
     group.addoption(
@@ -123,10 +107,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="azl_workdir",
         metavar="DIR",
         help=(
-            "Working directory for repo metadata caches and dnf state. "
-            "If set, it is reused as-is and never cleaned (post-mortem "
-            "friendly). Otherwise a fresh temp directory is created and "
-            "cleaned up at session end."
+            "Working directory for repo metadata caches. If set, it is "
+            "reused as-is and never cleaned (post-mortem friendly). "
+            "Otherwise a fresh temp directory is created and cleaned up "
+            "at session end."
         ),
     )
     group.addoption(
@@ -175,16 +159,16 @@ def pytest_configure(config: pytest.Config) -> None:
     :func:`pytest_generate_tests` and the ``require_named_repos``
     fixture instead.
     """
-    raw_repos: list[str] = list(config.getoption("azl_repos"))
+    inline = list(config.getoption("azl_repos"))
+    files = list(config.getoption("azl_repos_files"))
     repos: list[Repo] = []
-    if raw_repos:
+    if inline or files:
         try:
-            repos = parse_repo_specs(raw_repos)
+            repos = collect_repos(inline=inline, file_paths=files)
         except RepoSpecError as exc:
             raise pytest.UsageError(str(exc)) from exc
 
     arches: list[str] = list(config.getoption("azl_arches")) or ["x86_64"]
-    # Preserve order while de-duping.
     seen: set[str] = set()
     deduped_arches: list[str] = []
     for a in arches:
@@ -202,16 +186,6 @@ def pytest_configure(config: pytest.Config) -> None:
             "contain $releasever. We never inherit this from the host."
         )
 
-    backend = config.getoption("azl_repoclosure_backend")
-    if backend == "container":
-        runtime = config.getoption("azl_container_runtime") or _detect_container_runtime()
-        if runtime is None:
-            raise pytest.UsageError(
-                "--repoclosure-backend container requires podman or docker on PATH "
-                "(or pass --container-runtime explicitly)."
-            )
-        config._azl_container_runtime = runtime  # type: ignore[attr-defined]
-
     config._azl_repos = repos  # type: ignore[attr-defined]
     config._azl_arches = deduped_arches  # type: ignore[attr-defined]
     config._azl_releasever = releasever  # type: ignore[attr-defined]
@@ -221,14 +195,6 @@ def pytest_configure(config: pytest.Config) -> None:
     config._azl_release_suffix = config.getoption(  # type: ignore[attr-defined]
         "azl_release_suffix"
     )
-
-
-def _detect_container_runtime() -> str | None:
-    """Return ``podman`` if available, else ``docker``, else ``None``."""
-    for candidate in ("podman", "docker"):
-        if shutil.which(candidate):
-            return candidate
-    return None
 
 
 # ---------------------------------------------------------------------------
@@ -249,7 +215,9 @@ def _get_marker_values(metafunc: pytest.Metafunc, name: str) -> list[str]:
     return values
 
 
-def _filter_repos_by_markers(metafunc: pytest.Metafunc, repos: list[Repo]) -> list[Repo]:
+def _filter_repos_by_markers(
+    metafunc: pytest.Metafunc, repos: list[Repo]
+) -> list[Repo]:
     """Apply ``repo_kind`` / ``repo_name`` markers to narrow the repo set."""
     kinds = _get_marker_values(metafunc, "repo_kind")
     names = _get_marker_values(metafunc, "repo_name")
@@ -265,21 +233,7 @@ def _filter_repos_by_markers(metafunc: pytest.Metafunc, repos: list[Repo]) -> li
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
-    """Fan tests out over the matching ``(repo, arch)`` pairs.
-
-    Rules:
-
-    * If the test has a ``repo`` parameter, parametrize over every
-      provided repo that matches the test's ``repo_kind`` /
-      ``repo_name`` markers. Each entry pairs with the configured
-      arches via the ``arch`` parameter (also parametrized).
-    * If the test only has an ``arch`` parameter (no ``repo``),
-      parametrize over arches alone.
-    * If marker filters eliminate every candidate repo for a test
-      that requires one, the test is parametrized with a single
-      ``no-matching-repo`` skip so it surfaces in the report rather
-      than silently disappearing.
-    """
+    """Fan tests out over the matching ``(repo, arch)`` pairs."""
     config = metafunc.config
     repos: list[Repo] = getattr(config, "_azl_repos", [])
     arches: list[str] = getattr(config, "_azl_arches", [])
@@ -290,11 +244,6 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     if needs_repo:
         candidates = _filter_repos_by_markers(metafunc, repos)
         if not candidates:
-            # No matching --repo for this test's markers. Skip cleanly
-            # rather than raising a collection error: a user may
-            # legitimately want to run only a subset of tests for the
-            # repo kinds they provided. The skip message is specific
-            # enough to make the cause obvious.
             kinds = _get_marker_values(metafunc, "repo_kind")
             names = _get_marker_values(metafunc, "repo_name")
             reason = (

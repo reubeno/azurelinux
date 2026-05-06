@@ -34,8 +34,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Generator
 
-import createrepo_c as cr
-import librepo
+# ``createrepo_c`` is loaded via ``_dnf_stack`` so its noisy librpm
+# initialization (which complains about Azure Linux's bundled rpm
+# macros that the wheel's bundled librpm can't parse) is suppressed
+# at import time. ``librepo`` is loaded lazily inside :func:`fetch_repo`
+# because it's a system package (``python3-librepo``) that may not be
+# visible from inside isolated venvs — we want ``pytest --collect-only``
+# and ``pytest --help`` to work even when it isn't.
+from ._dnf_stack import cr, get_librepo
 
 from .types import NEVRA, ConflictEntry, FileEntry, Package
 
@@ -95,6 +101,7 @@ def fetch_repo(
     :func:`iter_filelist_entries`.
     """
     cache_dir.mkdir(parents=True, exist_ok=True)
+    librepo = get_librepo()
     h = librepo.Handle()
     h.urls = [base_url]
     h.repotype = librepo.YUMREPO

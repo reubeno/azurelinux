@@ -16,7 +16,7 @@ existing tests and how to add new ones, see
 
 ```bash
 cd base/packages/tests
-uv run pytest cases/ \
+.venv/bin/pytest cases/ \
     --repo 'name=base,kind=binary,url=https://<published-repo-base>/$basearch/' \
     --repo 'name=sdk,kind=binary,url=https://<published-repo-sdk>/$basearch/' \
     --repo 'name=base-srpms,kind=srpm,url=https://<published-repo-base-srpms>/' \
@@ -40,8 +40,8 @@ Python libraries (`createrepo_c`, `librepo`, `hawkey`).
 
 | Dependency | Provided by | Notes |
 | --- | --- | --- |
-| Python 3.12+ + `uv` (or `pip` + a virtualenv) | the host | |
-| `createrepo_c` Python module | pip / `pyproject.toml` | manylinux wheels on PyPI; pulled in automatically. |
+| Python 3.12+ | the host | |
+| `createrepo_c` Python module | `pyproject.toml` (pip) | manylinux wheel on PyPI; pulled in automatically. |
 | `python3-librepo`, `python3-hawkey`, `python3-libdnf` | system package manager | NOT on PyPI. Install via your distro (`dnf install python3-librepo python3-hawkey` on Fedora/AZL/RHEL; `apt install python3-librepo python3-hawkey python3-libdnf` on Debian/Ubuntu). |
 | Network access to the repo URLs | the host | |
 
@@ -52,13 +52,39 @@ repoclosure. These are the same libraries `dnf` itself uses
 internally — so our metadata interpretation is guaranteed to match
 dnf's.
 
+> ⚠️ **`uv run pytest` does not work out of the box.** `uv` creates
+> isolated venvs and currently has no `--system-site-packages`
+> equivalent, so the system-only `python3-librepo` / `python3-hawkey`
+> are invisible from inside a `uv`-managed venv. Use the stdlib
+> `venv` workflow shown under [Invocation](#invocation) instead.
+> (`pytest --collect-only` and `pytest --help` still work under `uv`
+> because the dnf-stack libraries are lazy-imported, so collection
+> errors are not silent — but actually fetching a repo will fail
+> with a clear "install python3-librepo via your system package
+> manager" message.)
+
 ## Invocation
 
-The canonical invocation is `uv run pytest cases/ ...` from the
-`base/packages/tests/` directory. `uv` is required for the `pytest11`
-plugin entry point to register the project's CLI options before
-pytest parses argv. (If you have already done a `pip install -e .`
-into the active env, bare `pytest cases/ ...` works too.)
+The canonical setup is a stdlib venv that exposes the system
+dnf-stack modules:
+
+```bash
+# one-time setup
+python -m venv --system-site-packages .venv
+.venv/bin/pip install -e base/packages/tests
+
+# every run
+.venv/bin/pytest base/packages/tests/cases/ ...
+```
+
+`--system-site-packages` is required so the venv can see
+`python3-librepo` / `python3-hawkey` / `python3-libdnf` from the
+system. The project's `pip install -e .` registers the `pytest11`
+plugin entry point that wires up the suite's CLI options.
+
+If you prefer not to maintain a venv, `pip install --user -e
+base/packages/tests` followed by bare `pytest base/packages/tests/cases/
+...` also works on most distros (PEP-668 permitting).
 
 ### CLI options
 
@@ -77,15 +103,15 @@ into the active env, bare `pytest cases/ ...` works too.)
 Standard pytest selection works. To run only a few tests:
 
 ```bash
-uv run pytest cases/test_vendor_tag.py --repo ...
-uv run pytest -k 'repoclosure'          --repo ...
-uv run pytest cases/test_blocklist.py   --repo ...
+.venv/bin/pytest cases/test_vendor_tag.py --repo ...
+.venv/bin/pytest -k 'repoclosure'          --repo ...
+.venv/bin/pytest cases/test_blocklist.py   --repo ...
 ```
 
 To run only against the `base` repo:
 
 ```bash
-uv run pytest cases/ --repo name=base,kind=binary,url=...
+.venv/bin/pytest cases/ --repo name=base,kind=binary,url=...
 ```
 
 * Tests scoped to other repo kinds/names will skip with a clear
@@ -106,7 +132,7 @@ uv run pytest cases/ --repo name=base,kind=binary,url=...
 ### Validate just an SRPM repo
 
 ```bash
-uv run pytest cases/ \
+.venv/bin/pytest cases/ \
     --repo 'name=base-srpms,kind=srpm,url=https://example.com/srpms/'
 ```
 
@@ -116,7 +142,7 @@ skips every binary-only / debuginfo-only test.
 ### Cross-arch validation in one invocation
 
 ```bash
-uv run pytest cases/ \
+.venv/bin/pytest cases/ \
     --repo 'name=base,kind=binary,url=https://example.com/base/$basearch/' \
     --arch x86_64 --arch aarch64
 ```
@@ -137,7 +163,7 @@ baseurl=https://example.com/srpms/
 kind=srpm
 EOF
 
-uv run pytest cases/ --repos-file azl.repo --arch x86_64
+.venv/bin/pytest cases/ --repos-file azl.repo --arch x86_64
 ```
 
 The same flag may be repeated to load several files; freely combinable
@@ -146,7 +172,7 @@ with inline `--repo` flags.
 ### Reuse a workdir for fast re-runs
 
 ```bash
-uv run pytest cases/ \
+.venv/bin/pytest cases/ \
     --repo 'name=base,kind=binary,url=https://example.com/base/$basearch/' \
     --workdir /tmp/azl-repo-tests
 ```

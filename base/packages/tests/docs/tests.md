@@ -274,7 +274,7 @@ def test_<rule_name>(repo: Repo, arch: str, repo_packages) -> None:
 ### 5. Run it
 
 ```bash
-uv run pytest cases/test_<your_test>.py -v --repo ...
+.venv/bin/pytest cases/test_<your_test>.py -v --repo ...
 ```
 
 If it doesn't apply to the repo set you have, it'll skip cleanly.

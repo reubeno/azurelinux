@@ -21,8 +21,6 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-import pytest
-
 from .repos import Repo
 from .types import NEVRA, RepoclosureResult
 
@@ -113,9 +111,13 @@ class Repoclosure:
 
     def _build_sack(self, repos: list[Repo], arch: str) -> object:
         """Build a hawkey ``Sack`` containing every repo's metadata."""
-        # Imported lazily so module import doesn't fail in environments
-        # that have no hawkey installed (e.g. doc builds).
-        import hawkey
+        # Lazy-load via the dnf-stack helper so a missing system
+        # ``python3-hawkey`` surfaces as a clear, actionable error
+        # naming the package to install (rather than a bare
+        # ``ModuleNotFoundError`` deep in the import chain that breaks
+        # ``pytest --collect-only``).
+        from ._dnf_stack import get_hawkey
+        hawkey = get_hawkey()
 
         sack = hawkey.Sack(arch=arch, make_cache_dir=False)
         # Hawkey doesn't have a session-cache concept the way dnf
@@ -161,7 +163,8 @@ class Repoclosure:
                 f"{sorted(universe_names)}"
             )
 
-        import hawkey
+        from ._dnf_stack import get_hawkey
+        hawkey = get_hawkey()
 
         sack = self._build_sack(universe_repos, arch)
         check_arches = _arches_to_check(check_kind, arch)
@@ -222,12 +225,14 @@ class Repoclosure:
 
 
 def make_repoclosure(metadata_service: "MetadataService") -> Repoclosure:
-    """Construct a :class:`Repoclosure`. Surfaces a clear error if hawkey is missing."""
-    try:
-        import hawkey  # noqa: F401
-    except ImportError as exc:  # pragma: no cover
-        pytest.fail(
-            "hawkey (python3-hawkey) is not installed; repoclosure tests "
-            f"cannot run. Install your distro's python3-hawkey package. ({exc})"
-        )
+    """Construct a :class:`Repoclosure`.
+
+    Hawkey availability is checked lazily on first use (via
+    :func:`utils._dnf_stack.get_hawkey`) — the resulting
+    :class:`MissingDependencyError` carries an actionable install
+    message — so we don't probe at construction time. Doing so here
+    would run during fixture setup for *every* invocation, including
+    sessions that select only metadata-only tests and never actually
+    need hawkey.
+    """
     return Repoclosure(metadata_service)

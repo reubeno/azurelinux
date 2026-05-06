@@ -27,6 +27,8 @@ Patch: 0001-RebootData-don-t-allow-action-to-be-None.patch
 # https://bugzilla.redhat.com/show_bug.cgi?id=2402430
 Patch: 0001-pyanaconda-localization-Indicate-ASCII-support-in-ge.patch
 
+Patch: 0001-dnf-skip-Flatpak-side-payload-when-typelib-missing.patch
+
 # Versions of required components (done so we make sure the buildrequires
 # match the requires versions of things).
 

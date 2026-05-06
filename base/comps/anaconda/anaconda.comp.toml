@@ -19,3 +19,16 @@ type = "spec-remove-tag"
 tag = "Requires"
 value = "flatpak-libs"
 package = "core"
+
+# DNFModule.needs_flatpak_side_payload() unconditionally returns True, causing
+# PayloadsService to construct a Flatpak side payload which imports flatpak_manager.py.
+# That module calls gi.require_version("Flatpak", "1.0") at the top level, raising
+# AnacondaError: Namespace Flatpak not available when flatpak-libs is absent.
+# This patch probes the GI typelib first and returns False when it is unavailable,
+# making Flatpak preinstall support genuinely optional.
+# No upstream PR has been filed against rhinstaller/anaconda yet; downstream-only for now.
+[[components.anaconda.overlays]]
+description = "Skip Flatpak side payload when Flatpak GI typelib is missing (fixes AnacondaError: Namespace Flatpak not available)"
+type = "patch-add"
+file = "0001-dnf-skip-Flatpak-side-payload-when-typelib-missing.patch"
+source = "0001-dnf-skip-Flatpak-side-payload-when-typelib-missing.patch"

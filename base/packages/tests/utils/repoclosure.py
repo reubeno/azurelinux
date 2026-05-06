@@ -90,9 +90,12 @@ def _arches_to_check(check_kind: str, arch: str) -> set[str] | None:
 
 
 # Requires that the solver pretends are real but that no actual
-# package can satisfy. ``rpmlib(...)`` is the canonical example
-# (encodes runtime capabilities of the rpm tool itself); dnf
-# repoclosure also ignores them.
+# package can satisfy. ``rpmlib(...)`` encodes runtime capabilities
+# of the rpm tool itself (e.g. ``rpmlib(CompressedFileNames)``) —
+# rpm-the-tool provides them implicitly at install time, not any
+# RPM in the repo, so a literal provider lookup never finds one.
+# ``solvable:prereqmarker`` is libsolv's internal marker between
+# Requires and PreReq lists. dnf's own repoclosure ignores both.
 def _is_synthetic_dep(name: str) -> bool:
     return name.startswith("rpmlib(") or name == "solvable:prereqmarker"
 
@@ -121,8 +124,9 @@ class Repoclosure:
             layout = self._metadata.fetch(repo, arch)
             # Use the underlying C class ``hawkey._hawkey.Repo`` (rather
             # than the Python ``hawkey.Repo`` subclass) to avoid the
-            # always-on deprecation warning the Python wrapper emits;
-            # see module docstring.
+            # always-on deprecation warning the Python wrapper emits.
+            # See module docstring — this is intentional, not an
+            # over-reach into a private name.
             hk_repo = hawkey._hawkey.Repo(repo.name)
             hk_repo.repomd_fn = str(layout.repomd)
             hk_repo.primary_fn = str(layout.primary)

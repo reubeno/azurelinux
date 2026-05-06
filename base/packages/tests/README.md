@@ -34,16 +34,23 @@ Expected outcomes:
 
 ## Prerequisites
 
-| If you use... | You need on the host |
-| --- | --- |
-| `--repoclosure-backend host` (default) | `dnf5` (with the `dnf5-plugins` package, which provides `repoclosure`). |
-| `--repoclosure-backend container` | `podman` or `docker`. The container image (default `fedora:44`) must have `dnf5` available. |
-| Either | Network access to the repo URLs, plus Python 3.12+ and `uv` (or `pip` + a virtualenv). |
+The test suite runs entirely in-process — there is no shell-out to
+`dnf5` and no container backend. All work is done by the dnf-stack
+Python libraries (`createrepo_c`, `librepo`, `hawkey`).
 
-The metadata-only tests (everything except `test_repoclosure_*.py`)
-fetch and parse repodata directly with the Python stdlib — no `dnf` is
-involved for those, so they have no host runtime requirement beyond
-network access.
+| Dependency | Provided by | Notes |
+| --- | --- | --- |
+| Python 3.12+ + `uv` (or `pip` + a virtualenv) | the host | |
+| `createrepo_c` Python module | pip / `pyproject.toml` | manylinux wheels on PyPI; pulled in automatically. |
+| `python3-librepo`, `python3-hawkey`, `python3-libdnf` | system package manager | NOT on PyPI. Install via your distro (`dnf install python3-librepo python3-hawkey` on Fedora/AZL/RHEL; `apt install python3-librepo python3-hawkey python3-libdnf` on Debian/Ubuntu). |
+| Network access to the repo URLs | the host | |
+
+`librepo` handles the metadata fetch (with checksum verification,
+zchunk/zstd/xz/gz decompression, and atomic-rename caching);
+`createrepo_c` parses primary/filelists; `hawkey` (libsolv) drives
+repoclosure. These are the same libraries `dnf` itself uses
+internally — so our metadata interpretation is guaranteed to match
+dnf's.
 
 ## Invocation
 
@@ -57,12 +64,10 @@ into the active env, bare `pytest cases/ ...` works too.)
 
 | Option | Repeatable | Default | Description |
 | --- | --- | --- | --- |
-| `--repo` | yes | — (none required, but most tests skip without it) | Add a repo. Format: `name=...,kind=...,url=...` (comma-separated `key=value`). `kind` ∈ `binary` / `srpm` / `debuginfo`. URL may contain `$basearch` / `$arch` / `$releasever` placeholders — these are pre-substituted by the suite (so cross-arch validation actually fetches the requested arch's metadata, even on a host of a different arch). Repo names must be globally unique across all `--repo` flags. |
-| `--arch` | yes | `x86_64` | Architecture to test against. Substituted for `$basearch` / `$arch` in `--repo` URLs. |
-| `--releasever` | no | unset | Required iff at least one URL contains `$releasever`. Never inherited from the host or container. |
-| `--repoclosure-backend` | no | `host` | `host` shells out to local `dnf5`; `container` runs dnf5 inside `--container-image`. |
-| `--container-image` | no | `fedora:44` | Image used by the container backend. |
-| `--container-runtime` | no | auto | `podman` (preferred) or `docker`. |
+| `--repo` | yes | — (none required, but most tests skip without it) | Add a repo. Format: `name=...,kind=...,url=...` (comma-separated `key=value`). `kind` ∈ `binary` / `srpm` / `debuginfo`. URL may contain `$basearch` / `$arch` / `$releasever` placeholders — these are substituted by `librepo` at fetch time. Repo names must be globally unique across all `--repo` and `--repos-file` inputs. |
+| `--repos-file` | yes | — | Load repos from a yum/dnf-style `.repo` ini file. Each section is one repo (name = section header, `baseurl=` for URL, plus a custom `kind=` key). Combine freely with `--repo`. |
+| `--arch` | yes | `x86_64` | Architecture to test against. Substituted for `$basearch` / `$arch` in repo URLs. |
+| `--releasever` | no | unset | Required iff at least one URL contains `$releasever`. Never inherited from the host. |
 | `--workdir` | no | fresh `tempfile.mkdtemp(prefix="azl-repo-tests-")` | If set, used as-is and not cleaned (post-mortem friendly). |
 | `--expected-vendor` | no | `Microsoft Corporation` | Vendor string every binary package must declare (checked by `test_vendor_tag`). |
 | `--release-suffix` | no | `\.azl4(~.*)?$` | Regex (`re.search`) every binary package's Release tag must match (checked by `test_release_suffix`). Override for AZL3 (e.g., `\.azl3(~.*)?$`) or other distros. |
@@ -119,68 +124,24 @@ uv run pytest cases/ \
 Each test that depends on `(repo, arch)` runs once per arch. Use
 `-n auto` (with `pytest-xdist`, if installed) to parallelize.
 
-### Use the container backend
+### Use a `.repo` ini file
 
 ```bash
-uv run pytest cases/ \
-    --repo 'name=base,kind=binary,url=https://example.com/base/$basearch/' \
-    --repoclosure-backend container \
-    --container-image fedora:44
+cat > azl.repo <<EOF
+[base]
+baseurl=https://example.com/base/\$basearch/
+kind=binary
+
+[base-srpms]
+baseurl=https://example.com/srpms/
+kind=srpm
+EOF
+
+uv run pytest cases/ --repos-file azl.repo --arch x86_64
 ```
 
-Useful when the host's `dnf5` is too old to support the features the
-tests rely on (e.g., `dnf5 repoclosure --json`).
-
-### Use the container backend
-
-The container backend runs `dnf5 repoclosure` inside a configurable
-container image (default `fedora:44`) instead of relying on the
-host's `dnf5`. Use it when:
-
-* the host's `dnf5` is older than ~5.4 (no `repoclosure --json`,
-  yielding less-structured output);
-* you want hermetic, reproducible behavior across machines;
-* you don't have `dnf5` on the host at all.
-
-```bash
-uv run pytest cases/ \
-    --repo 'name=base,kind=binary,url=https://example.com/base/$basearch/' \
-    --repoclosure-backend container \
-    --container-image fedora:44
-```
-
-Prerequisites:
-
-* `podman` (preferred) or `docker` on `PATH` (autodetect; override
-  with `--container-runtime podman` / `--container-runtime docker`).
-* Ability to pull the image. The first run pulls `fedora:44`
-  (~200 MB); subsequent runs reuse the cached image.
-* Network access from inside the container (default container
-  network is fine; `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` /
-  `SSL_CERT_FILE` / `REQUESTS_CA_BUNDLE` host env vars are forwarded
-  into the container automatically).
-
-What it does behind the scenes:
-
-* Renders a `.repo` file under `<workdir>/container-backend/...`
-  (separate cache subtree from the host backend so the two can
-  coexist without contamination).
-* Bind-mounts that subtree into the container at `/azl-repo-tests`
-  with `:Z` only when SELinux is detected on the host
-  (`/sys/fs/selinux` exists).
-* Runs `dnf5 repoclosure` once per (target repo set, arch) inside
-  the container. Probes `--json` support once per session and uses
-  it when available — the JSON parser captures per-package source
-  repo, which the text-output fallback cannot.
-* Each invocation is a separate `podman run --rm`, so there's a
-  small overhead (~200ms) per call. With `--workdir <dir>` set,
-  metadata caches persist across calls, keeping the second and
-  later invocations cheap.
-
-If you see `dnf5` not found errors inside the container, you're on
-an older Fedora image without `dnf5` preinstalled; use a newer
-image (e.g. `fedora:44` or later) or pass an image that has the
-`dnf5` and `dnf5-plugins` packages.
+The same flag may be repeated to load several files; freely combinable
+with inline `--repo` flags.
 
 ### Reuse a workdir for fast re-runs
 

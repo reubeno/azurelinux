@@ -58,10 +58,3 @@ markers = [
     "repo_kind(kind): restrict the test to repos of the given kind (binary/srpm/debuginfo)",
     "repo_name(name): restrict the test to a repo with the given name",
 ]
-# hawkey.Repo has been "deprecated, scheduled for removal 2019-12-31" since
-# libdnf 0.x and shows no sign of actually going away. We use it deliberately
-# (see utils/repoclosure.py) because it lets us point a sack at already-fetched
-# metadata files without paying the dnf.Base initialisation cost.
-filterwarnings = [
-    "ignore:.*hawkey.Repo is deprecated.*:DeprecationWarning",
-]

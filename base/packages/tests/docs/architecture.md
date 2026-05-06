@@ -39,20 +39,36 @@ existing tests and the recipe for adding new ones, see
                     └────────────────────────┬────────────────────┘
                                              │ calls into
                     ┌────────────────────────▼────────────────────┐
-   utils/           │  MetadataService           RepoBackend      │
-   (service)        │  (cache + iterate)         (repoclosure)    │
+   utils/           │  MetadataService           Repoclosure      │
+   (service)        │  (cache + parse)           (in-process)     │
                     └────────────┬───────────────────┬────────────┘
                                  │                   │
                     ┌────────────▼─────────┐  ┌──────▼─────────────┐
-   utils/           │  repodata.py         │  │  backends/host.py  │
-   (implementation) │  (fetch+streamparse) │  │  backends/container│
+   utils/           │  repodata.py         │  │  repoclosure.py    │
+   (implementation) │  librepo + createrepo│  │  hawkey (libsolv)  │
                     └──────────────────────┘  └────────────────────┘
 ```
 
 **Tests never reach below the fixture layer.** If you find yourself
-wanting to import `utils.repodata` or `utils.backends.*` from a test
+wanting to import `utils.repodata` or `utils.repoclosure` from a test
 file, that's a signal to extend `MetadataService` (or add a fixture)
 instead.
+
+The implementation layer is intentionally a thin shim over the
+canonical dnf-stack libraries:
+
+* **`librepo`** (`python3-librepo`) — fetches `repomd.xml`, primary,
+  and filelists into a per-repo cache directory; verifies checksums;
+  decompresses zchunk / zstd / xz / gz transparently; substitutes
+  `$basearch` / `$releasever` in URLs.
+* **`createrepo_c`** (PyPI; pure-C bindings) — parses primary and
+  filelists into typed `Package` objects via libxml2 (streaming).
+* **`hawkey`** (`python3-hawkey`, libsolv bindings) — loads the
+  fetched metadata into a sack and walks `Requires` for repoclosure.
+
+All three are the same libraries `dnf` itself uses internally, so
+the suite's metadata interpretation is guaranteed to match dnf's
+without any subprocess shell-out.
 
 ## The CLI surface
 
@@ -70,19 +86,31 @@ a list of [`Repo`](../utils/repos.py) dataclasses. Validation errors
 become a single `pytest.UsageError` with a helpful message; we never
 let pytest get to test collection with bad config.
 
-### `--repo` syntax
+### `--repo` / `--repos-file` syntax
+
+Two equivalent input forms:
 
 ```
 --repo name=...,kind=...,url=...
 ```
 
-The format is strictly `key=value` segments separated by commas. The
-*first* `=` in each segment separates key from value, so values
-containing `=` are tolerated. Values containing commas are not
-supported — if a real-world URL ever needs commas, swap to a
-URL-encoded form. URL placeholders like `$basearch` and `$releasever`
-are passed through verbatim to dnf; the metadata-only loader does its
-own substitution (see [`utils/repodata.py:substitute_url`](../utils/repodata.py)).
+Strict `key=value` segments separated by commas. The first `=` in each
+segment separates key from value, so values containing `=` are
+tolerated. Values containing commas are not supported — if a real-world
+URL ever needs commas, swap to a URL-encoded form or use the file form
+below. URL placeholders like `$basearch` and `$releasever` are
+substituted by `librepo` at fetch time.
+
+```
+--repos-file path.repo
+```
+
+A standard yum/dnf-style ini file, parsed with stdlib `configparser`.
+Each section is one repo; the section name is the repo name, `baseurl=`
+is the URL, and a custom `kind=` key (`binary` / `srpm` / `debuginfo`)
+is required (since the dnf format has no equivalent). May be repeated;
+freely combinable with `--repo`. Repo names must be globally unique
+across all inputs.
 
 ## Test fan-out
 
@@ -154,14 +182,18 @@ the high-level operations the fixtures need:
 
 * `list_packages(repo, arch) -> list[Package]`
 * `build_file_index(repos, arch) -> dict[path, list[FileOwner]]`
+* `fetch(repo, arch) -> RepoLayout` — exposes the on-disk paths of
+  the librepo-fetched repomd/primary/filelists. Used by `Repoclosure`
+  so the metadata cache is shared (no double fetch).
 
-### `RepoBackend` (`utils/backends/base.py`)
+### `Repoclosure` (`utils/repoclosure.py`)
 
-Narrow interface focused on the only operation that genuinely needs
-dnf:
+In-process repoclosure runner. Loads each repo's metadata into a
+`hawkey.Sack`, walks every checked package's `Requires`, and reports
+each requirement that has no provider in the universe.
 
 ```python
-def repoclosure(
+def run(
     self,
     *,
     target_repos: list[Repo],
@@ -182,56 +214,56 @@ contribute providers. `check_kind` selects which package arches the
   build-time closure test. Catches BOTH unresolved BuildRequires
   (because src/nosrc are checked) AND runtime breakage in the binary
   packages that provide those BuildRequires (because arch/noarch are
-  also checked). A binary provider that itself doesn't close is not a
-  usable build input, so the broader check reflects what "buildable"
-  actually requires.
+  also checked). For `"buildtime"` we also disable the
+  per-target-repo filter on findings: a binary provider from
+  `base ∪ sdk` whose own runtime deps are broken is exactly the kind
+  of cross-repo failure this kind exists to catch, so it must be
+  surfaced even though its source repo is not in `target_repos`.
 * `"all"` — no arch filter on the checker.
 
-Two concrete implementations:
-
-| Backend | What it does | Cache subdir |
-| --- | --- | --- |
-| `HostBackend` (`utils/backends/host.py`) | Shells out to the local `dnf5`. Renders a self-contained `.repo` file in `<workdir>/host-backend/...`, with `--setopt=reposdir=...` so the host's system dnf state is *not* touched. | `<workdir>/host-backend/...` |
-| `ContainerBackend` (`utils/backends/container.py`) | Runs the same dnf5 invocations inside a configurable container (default `fedora:44`). Bind-mounts a *separate* subdir of the workdir; uses `:Z` only when SELinux is detected; forwards proxy/CA env vars. | `<workdir>/container-backend/...` |
-
-Both probe `dnf5 repoclosure --help` once per session to detect
-`--json` support. If present, the JSON parser produces structured
-`RepoclosureResult.unresolved` entries; otherwise we fall back to a
-text-output parser (see `utils/dnf.py`).
+`hawkey` is the libsolv binding `dnf` itself uses for solver work,
+so the semantics match `dnf repoclosure`'s own "every Requires must
+have a provider" rule. There is no subprocess shell-out; no JSON-vs-text
+output schema-drift handling; no `--json` capability probe; no
+host-vs-container backend split. The previous abstraction existed
+only because older host `dnf5` builds lacked `--json`, which is
+irrelevant when we drive the solver in-process.
 
 ## Implementation layer
 
 ### `utils/repodata.py`
 
-Fetches `repodata/repomd.xml`, picks the best available `primary` and
-`filelists` records (skipping `.zck` because zstd is not in the Python
-stdlib), and stream-parses them with `xml.etree.ElementTree.iterparse`.
-Stream parsing matters for `filelists.xml`, which in real repos can
-exceed 100 MB uncompressed.
+A thin wrapper over `librepo` (fetch + verify + decompress) and
+`createrepo_c` (parse). librepo writes `repomd.xml` and the
+`primary` + `filelists` records into a per-repo cache directory,
+verifying SHA checksums against repomd and decompressing zchunk /
+zstd / xz / gz transparently. `createrepo_c.xml_parse_primary` and
+`xml_parse_filelists` then stream the underlying file via libxml2 —
+memory stays bounded for very large filelists (tens to hundreds of
+MB uncompressed).
 
-Verifies SHA checksums when repomd advertises them. Mirrors the
-relative href under the cache directory so two records with the same
-basename in different subdirs don't collide.
+The previous implementation hand-rolled HTTP fetch with retries,
+checksum verification, multi-format decompression (gz/xz/zstd via
+`zstandard`), and `defusedxml.iterparse` of primary + filelists —
+~700 lines that did exactly what librepo+createrepo_c already do.
+The dnf stack uses these same libraries internally, so the two
+codepaths are now guaranteed to interpret repodata identically.
 
-### `utils/dnf.py`
+### `utils/repoclosure.py`
 
-Pure helpers shared by both backends:
+A thin wrapper over `hawkey`. `Repoclosure.run` builds a
+`hawkey.Sack`, loads each universe repo from the librepo-fetched
+metadata files (reusing the `MetadataService` cache), and walks
+every checked package's `Requires` looking for entries with no
+provider. `rpmlib(...)` and similar synthetic deps are filtered
+(matching `dnf repoclosure`'s own behaviour).
 
-* `render_repo_file(repos, *, arch, releasever)` — emit a `.repo`
-  file body. **Pre-substitutes** `$basearch` / `$arch` / `$releasever`
-  in each `baseurl` so cross-arch validation actually fetches the
-  requested arch's metadata. (Without this, dnf would substitute
-  `$basearch` from the running host's arch, then `--arch=<other>`
-  would filter checks to zero packages — silently green.)
-* `build_repoclosure_argv(...)` — construct the argv consistently.
-  Always passes `--arch=<arch> --arch=noarch` for repoclosure (per
-  dnf5 docs; this is the documented surface for filtering *which
-  packages get checked*. URL substitution is handled by
-  `render_repo_file` above, not by `--forcearch`).
-* `probe_repoclosure_json(run)` — detect `--json` support.
-* `parse_json_repoclosure_output(...)` /
-  `parse_text_repoclosure_output(...)` — turn dnf5 output into a
-  `RepoclosureResult`.
+The previous implementation shelled out to `dnf5 repoclosure` and
+parsed its output (JSON when available, falling back to a
+line-oriented text parser); it shipped two backends (host and
+container) plus an output-format-capability probe and per-finding
+NEVRA reparser. All of that is gone — we just call libsolv via
+hawkey, in-process, with a few dozen lines.
 
 ## Caching strategy
 
@@ -239,54 +271,61 @@ The session workdir defaults to a fresh `tempfile.mkdtemp(...)` and
 is removed at session end. With `--workdir` set, it is reused as-is
 and never cleaned (post-mortem friendly).
 
-All caches are keyed by a stable fingerprint that includes
-`(name, kind, url)` of the repo plus `arch` and (where applicable)
-`releasever`:
-
-* `MetadataService` writes repomd, primary, and filelists artifacts
-  under `<workdir>/repodata/rv-<releasever-or-none>/<arch>/<reponame>-<fingerprint>/`.
-* `HostBackend` writes its rendered `.repo` file and dnf cache under
-  `<workdir>/host-backend/rv-<releasever-or-none>/<arch>/<targets-slug>/`.
-* `ContainerBackend` writes its bind-mount subdir under
-  `<workdir>/container-backend/...` so it never collides with the
-  host backend's caches.
+`MetadataService` writes repomd, primary, and filelists artifacts
+under
+`<workdir>/repodata/rv-<releasever-or-none>/<xdist-worker>/<arch>/<reponame>-<fingerprint>/`
+where `fingerprint` is a stable short hash over `(name, kind, url)`.
+The xdist-worker scope keeps two parallel pytest workers from racing
+each other on the same destdir (librepo writes the same filenames
+each run, so without per-worker scope two simultaneous fetches of
+the same repo would clobber each other's `repomd.xml`).
 
 This means **a reused workdir cannot serve stale metadata** if any of
-url, arch, or releasever changes between runs.
+url, arch, or releasever changes between runs. The repoclosure
+runner reuses the same on-disk metadata, so there is never a double
+fetch.
 
 ## URL placeholders
 
-Two layers handle them:
+`librepo` substitutes `$basearch`, `$arch`, and `$releasever` directly
+when fetching. We pass the chosen arch and releasever to librepo via
+`Handle.varsub`; the URL stored in the `Repo` dataclass keeps the
+placeholders verbatim so the same `Repo` object can be reused across
+arches without mutation.
 
-* For *direct fetches* (the metadata-only path), `utils.repodata.substitute_url`
-  substitutes `$basearch`, `$arch`, `$releasever` with the chosen
-  values before issuing the HTTP request. If a URL contains
-  `$releasever` and `--releasever` was not provided, this raises an
-  error — but the plugin also performs the same check at
-  `pytest_configure` time, so the user gets a single clean message
-  before any test starts.
-* For *dnf-driven invocations* (repoclosure), the URL is left
-  untouched in the rendered `.repo` file. dnf substitutes `$basearch`
-  from the per-command `--arch=<arch>` and `$releasever` from
-  `--setopt=releasever=<value>`. We never let `$releasever` inherit
-  from the host or container — both the host backend and the
-  container backend pass `--setopt=releasever=...` explicitly when a
-  releasever is configured.
+If a URL contains `$releasever` and `--releasever` was not provided,
+the plugin raises `pytest.UsageError` at `pytest_configure` time so
+the user gets a single clean message before any test starts.
 
-## Why parse repodata directly?
+## Why these libraries (and not stdlib + dnf5 shell-out)?
 
-For metadata-only checks (vendor, blocklist, file conflicts, ...),
-parsing repodata is faster and simpler than driving `dnf`:
+The previous design parsed repodata directly with stdlib XML to
+avoid pulling in dnf — but that re-implemented exactly what
+`createrepo_c` and `librepo` already do, including some sharp edges
+(zchunk handling, atomic write semantics for parallel xdist runs,
+zstd decompression on Python <3.14). Adopting the canonical
+libraries:
 
-* No external process invocation per query.
-* No surface area for cross-version `dnf5` quirks (especially around
-  SRPM querying, which has had several bug fixes in recent dnf5
-  versions).
-* Native streaming: we never load a large `filelists.xml` into memory.
+* **Eliminates the host-vs-container backend split.** The split
+  existed only because older host `dnf5` builds lacked
+  `repoclosure --json`. Driving libsolv in-process via hawkey makes
+  output parsing irrelevant — there is no output.
+* **Removes ~1300 lines of infra code** (XML iterparse, HTTP retry
+  loop, checksum verify, decompression fallbacks, JSON-vs-text
+  parsers, NEVRA regex, JSON capability probe, `.repo` file
+  rendering, subprocess plumbing, container bind-mount logic).
+* **Aligns metadata interpretation with dnf** — when dnf changes
+  its parsing of a quirky tag, we change with it for free.
+* **Speeds up runs** — no subprocess fork per repoclosure
+  invocation; metadata is parsed once per session and reused by
+  every dependent test.
 
-`dnf5` is reserved for `repoclosure` — the one operation that
-genuinely needs a full SAT solver to reason about runtime
-dependencies.
+The three new requirements are system packages (`python3-librepo`,
+`python3-hawkey`, `python3-libdnf`), not pip-installable wheels.
+This is consistent with the previous host-backend requirement on
+the `dnf5` binary; users running the suite in a Fedora/AZL/RHEL
+container or on those distros already have them. See
+[`../README.md`](../README.md) for installation guidance.
 
 ## Adding a new test
 

@@ -103,11 +103,10 @@ def fetch_repo(
     # repoclosure loads the same cache_dir with a wider set
     # (see utils.repoclosure).
     h.yumdlist = ["primary", "filelists"]
-    h.varsub = [
-        ("arch", arch),
-        ("basearch", arch),
-        *(((("releasever", releasever),)) if releasever else ()),
-    ]
+    varsub = [("arch", arch), ("basearch", arch)]
+    if releasever:
+        varsub.append(("releasever", releasever))
+    h.varsub = varsub
     # Verification is on by default; spelled out for clarity.
     h.checksum = True
     try:
@@ -133,20 +132,24 @@ def fetch_repo(
 # ---------------------------------------------------------------------------
 
 
-def _convert_conflict(entry: tuple) -> ConflictEntry:
-    """Map createrepo_c's ``(name, flags, epoch, ver, rel, pre)`` tuple.
+def _epoch_to_int(epoch: str | None) -> int:
+    """Coerce createrepo_c's string epoch (or None / "") to an int.
 
-    createrepo_c returns ``epoch`` as a string (or None). We keep our
-    public :class:`ConflictEntry` epoch as ``int | None`` so that
-    consumers don't need to coerce.
+    createrepo_c reports epoch as a (possibly empty) string; the suite
+    types epoch as ``int`` (defaulting to 0 when missing or unparseable).
     """
+    if not epoch:
+        return 0
+    try:
+        return int(epoch)
+    except ValueError:
+        return 0
+
+
+def _convert_conflict(entry: tuple) -> ConflictEntry:
+    """Map createrepo_c's ``(name, flags, epoch, ver, rel, pre)`` tuple."""
     name, flags, epoch, ver, rel, _pre = entry
-    epoch_int: int | None = None
-    if epoch is not None and epoch != "":
-        try:
-            epoch_int = int(epoch)
-        except ValueError:
-            epoch_int = None
+    epoch_int: int | None = _epoch_to_int(epoch) if epoch else None
     return ConflictEntry(
         name=name,
         flags=flags or None,
@@ -172,10 +175,9 @@ def _convert_file(entry: tuple) -> FileEntry:
 
 def _convert_package(crp: cr.Package) -> Package:
     """Convert a ``createrepo_c.Package`` into the suite's :class:`Package`."""
-    epoch = int(crp.epoch) if crp.epoch else 0
     nevra = NEVRA(
         name=crp.name,
-        epoch=epoch,
+        epoch=_epoch_to_int(crp.epoch),
         version=crp.version,
         release=crp.release,
         arch=crp.arch,
@@ -248,7 +250,7 @@ def iter_filelist_entries(
     def _cb(crp: cr.Package) -> None:
         nevra = NEVRA(
             name=crp.name,
-            epoch=int(crp.epoch) if crp.epoch else 0,
+            epoch=_epoch_to_int(crp.epoch),
             version=crp.version,
             release=crp.release,
             arch=crp.arch,

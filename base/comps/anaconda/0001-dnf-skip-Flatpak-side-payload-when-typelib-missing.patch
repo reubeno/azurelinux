@@ -1,0 +1,59 @@
+From: Reuben Olinsky <reubeno@users.noreply.github.com>
+Subject: [PATCH] dnf: skip Flatpak side payload when Flatpak GI typelib is missing
+
+The DNF payload module unconditionally tells PayloadsService that it
+needs a Flatpak "side payload" (for flatpak-preinstall(...) Provides
+support).  PayloadsService.activate_payload() then constructs that side
+payload, which imports pyanaconda.modules.payloads.payload.flatpak.
+flatpak_manager.  That module performs
+
+    gi.require_version("Flatpak", "1.0")
+    from gi.repository.Flatpak import ...
+
+at module top level.  When the Flatpak-1.0 GObject-Introspection typelib
+(shipped by flatpak-libs) is not present, gi.require_version() raises
+ValueError("Namespace Flatpak not available"), which Anaconda then
+re-raises as
+
+    pyanaconda.modules.common.errors.general.AnacondaError:
+        Namespace Flatpak not available
+
+This makes flatpak / flatpak-libs an effectively hard runtime
+dependency of every DNF-based Anaconda install, even when the user has
+no flatpak-preinstall(...) Provides in their package set.
+
+Make the Flatpak preinstall support optional by probing the GI typelib
+in DNFModule.needs_flatpak_side_payload().  When it is unavailable we
+return False, which prevents PayloadsService from creating the side
+payload and avoids importing any of the Flatpak-using modules.
+
+All other consumers of side_payload already guard with
+``if self.side_payload`` / ``if self.active_payload.side_payload``, so
+no further changes are required.
+
+This change is a no-op when flatpak-libs is installed.
+---
+ pyanaconda/modules/payloads/payload/dnf/dnf.py | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/pyanaconda/modules/payloads/payload/dnf/dnf.py b/pyanaconda/modules/payloads/payload/dnf/dnf.py
+--- a/pyanaconda/modules/payloads/payload/dnf/dnf.py
++++ b/pyanaconda/modules/payloads/payload/dnf/dnf.py
+@@ -397,7 +397,16 @@ class DNFModule(PayloadBase):
+         return required_space.get_bytes()
+ 
+     def needs_flatpak_side_payload(self):
+-        return True
++        """Does this payload need an extra payload for Flatpak installation."""
++        try:
++            import gi
++            gi.require_version("Flatpak", "1.0")
++            from gi.repository import Flatpak  # noqa: F401
++        except (ImportError, ValueError):
++            log.info("Flatpak GI typelib not available, "
++                     "skipping Flatpak side payload.")
++            return False
++        return True
+ 
+     def get_flatpak_refs(self):
+         """Get the list of Flatpak refs to install.

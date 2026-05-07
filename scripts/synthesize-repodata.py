@@ -1,0 +1,890 @@
+#!/usr/bin/env python3
+"""Route packages from one or more upstream RPM repos into the standard
+Azure Linux per-channel/per-arch layout.
+
+Reads multiple input RPM repositories (with `$basearch` expansion), unions
+their packages, asks `azldev package list --rpm-file ...` to assign each
+package to a publish channel, then writes per-channel/per-arch repodata
+under the Standard Azure Linux Repo Layout:
+
+    <out>/base/<arch>/                # main binary RPMs, base channel
+    <out>/base/debuginfo/<arch>/      # debuginfo/debugsource, base channel
+    <out>/base/srpms/                 # source RPMs, base channel
+    <out>/sdk/<arch>/                 # main binary RPMs, sdk channel
+    <out>/sdk/debuginfo/<arch>/       # debuginfo/debugsource, sdk channel
+    <out>/sdk/srpms/                  # source RPMs, sdk channel
+
+Each emitted repo's `<location href>` references the original upstream RPM
+URL (so consumers download from the source repos).
+
+Two input-flag flavours, both repeatable and mixable:
+
+  --repo-prefix URL
+      Shorthand: assume URL is the prefix of a Standard Azure Linux Repo
+      Layout (i.e. the directory above `base/` and `sdk/`). The script
+      enumerates all six sub-repos under it and tolerates 404s on any of
+      them (silently skipped).
+
+  --repo TYPE:URL              (TYPE in {main, debuginfo, srpms})
+      Explicit single repo. URL may contain `$basearch`, expanded to each
+      configured arch. 404s on explicit repos are fatal.
+
+Dependencies: python3-createrepo_c, azldev, dnf
+"""
+
+from __future__ import annotations
+
+import argparse
+import contextlib
+import json
+import shutil
+import subprocess
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from collections import Counter, defaultdict
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Iterable
+
+import createrepo_c as cr
+
+DEFAULT_REPO_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_ARCHES = ("x86_64", "aarch64")
+KIND_MAIN = "main"
+KIND_DEBUGINFO = "debuginfo"
+KIND_SRPMS = "srpms"
+ALL_KINDS = (KIND_MAIN, KIND_DEBUGINFO, KIND_SRPMS)
+SRPM_ARCH = "src"
+CHANNEL_PREFIX = "rpm-"
+# The fixed Standard Azure Linux Repo Layout has exactly two output channels.
+# Anything else returned by azldev is treated as unpublished (and reported).
+ALLOWED_OUTPUT_CHANNELS = frozenset({"base", "sdk"})
+
+
+# ---------------------------------------------------------------------------
+# Logging helpers (everything goes to stderr; stdout left clean)
+# ---------------------------------------------------------------------------
+
+def log(msg: str) -> None:
+    print(msg, file=sys.stderr, flush=True)
+
+
+def warn(msg: str) -> None:
+    print(f"WARN: {msg}", file=sys.stderr, flush=True)
+
+
+def fatal(msg: str) -> int:
+    print(f"ERROR: {msg}", file=sys.stderr, flush=True)
+    return 1
+
+
+# ---------------------------------------------------------------------------
+# Input-repo modelling
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class InputRepo:
+    """One concrete (post-`$basearch`-expansion) upstream repo to ingest."""
+
+    kind: str            # main | debuginfo | srpms
+    arch: str            # x86_64 | aarch64 | src
+    url: str             # e.g. https://.../base/x86_64
+    origin: str          # 'prefix' (404 silent) | 'explicit' (404 fatal)
+
+    def cache_key(self) -> str:
+        # Stable, filesystem-safe; uniqueness comes from the full URL.
+        safe = self.url.replace("://", "_").replace("/", "_").replace(":", "_")
+        return f"{self.kind}-{self.arch}-{safe}"
+
+
+def expand_repo_prefix(prefix: str, arches: Iterable[str]) -> list[InputRepo]:
+    base = prefix.rstrip("/")
+    out: list[InputRepo] = []
+    for arch in arches:
+        out.append(InputRepo(KIND_MAIN, arch, f"{base}/base/{arch}", "prefix"))
+        out.append(InputRepo(KIND_DEBUGINFO, arch,
+                             f"{base}/base/debuginfo/{arch}", "prefix"))
+        out.append(InputRepo(KIND_MAIN, arch, f"{base}/sdk/{arch}", "prefix"))
+        out.append(InputRepo(KIND_DEBUGINFO, arch,
+                             f"{base}/sdk/debuginfo/{arch}", "prefix"))
+    out.append(InputRepo(KIND_SRPMS, SRPM_ARCH, f"{base}/base/srpms", "prefix"))
+    out.append(InputRepo(KIND_SRPMS, SRPM_ARCH, f"{base}/sdk/srpms", "prefix"))
+    return out
+
+
+def parse_explicit_repo(spec: str, arches: Iterable[str]) -> list[InputRepo]:
+    """Parse `--repo TYPE:URL` into one or more InputRepos.
+
+    URL handling for `main` and `debuginfo`:
+      * If URL contains `$basearch`, expand it once per arch in *arches*.
+      * Otherwise, the URL is taken as a single-arch repo and the arch is
+        inferred from the URL's final path segment (which must match one
+        of *arches*). Pass `--arch <arch>` with a single value to control
+        which arch list this is matched against.
+
+    `srpms` URLs are arch-agnostic and rejected if they contain `$basearch`.
+    """
+    if ":" not in spec:
+        raise ValueError(
+            f"--repo {spec!r}: expected TYPE:URL where TYPE in "
+            f"{{{', '.join(ALL_KINDS)}}}"
+        )
+    kind, url = spec.split(":", 1)
+    kind = kind.strip().lower()
+    url = url.strip()
+    if kind not in ALL_KINDS:
+        raise ValueError(
+            f"--repo {spec!r}: unknown TYPE {kind!r}; expected one of "
+            f"{{{', '.join(ALL_KINDS)}}}"
+        )
+    if kind == KIND_SRPMS:
+        if "$basearch" in url:
+            raise ValueError(
+                f"--repo {spec!r}: srpms repos are arch-agnostic; "
+                f"`$basearch` is not allowed in the URL"
+            )
+        return [InputRepo(KIND_SRPMS, SRPM_ARCH, url.rstrip("/"), "explicit")]
+    out: list[InputRepo] = []
+    if "$basearch" in url:
+        for arch in arches:
+            out.append(InputRepo(
+                kind, arch, url.replace("$basearch", arch).rstrip("/"),
+                "explicit",
+            ))
+    else:
+        # No $basearch: caller is asserting "this URL is for one specific
+        # arch". We can't tell which from the URL alone, so we infer from the
+        # last path component if it matches a known arch; otherwise refuse.
+        last = url.rstrip("/").rsplit("/", 1)[-1]
+        if last in arches:
+            out.append(InputRepo(kind, last, url.rstrip("/"), "explicit"))
+        else:
+            raise ValueError(
+                f"--repo {spec!r}: URL has no `$basearch` and its final path "
+                f"component {last!r} is not a known arch ({', '.join(arches)}); "
+                f"cannot determine arch"
+            )
+    return out
+
+
+def dedup_input_repos(repos: Iterable[InputRepo]) -> list[InputRepo]:
+    """Drop duplicate (kind, arch, url) entries, preserving order. Explicit
+    origin wins over prefix origin so 404s remain fatal where the user asked
+    for them explicitly."""
+    seen: dict[tuple[str, str, str], InputRepo] = {}
+    for r in repos:
+        key = (r.kind, r.arch, r.url)
+        existing = seen.get(key)
+        if existing is None:
+            seen[key] = r
+        elif r.origin == "explicit" and existing.origin == "prefix":
+            seen[key] = r
+    return list(seen.values())
+
+
+# ---------------------------------------------------------------------------
+# Phase 1: download repodata
+# ---------------------------------------------------------------------------
+
+def _http_get(url: str, dest: Path) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    urllib.request.urlretrieve(url, dest)
+
+
+def download_repo_metadata(repo: InputRepo, cache_root: Path) -> Path | None:
+    """Download primary/filelists/other for *repo* into a cache dir.
+
+    Returns the path to the dir containing `repodata/`, or None if the
+    repo's `repomd.xml` returned 404 and *repo* was prefix-derived (silent
+    skip). Other HTTP errors and explicit-origin 404s raise.
+    """
+    cache_dir = cache_root / repo.cache_key()
+    repodata_dir = cache_dir / "repodata"
+    repodata_dir.mkdir(parents=True, exist_ok=True)
+
+    repomd_url = urllib.parse.urljoin(repo.url.rstrip("/") + "/",
+                                      "repodata/repomd.xml")
+    repomd_path = repodata_dir / "repomd.xml"
+    log(f"  fetching {repomd_url}")
+    try:
+        _http_get(repomd_url, repomd_path)
+    except urllib.error.HTTPError as e:
+        if e.code == 404 and repo.origin == "prefix":
+            log(f"    -> 404, skipping (prefix-derived, non-fatal)")
+            shutil.rmtree(cache_dir, ignore_errors=True)
+            return None
+        raise
+
+    repomd = cr.Repomd()
+    cr.xml_parse_repomd(str(repomd_path), repomd, lambda *_: True)
+
+    base = repo.url.rstrip("/") + "/"
+    for record in repomd.records:
+        if record.type in ("primary", "filelists", "other"):
+            href = record.location_href or ""
+            url = urllib.parse.urljoin(base, href)
+            # Constrain the cache destination path so a hostile/malformed
+            # repomd can't write outside cache_dir.
+            safe_rel = href.lstrip("/")
+            if ".." in Path(safe_rel).parts:
+                raise RuntimeError(
+                    f"refusing to write metadata record outside cache: {href!r}"
+                )
+            dest = cache_dir / safe_rel
+            log(f"  fetching {url}")
+            _http_get(url, dest)
+    return cache_dir
+
+
+# ---------------------------------------------------------------------------
+# Phase 2: build the package universe + RPM source map
+# ---------------------------------------------------------------------------
+
+@dataclass
+class UniverseEntry:
+    """One (kind, arch, name) slot in the unioned package universe."""
+
+    repo: InputRepo
+    source_pkg_name: str  # extracted from rpm_sourcerpm (or pkg name for srpms)
+
+
+def _strip_srpm_suffix(rpm_sourcerpm: str | None) -> str:
+    """Extract the source-package name from an RPM's `<sourcerpm>` field.
+
+    Example: `bash-5.2.21-1.azl4.src.rpm` -> `bash`.
+    """
+    if not rpm_sourcerpm:
+        return ""
+    s = rpm_sourcerpm
+    if s.endswith(".src.rpm"):
+        s = s[: -len(".src.rpm")]
+    # Strip -release then -version (best-effort; matches the inspiration
+    # script's approach).
+    parts = s.rsplit("-", 2)
+    if len(parts) >= 3:
+        return parts[0]
+    return s
+
+
+def _find_metadata_path(repo_dir: Path, kind: str) -> str:
+    """Return the absolute path of *kind* (primary|filelists|other) for the
+    cached repo at *repo_dir*."""
+    repomd = cr.Repomd()
+    cr.xml_parse_repomd(
+        str(repo_dir / "repodata" / "repomd.xml"), repomd, lambda *_: True
+    )
+    for rec in repomd.records:
+        if rec.type == kind:
+            return str(repo_dir / rec.location_href)
+    raise RuntimeError(f"{repo_dir}/repodata: no `{kind}` record in repomd.xml")
+
+
+def build_package_universe(
+    repo_to_dir: dict[InputRepo, Path],
+) -> tuple[
+    dict[tuple[str, str, str], UniverseEntry],
+    list[dict],
+]:
+    """First pass: scan only primary.xml of each repo to build the
+    de-duplicated package universe and the rpm_source_map for azldev.
+
+    Returns (universe, rpm_source_map) where:
+      universe[(kind, arch, name)] -> UniverseEntry
+      rpm_source_map: list of {packageName, sourcePackageName} (deduped).
+    """
+    universe: dict[tuple[str, str, str], UniverseEntry] = {}
+    src_map_set: set[tuple[str, str]] = set()
+
+    for repo, repo_dir in repo_to_dir.items():
+        primary = _find_metadata_path(repo_dir, "primary")
+        log(f"  scanning {repo.kind}/{repo.arch}: {repo.url}")
+
+        def pkgcb(pkg, *, _repo=repo):
+            key = (_repo.kind, _repo.arch, pkg.name)
+            if _repo.kind == KIND_SRPMS:
+                source_name = pkg.name
+            else:
+                source_name = _strip_srpm_suffix(pkg.rpm_sourcerpm)
+                if not source_name:
+                    # An RPM with no sourcerpm is unusual but harmless: route
+                    # it as if it were its own SRPM so azldev still receives
+                    # an entry.
+                    source_name = pkg.name
+            existing = universe.get(key)
+            if existing is None:
+                universe[key] = UniverseEntry(_repo, source_name)
+                src_map_set.add((pkg.name, source_name))
+            else:
+                warn(
+                    f"duplicate package in {_repo.kind}/{_repo.arch}: "
+                    f"{pkg.name!r} kept from {existing.repo.url}, "
+                    f"ignored from {_repo.url}"
+                )
+
+        cr.xml_parse_primary(
+            primary, pkgcb=pkgcb, do_files=False, warningcb=lambda *_: True
+        )
+
+    rpm_source_map = sorted(
+        ({"packageName": pn, "sourcePackageName": sn}
+         for pn, sn in src_map_set),
+        key=lambda r: (r["packageName"], r["sourcePackageName"]),
+    )
+    return universe, rpm_source_map
+
+
+# ---------------------------------------------------------------------------
+# Phase 3: ask azldev for routing
+# ---------------------------------------------------------------------------
+
+def query_known_components(repo_root: Path) -> set[str]:
+    """Return the set of legitimate Azure Linux component names.
+
+    Used to gate package routing: a row whose `component` is not in this
+    set was synthesised by azldev's project-default fallback for an
+    unknown source package, so the row's `publishChannel` is meaningless
+    and we treat the package as foreign / unpublished.
+    """
+    log("  querying azldev comp list for legitimate component names")
+    proc = subprocess.run(
+        ["azldev", "comp", "list", "-a", "-q", "-O", "json"],
+        capture_output=True, text=True, cwd=repo_root, check=False,
+    )
+    if proc.returncode != 0:
+        sys.stderr.write(proc.stderr)
+        raise RuntimeError("azldev comp list -a failed")
+    rows = json.loads(proc.stdout)
+    names = {row["name"] for row in rows if row.get("name")}
+    log(f"    {len(names)} legitimate component(s)")
+    return names
+
+
+@dataclass
+class AzldevRouting:
+    """Resolved azldev routing tables, keyed for lookup."""
+
+    # By type, then by package name. publishChannel may be empty.
+    rpm: dict[str, dict] = field(default_factory=dict)
+    srpm: dict[str, dict] = field(default_factory=dict)
+    # Component -> Counter[channel-suffix] for inheritance fallback. Only
+    # populated from rpm rows whose component is a legitimate Azure Linux
+    # component AND that have a non-empty, allowed publishChannel.
+    component_channels: dict[str, Counter] = field(default_factory=dict)
+    # Names rejected because their component is not a legitimate AZL
+    # component (i.e. azldev fell back to project-default routing for
+    # something that isn't actually built by AZL).
+    foreign_names: set[str] = field(default_factory=set)
+
+
+def query_azldev(
+    repo_root: Path,
+    rpm_source_map: list[dict],
+    scratch_dir: Path,
+    known_components: set[str],
+) -> AzldevRouting:
+    map_path = scratch_dir / "rpm_source_map.json"
+    map_path.write_text(json.dumps(rpm_source_map, indent=2))
+
+    log(f"  invoking azldev (map: {len(rpm_source_map)} entries)")
+    proc = subprocess.run(
+        ["azldev", "package", "list", "--rpm-file", str(map_path),
+         "-q", "-O", "json"],
+        capture_output=True, text=True, cwd=repo_root, check=False,
+    )
+    if proc.returncode != 0:
+        sys.stderr.write(proc.stderr)
+        raise RuntimeError("azldev package list --rpm-file failed")
+    rows = json.loads(proc.stdout)
+
+    routing = AzldevRouting()
+    component_channels: dict[str, Counter] = defaultdict(Counter)
+    for row in rows:
+        name = row.get("packageName", "")
+        rtype = row.get("type", "")
+        component = row.get("component", "") or ""
+        raw_channel = row.get("publishChannel", "") or ""
+        channel = (
+            raw_channel[len(CHANNEL_PREFIX):]
+            if raw_channel.startswith(CHANNEL_PREFIX) else raw_channel
+        )
+        if component and component not in known_components:
+            # Foreign package: azldev synthesised a default channel for
+            # something not actually built by AZL. Track and skip.
+            routing.foreign_names.add(name)
+            continue
+        record = {
+            "component": component,
+            "channel": channel,         # may be ""
+            "raw_channel": raw_channel,
+            "group": row.get("group", "") or "",
+        }
+        if rtype == "srpm":
+            routing.srpm[name] = record
+        else:  # default to rpm
+            routing.rpm[name] = record
+            if (channel and component
+                    and channel in ALLOWED_OUTPUT_CHANNELS):
+                component_channels[component][channel] += 1
+    routing.component_channels = dict(component_channels)
+    return routing
+
+
+# ---------------------------------------------------------------------------
+# Phase 4: route each universe entry -> (channel, kind, arch) destination
+# ---------------------------------------------------------------------------
+
+@dataclass
+class RoutingDecision:
+    """Per-universe-entry decision: where the package should land, or why
+    it was excluded."""
+
+    dest_channel: str | None = None     # 'base' | 'sdk' | None (=excluded)
+    reason: str = ""                    # human-readable provenance
+    inherited: bool = False             # was Phase-4 inheritance used?
+
+
+def _inherit_channel(
+    component: str, component_channels: dict[str, Counter]
+) -> tuple[str | None, str]:
+    counts = component_channels.get(component)
+    if not counts:
+        return None, "no sibling rpm has a published channel"
+    # Most-common channel wins; ties broken by full lexicographic order on
+    # the channel name so the decision is deterministic regardless of
+    # azldev row order.
+    items_sorted = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    top_channel, _ = items_sorted[0]
+    if len(counts) == 1:
+        return top_channel, (
+            f"inherited from sibling rpms (component={component})"
+        )
+    parts = ", ".join(f"{ch}:{n}" for ch, n in items_sorted)
+    return top_channel, (
+        f"inherited from sibling rpms (component={component}, "
+        f"channels={{{parts}}}, picked {top_channel})"
+    )
+
+
+def decide_routing(
+    universe: dict[tuple[str, str, str], UniverseEntry],
+    routing: AzldevRouting,
+) -> dict[tuple[str, str, str], RoutingDecision]:
+    """Produce one RoutingDecision per universe entry.
+
+    NOTE: TODO(channel-inheritance) -- the new `azldev package list
+    --rpm-file` output reports an empty publishChannel for type=srpm rows
+    and for binary RPMs not explicitly configured (e.g. *-debuginfo,
+    *-debugsource). We work around this by inheriting the channel from the
+    parent component's published binary rpms. Once the underlying TOML
+    config (and azldev) is updated to publish srpm/debuginfo channels
+    explicitly, remove this inference and treat empty publishChannel
+    strictly (i.e. mark the package as unpublished).
+    """
+    decisions: dict[tuple[str, str, str], RoutingDecision] = {}
+    for key, entry in universe.items():
+        kind, _arch, name = key
+        # Foreign packages (azldev fell back to project defaults for an
+        # unknown source component) are unpublished by definition.
+        if name in routing.foreign_names:
+            decisions[key] = RoutingDecision(
+                None,
+                "azldev row had a project-default channel but the resolved "
+                "component is not a legitimate Azure Linux component",
+            )
+            continue
+        if kind == KIND_SRPMS:
+            row = routing.srpm.get(name)
+        else:
+            row = routing.rpm.get(name)
+        if row is None:
+            decisions[key] = RoutingDecision(
+                None, "no azldev entry for package"
+            )
+            continue
+        channel = row["channel"]
+        if channel:
+            if channel not in ALLOWED_OUTPUT_CHANNELS:
+                decisions[key] = RoutingDecision(
+                    None,
+                    f"azldev publishChannel={row['raw_channel']!r} is not "
+                    f"one of the allowed standard-layout channels "
+                    f"({sorted(ALLOWED_OUTPUT_CHANNELS)})",
+                )
+                continue
+            decisions[key] = RoutingDecision(
+                channel, f"azldev publishChannel={row['raw_channel']!r}"
+            )
+            continue
+        # Empty channel -> inheritance fallback (TODO above).
+        inherited, why = _inherit_channel(
+            row["component"], routing.component_channels
+        )
+        if inherited is None:
+            decisions[key] = RoutingDecision(
+                None, f"azldev publishChannel empty and {why}"
+            )
+        else:
+            decisions[key] = RoutingDecision(
+                inherited, f"azldev publishChannel empty; {why}",
+                inherited=True,
+            )
+    return decisions
+
+
+# ---------------------------------------------------------------------------
+# Phase 5: per-destination writers
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class Destination:
+    channel: str        # 'base' | 'sdk'
+    kind: str           # main | debuginfo | srpms
+    arch: str           # x86_64 | aarch64 | src
+
+    def relpath(self) -> str:
+        if self.kind == KIND_MAIN:
+            return f"{self.channel}/{self.arch}"
+        if self.kind == KIND_DEBUGINFO:
+            return f"{self.channel}/debuginfo/{self.arch}"
+        if self.kind == KIND_SRPMS:
+            return f"{self.channel}/srpms"
+        raise ValueError(f"unknown kind: {self.kind}")
+
+
+class _RepoWriter:
+    """Manages the createrepo_c XML+sqlite triple for one destination."""
+
+    def __init__(self, dest: Destination, output_dir: Path, pkg_count: int):
+        self.dest = dest
+        self.repodata_dir = output_dir / dest.relpath() / "repodata"
+        if self.repodata_dir.exists():
+            shutil.rmtree(self.repodata_dir)
+        self.repodata_dir.mkdir(parents=True, exist_ok=True)
+
+        self.pri_xml_path = str(self.repodata_dir / "primary.xml.gz")
+        self.fil_xml_path = str(self.repodata_dir / "filelists.xml.gz")
+        self.oth_xml_path = str(self.repodata_dir / "other.xml.gz")
+        self.pri_db_path = str(self.repodata_dir / "primary.sqlite")
+        self.fil_db_path = str(self.repodata_dir / "filelists.sqlite")
+        self.oth_db_path = str(self.repodata_dir / "other.sqlite")
+
+        self.pri_xml = cr.PrimaryXmlFile(self.pri_xml_path)
+        self.fil_xml = cr.FilelistsXmlFile(self.fil_xml_path)
+        self.oth_xml = cr.OtherXmlFile(self.oth_xml_path)
+        self.pri_db = cr.PrimarySqlite(self.pri_db_path)
+        self.fil_db = cr.FilelistsSqlite(self.fil_db_path)
+        self.oth_db = cr.OtherSqlite(self.oth_db_path)
+
+        self.pri_xml.set_num_of_pkgs(pkg_count)
+        self.fil_xml.set_num_of_pkgs(pkg_count)
+        self.oth_xml.set_num_of_pkgs(pkg_count)
+
+        self.added = 0
+
+    def add_pkg(self, pkg: cr.Package) -> None:
+        self.pri_xml.add_pkg(pkg)
+        self.fil_xml.add_pkg(pkg)
+        self.oth_xml.add_pkg(pkg)
+        self.pri_db.add_pkg(pkg)
+        self.fil_db.add_pkg(pkg)
+        self.oth_db.add_pkg(pkg)
+        self.added += 1
+
+    def finish(self) -> None:
+        self.pri_xml.close()
+        self.fil_xml.close()
+        self.oth_xml.close()
+        repomd = cr.Repomd()
+        records = [
+            ("primary", self.pri_xml_path, self.pri_db),
+            ("filelists", self.fil_xml_path, self.fil_db),
+            ("other", self.oth_xml_path, self.oth_db),
+            ("primary_db", self.pri_db_path, None),
+            ("filelists_db", self.fil_db_path, None),
+            ("other_db", self.oth_db_path, None),
+        ]
+        for name, path, db in records:
+            rec = cr.RepomdRecord(name, path)
+            rec.fill(cr.SHA256)
+            if db is not None:
+                db.dbinfo_update(rec.checksum)
+                db.close()
+            repomd.set_record(rec)
+        (self.repodata_dir / "repomd.xml").write_text(repomd.xml_dump())
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: emit packages into writers
+# ---------------------------------------------------------------------------
+
+def emit_repos(
+    repo_to_dir: dict[InputRepo, Path],
+    universe: dict[tuple[str, str, str], UniverseEntry],
+    decisions: dict[tuple[str, str, str], RoutingDecision],
+    output_dir: Path,
+) -> tuple[dict[Destination, int], list[dict]]:
+    """Second pass over each input repo: stream every package, decide its
+    destination, set its absolute location_href, hand it to the writer.
+
+    Returns (per_destination_counts, unpublished_records).
+    """
+    # Precompute counts per destination (for XML headers) and unpublished
+    # records (for the report).
+    dest_counts: Counter[Destination] = Counter()
+    unpublished: list[dict] = []
+    for key, decision in decisions.items():
+        kind, arch, name = key
+        entry = universe[key]
+        if decision.dest_channel is None:
+            unpublished.append({
+                "name": name,
+                "kind": kind,
+                "arch": arch,
+                "source_repo": entry.repo.url,
+                "source_package": entry.source_pkg_name,
+                "reason": decision.reason,
+            })
+            continue
+        dest = Destination(decision.dest_channel, kind, arch)
+        dest_counts[dest] += 1
+
+    # Open writers up-front with correct counts.
+    writers: dict[Destination, _RepoWriter] = {
+        d: _RepoWriter(d, output_dir, n) for d, n in dest_counts.items()
+    }
+
+    # Iterate each input repo's full metadata and route packages.
+    emitted: set[tuple[str, str, str]] = set()
+    for repo, repo_dir in repo_to_dir.items():
+        primary = _find_metadata_path(repo_dir, "primary")
+        filelists = _find_metadata_path(repo_dir, "filelists")
+        other = _find_metadata_path(repo_dir, "other")
+
+        repo_base = repo.url.rstrip("/") + "/"
+        pkg_iter = cr.PackageIterator(
+            primary_path=primary,
+            filelists_path=filelists,
+            other_path=other,
+            warningcb=lambda *_: True,
+        )
+        for pkg in pkg_iter:
+            key = (repo.kind, repo.arch, pkg.name)
+            entry = universe.get(key)
+            if entry is None or entry.repo.url != repo.url:
+                # Filtered out earlier (shouldn't happen) or this is the
+                # cross-repo duplicate copy we already warned about during
+                # the first pass.
+                continue
+            if key in emitted:
+                # Same-repo duplicate of an already-emitted package: warn
+                # and skip so writer counts stay consistent with the
+                # XML headers we declared up-front.
+                warn(
+                    f"duplicate package within {repo.kind}/{repo.arch} "
+                    f"{repo.url}: {pkg.name!r} appears more than once "
+                    f"in repodata; skipping the additional occurrence"
+                )
+                continue
+            decision = decisions[key]
+            if decision.dest_channel is None:
+                continue
+            dest = Destination(decision.dest_channel, repo.kind, repo.arch)
+            # Rewrite location_href to an absolute upstream URL so consumers
+            # download from the source repo. urljoin honors absolute hrefs
+            # in the input (in case the input repo already published one)
+            # and respects any xml:base on the input package.
+            input_base = pkg.location_base or repo_base
+            absolute_href = urllib.parse.urljoin(
+                input_base, pkg.location_href or ""
+            )
+            pkg.location_href = absolute_href
+            pkg.location_base = ""
+            writers[dest].add_pkg(pkg)
+            emitted.add(key)
+
+    for dest, writer in writers.items():
+        writer.finish()
+        if writer.added != dest_counts[dest]:
+            warn(
+                f"writer for {dest.relpath()} expected "
+                f"{dest_counts[dest]} pkgs but emitted {writer.added}"
+            )
+
+    return dict(dest_counts), unpublished
+
+
+# ---------------------------------------------------------------------------
+# Phase 7: unpublished-packages report
+# ---------------------------------------------------------------------------
+
+def write_unpublished_report(
+    unpublished: list[dict], output_dir: Path
+) -> tuple[Path, Path]:
+    json_path = output_dir / "unpublished-packages.json"
+    txt_path = output_dir / "unpublished-packages.txt"
+    json_path.write_text(json.dumps(unpublished, indent=2))
+
+    by_reason: dict[str, list[dict]] = defaultdict(list)
+    for r in unpublished:
+        by_reason[r["reason"]].append(r)
+
+    with txt_path.open("w") as fh:
+        fh.write(
+            f"# {len(unpublished)} package(s) excluded from the routed repos "
+            f"because no publish channel could be assigned.\n"
+            f"# Grouped by reason; within each group, sorted by "
+            f"(kind, arch, name).\n"
+        )
+        for reason in sorted(by_reason):
+            entries = by_reason[reason]
+            fh.write(f"\n## {reason}  ({len(entries)} package(s))\n")
+            for r in sorted(entries, key=lambda x: (x["kind"], x["arch"], x["name"])):
+                fh.write(
+                    f"  {r['kind']:9s} {r['arch']:7s} {r['name']}  "
+                    f"(srpm={r['source_package']!r}, src={r['source_repo']})\n"
+                )
+    return json_path, txt_path
+
+
+# ---------------------------------------------------------------------------
+# CLI / orchestration
+# ---------------------------------------------------------------------------
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--output-dir", required=True, type=Path,
+        help="Directory to write the routed per-channel/per-arch repos into.",
+    )
+    parser.add_argument(
+        "--repo-prefix", action="append", default=[],
+        help=(
+            "URL prefix assumed to host the Standard Azure Linux Repo "
+            "Layout. Expanded into all six sub-repos (404s on any are "
+            "silently skipped). Repeatable."
+        ),
+    )
+    parser.add_argument(
+        "--repo", action="append", default=[],
+        help=(
+            "Explicit single repo: TYPE:URL where TYPE is main, debuginfo, "
+            "or srpms. URL may contain `$basearch` for main/debuginfo. "
+            "404s are fatal. Repeatable."
+        ),
+    )
+    parser.add_argument(
+        "--repo-root", type=Path, default=DEFAULT_REPO_ROOT,
+        help="Path to the azurelinux project root (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--arch", action="append", default=[],
+        help=(
+            f"Arch to expand `$basearch` into (default: "
+            f"{', '.join(DEFAULT_ARCHES)}). Repeatable."
+        ),
+    )
+    parser.add_argument(
+        "--keep-cache", action="store_true",
+        help="Don't delete the metadata cache dir under <output-dir>/.cache/.",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    arches = tuple(args.arch) if args.arch else DEFAULT_ARCHES
+
+    if not args.repo_prefix and not args.repo:
+        return fatal("at least one --repo-prefix or --repo must be provided")
+
+    output_dir: Path = args.output_dir.resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    cache_root = output_dir / ".cache"
+    cache_root.mkdir(parents=True, exist_ok=True)
+
+    # ---- Resolve the InputRepo list ------------------------------------
+    log("==> Resolving input repos ...")
+    repos: list[InputRepo] = []
+    for prefix in args.repo_prefix:
+        repos.extend(expand_repo_prefix(prefix, arches))
+    for spec in args.repo:
+        try:
+            repos.extend(parse_explicit_repo(spec, arches))
+        except ValueError as e:
+            return fatal(str(e))
+    repos = dedup_input_repos(repos)
+    log(f"    {len(repos)} candidate input repo(s) after dedup")
+
+    # ---- Phase 1: download repodata ------------------------------------
+    log("==> Downloading repodata ...")
+    repo_to_dir: dict[InputRepo, Path] = {}
+    for repo in repos:
+        try:
+            cache_dir = download_repo_metadata(repo, cache_root)
+        except urllib.error.HTTPError as e:
+            return fatal(
+                f"HTTP {e.code} fetching {repo.url}/repodata/repomd.xml "
+                f"(origin={repo.origin})"
+            )
+        if cache_dir is not None:
+            repo_to_dir[repo] = cache_dir
+    log(f"    {len(repo_to_dir)} repo(s) successfully downloaded "
+        f"({len(repos) - len(repo_to_dir)} skipped)")
+
+    if not repo_to_dir:
+        return fatal("no input repos with usable repodata; nothing to route")
+
+    # ---- Phase 2: build package universe + source map ------------------
+    log("==> Building package universe ...")
+    universe, src_map = build_package_universe(repo_to_dir)
+    log(f"    {len(universe)} unique (kind, arch, name) entries; "
+        f"{len(src_map)} unique (pkg, srpm) pairs for azldev")
+
+    # ---- Phase 3: query azldev -----------------------------------------
+    log("==> Querying azldev for routing ...")
+    known_components = query_known_components(args.repo_root)
+    routing = query_azldev(
+        args.repo_root, src_map, output_dir, known_components
+    )
+    log(f"    azldev returned {len(routing.rpm)} rpm row(s), "
+        f"{len(routing.srpm)} srpm row(s), "
+        f"{len(routing.foreign_names)} foreign name(s) (excluded)")
+
+    # ---- Phase 4: per-entry routing decisions --------------------------
+    log("==> Computing routing decisions ...")
+    decisions = decide_routing(universe, routing)
+    n_pub = sum(1 for d in decisions.values() if d.dest_channel is not None)
+    n_unpub = sum(1 for d in decisions.values() if d.dest_channel is None)
+    n_inh = sum(1 for d in decisions.values() if d.inherited)
+    log(f"    routed: {n_pub} | unpublished: {n_unpub} | "
+        f"inheritance-fallback used: {n_inh}")
+
+    # ---- Phase 5+6: open writers and emit ------------------------------
+    log("==> Writing per-destination repos ...")
+    dest_counts, unpublished = emit_repos(
+        repo_to_dir, universe, decisions, output_dir
+    )
+
+    # ---- Phase 7: unpublished report -----------------------------------
+    log("==> Writing unpublished-packages report ...")
+    json_path, txt_path = write_unpublished_report(unpublished, output_dir)
+    log(f"    -> {json_path.name}, {txt_path.name}")
+
+    # ---- Summary -------------------------------------------------------
+    log("\n==> Summary")
+    for dest in sorted(dest_counts, key=lambda d: (d.channel, d.kind, d.arch)):
+        log(f"    {dest.relpath():35s}  {dest_counts[dest]:6d} pkg(s)")
+    log(f"    {'(unpublished)':35s}  {len(unpublished):6d} pkg(s)")
+
+    if not args.keep_cache:
+        with contextlib.suppress(FileNotFoundError):
+            shutil.rmtree(cache_root)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

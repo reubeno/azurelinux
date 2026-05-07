@@ -1,54 +1,49 @@
-%global evergreen_major 5
-%global evergreen_release %{evergreen_major}.0
-
-# Select between split and unified repo URL layouts.
-# Split: repos are under .../base/{$basearch,debuginfo,srpms} (e.g. release builds).
-# Unified: repos are directly under .../{$basearch,debuginfo,srpms} (e.g. daily builds).
-# Enable with: --with split_repos   (or build.with in comp.toml)
-%bcond split_repos 0
-
 Summary:        Azure Linux package repositories
 Name:           azurelinux-repos
 Version:        4.0
-Release:        7%{?dist}
+Release:        %autorelease -b 10
 License:        MIT
 URL:            https://aka.ms/azurelinux
 
-Provides:       azurelinux-repos(%{version}) = %{release}
-Requires:       system-release(%{version})
-%if "%{evergreen_release}" == "%{version}"
-Requires:       azurelinux-repos-evergreen = %{version}-%{release}
-%endif
-Requires:       azurelinux-gpg-keys >= %{version}-%{release}
 BuildArch:      noarch
+
 # Required by %%check
 BuildRequires:  gnupg sed rpm
 
 Source1:        archmap
-Source2:        azurelinux-unified.repo.in
-Source3:        azurelinux-evergreen.repo
-Source4:        azurelinux-split.repo.in
+Source2:        azurelinux.repo.in
 
 Source10:       RPM-GPG-KEY-azurelinux-4.0-primary
 
-# When bumping Evergreen to fN, create N+1 key (and update archmap). (This
-# ensures users have the next future key installed and referenced, even if they
-# don't update very often. This will smooth out Evergreen N->N+1 transition for them).
-
-# IMA certs: dracut integrity module only recognizes DER format
-# TODO(azl): review
-# Source500:      azurelinux-ima-ca.der
-# Source501:      azurelinux-4.0-ima.der
+# This main package is the default subpackage: official repositories.
+# Resolves against packages.microsoft.com; repos and packages are GPG signed.
+RemovePathPostfixes: .main
+Provides:       azurelinux-repos(%{version}) = %{release}
+Requires:       system-release(%{version})
+Requires:       azurelinux-gpg-keys >= %{version}-%{release}
+Conflicts:      %{name}-dev
 
 %description
-Azure Linux package repository files for yum and dnf along with gpg public keys.
+This package provides the production / beta Azure Linux yum/dnf repo
+definitions, along with GPG public keys. Repository metadata and packages
+from these repositories are GPG signed; signature verification is enabled.
 
-%package evergreen
-Summary:        Evergreen repo definitions
-Requires:       azurelinux-repos = %{version}-%{release}
+# Alternate subpackage: daily-dev blob-storage repositories.
+# Unsigned; GPG checks disabled.
+%package dev
+Summary:        Azure Linux development package repository definitions
 
-%description evergreen
-This package provides the evergreen repo definitions.
+RemovePathPostfixes: .dev
+Provides:       azurelinux-repos(%{version}) = %{release}
+Requires:       system-release(%{version})
+Requires:       azurelinux-gpg-keys >= %{version}-%{release}
+Conflicts:      %{name}
+
+%description dev
+This package provides the development Azure Linux yum/dnf repo definitions
+that resolve against daily development repositories. Repository
+metadata and packages from these repositories are NOT GPG signed; signature
+verification is disabled.
 
 %package -n azurelinux-gpg-keys
 Summary:        Azure Linux RPM keys
@@ -56,7 +51,6 @@ Requires:       filesystem >= 3.18-1
 
 %description -n azurelinux-gpg-keys
 This package provides the RPM signature keys.
-
 
 %prep
 
@@ -72,17 +66,15 @@ install -m 644 %{_sourcedir}/RPM-GPG-KEY* $RPM_BUILD_ROOT/etc/pki/rpm-gpg/
 #     says "azurelinux-4.0-primary: x86_64 aarch64",
 #     RPM-GPG-KEY-azurelinux-4.0-{x86_64,aarch64} will be symlinked to that key.
 pushd $RPM_BUILD_ROOT/etc/pki/rpm-gpg/
-# Also add a symlink for Evergreen keys
-ln -s RPM-GPG-KEY-azurelinux-%{evergreen_release}-primary RPM-GPG-KEY-azurelinux-evergreen-primary
 for keyfile in RPM-GPG-KEY*; do
     # resolve symlinks, so that we don't need to keep duplicate entries in archmap
     real_keyfile=$(basename $(readlink -f $keyfile))
     key=${real_keyfile#RPM-GPG-KEY-} # e.g. 'azurelinux-4.0-primary'
-    if ! grep -q "^${key}:" %{_sourcedir}/archmap; then
+    if ! grep -q "^${key}:" %{SOURCE1}; then
         echo "ERROR: no archmap entry for $key"
         exit 1
     fi
-    arches=$(sed -ne "s/^${key}://p" %{_sourcedir}/archmap)
+    arches=$(sed -ne "s/^${key}://p" %{SOURCE1})
     for arch in $arches; do
         # replace last part with $arch (azurelinux-4.0-primary -> azurelinux-4.0-$arch)
         ln -s $keyfile ${keyfile%%-*}-$arch # NOTE: RPM replaces %% with %
@@ -92,208 +84,125 @@ done
 ln -s RPM-GPG-KEY-azurelinux-%{version}-primary RPM-GPG-KEY-%{version}-azurelinux
 popd
 
-# Install the IMA certs
-# TODO(azl): review
-# install -d -m 755 $RPM_BUILD_ROOT/etc/keys/ima
-# install -m 644 %{_sourcedir}/azurelinux*ima.der $RPM_BUILD_ROOT/etc/keys/ima/
-# install -d -m 755 $RPM_BUILD_ROOT/usr/share/ima/
-# install -m 644 %{_sourcedir}/azurelinux-ima-ca.der $RPM_BUILD_ROOT/usr/share/ima/ca.der
-
 # Install repo files
 install -d -m 755 $RPM_BUILD_ROOT/etc/yum.repos.d
-install -m 644 %{_sourcedir}/azurelinux-evergreen.repo $RPM_BUILD_ROOT/etc/yum.repos.d/azurelinux-evergreen.repo
-# Select stable repo template based on the split_repos knob.
-%if %{with split_repos}
-install -m 644 %{_sourcedir}/azurelinux-split.repo.in $RPM_BUILD_ROOT/etc/yum.repos.d/azurelinux.repo
-%else
-install -m 644 %{_sourcedir}/azurelinux-unified.repo.in $RPM_BUILD_ROOT/etc/yum.repos.d/azurelinux.repo
-%endif
 
-# Enable or disable repos based on current release cycle state.
-%if "%{evergreen_release}" == "%{version}"
-evergreen_enabled=1
-stable_enabled=0
-%else
-evergreen_enabled=0
-stable_enabled=1
-%endif
-for repo in $RPM_BUILD_ROOT/etc/yum.repos.d/azurelinux-evergreen*.repo; do
-    sed -i "s/^enabled=AUTO_VALUE$/enabled=${evergreen_enabled}/" $repo || exit 1
-done
-for repo in $RPM_BUILD_ROOT/etc/yum.repos.d/azurelinux.repo; do
-    sed -i "s/^enabled=AUTO_VALUE$/enabled=${stable_enabled}/" $repo || exit 1
-done
+# Helper to replace variables in the .repo file template.
+render_repo() {
+    local outfile="$1" prefix="$2" gpgcheck="$3" repo_gpgcheck="$4" expire="$5"
+    install -m 644 %{SOURCE2} "$outfile"
+    # Note: REPO_GPGCHECK_VALUE is substituted BEFORE GPGCHECK_VALUE because
+    # the latter is a substring of the former — reversing the order would
+    # leave a corrupted 'repo_gpgcheck=REPO_<n>_VALUE' line.
+    sed -i \
+        -e "s|REPO_URI_PREFIX|${prefix}|g" \
+        -e "s|REPO_GPGCHECK_VALUE|${repo_gpgcheck}|g" \
+        -e "s|GPGCHECK_VALUE|${gpgcheck}|g" \
+        -e "s|METADATA_EXPIRE_VALUE|${expire}|g" \
+        "$outfile"
+}
 
-# Compute REPO_URI_PREFIX for the stable repo file.
-# If repo_uri_prefix macro is explicitly set, use it directly.
-# Otherwise, auto-compute from %%dist date stamp (daily-build default).
-%if 0%{?repo_uri_prefix:1}
-repo_uri_prefix='%{repo_uri_prefix}'
-%else
-date_segment=$(echo '%{dist}' | grep -oE '[0-9]{8}' || true)
-if [ -n "$date_segment" ]; then
-    repo_uri_prefix="https://stcontroltowerdevjwisitg.blob.core.windows.net/daily-repo-dev/${date_segment}"
-else
-    repo_uri_prefix='https://packages.microsoft.com/azurelinux/$releasever/prod/base'
-fi
-%endif
-sed -i "s|REPO_URI_PREFIX|${repo_uri_prefix}|" $RPM_BUILD_ROOT/etc/yum.repos.d/azurelinux.repo
+# Render official .repo file pointing at packages.microsoft.com, signed,
+# longer metadata cache. The .main suffix will be removed thanks to
+# RemovePathPostfixes.
+render_repo \
+    "$RPM_BUILD_ROOT/etc/yum.repos.d/azurelinux.repo.main" \
+    'https://packages.microsoft.com/azurelinux/$releasever/beta' \
+    1 1 '7d'
 
-# Adjust Evergreen repo files to include Evergreen+1 GPG key.
-# This is necessary for the period when Evergreen gets bumped to N+1 and packages
-# start to be signed with a newer key. Without having the key specified in the
-# repo file, the system would consider the new packages as untrusted.
-evergreen_next=$((%{evergreen_major}+1)).0
-for repo in $RPM_BUILD_ROOT/etc/yum.repos.d/azurelinux-evergreen*.repo; do
-    sed -i "/^gpgkey=/ s@AUTO_VALUE@file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-${evergreen_next}-\$basearch@" \
-        $repo || exit 1
-done
-
-# Set appropriate metadata_expire in base repo files (6h before Final, 7d after)
-%if "%{release}" < "1"
-expire_value='6h'
-%else
-expire_value='7d'
-%endif
-for repo in $RPM_BUILD_ROOT/etc/yum.repos.d/azurelinux.repo; do
-    sed -i "/^metadata_expire=/ s/AUTO_VALUE/${expire_value}/" \
-        $repo || exit 1
-done
+# Render .repo file pointing at daily dev repos, unsigned, shorter cache.
+# The .dev suffix will be removed thanks to RemovePathPostfixes.
+render_repo \
+    "$RPM_BUILD_ROOT/etc/yum.repos.d/azurelinux.repo.dev" \
+    'https://stcontroltowerdevjwisitg.blob.core.windows.net/azl4-dev' \
+    0 0 '6h'
 
 
 %check
 # Make sure all repo variables were substituted
-for repo in $RPM_BUILD_ROOT/etc/yum.repos.d/*.repo; do
-    if grep -qE 'AUTO_VALUE|REPO_URI_PREFIX' $repo; then
+for repo in $RPM_BUILD_ROOT/etc/yum.repos.d/*.repo.*; do
+    if grep -qE 'REPO_URI_PREFIX|GPGCHECK_VALUE|REPO_GPGCHECK_VALUE|METADATA_EXPIRE_VALUE' "$repo"; then
         echo "ERROR: Repo $repo contains an unsubstituted placeholder value"
         exit 1
     fi
 done
 
-# Make sure correct repos were enabled/disabled
-enabled_repos=()
-disabled_repos=()
+main_file=$RPM_BUILD_ROOT/etc/yum.repos.d/azurelinux.repo.main
+dev_file=$RPM_BUILD_ROOT/etc/yum.repos.d/azurelinux.repo.dev
 
-%if "%{evergreen_release}" == "%{version}"
-enabled_repos+=(azurelinux-evergreen)
-disabled_repos+=(azurelinux)
-%else
-enabled_repos+=(azurelinux)
-disabled_repos+=(azurelinux-evergreen)
-%endif
-
-for repo in ${enabled_repos[@]}; do
-    if ! grep -q 'enabled=1' $RPM_BUILD_ROOT/etc/yum.repos.d/${repo}.repo; then
-        echo "ERROR: Repo $repo should have been enabled, but it isn't"
-        exit 1
-    fi
-done
-for repo in ${disabled_repos[@]}; do
-    if grep -q 'enabled=1' $RPM_BUILD_ROOT/etc/yum.repos.d/${repo}.repo; then
-        echo "ERROR: Repo $repo should have been disabled, but it isn't"
-        exit 1
-    fi
-done
-
-# Make sure metadata_expire was correctly set
-%if "%{release}" < "1"
-expire_value='6h'
-%else
-expire_value='7d'
-%endif
-for repo in $RPM_BUILD_ROOT/etc/yum.repos.d/azurelinux.repo; do
-    lines=$(grep '^metadata_expire=' $repo | sort | uniq)
-    if [ "$(echo "$lines" | wc -l)" -ne 1 ]; then
-        echo "ERROR: Non-matching metadata_expire lines in $repo: $lines"
-        exit 1
-    fi
-    if test "$lines" != "metadata_expire=${expire_value}"; then
-        echo "ERROR: Wrong metadata_expire value in $repo: $lines"
-        exit 1
-    fi
-done
-
-# Make sure the Evergreen+1 key wasn't forgotten to be created
-evergreen_next=$((%{evergreen_major}+1)).0
-test -n "$evergreen_next" || exit 1
-if ! test -f $RPM_BUILD_ROOT/etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-${evergreen_next}-primary; then
-    echo "ERROR: GPG key for Azure Linux ${evergreen_next} is not present"
+# Beta file must exist with GPG checking enabled on every section.
+if [ ! -f "$main_file" ]; then
+    echo "ERROR: missing $main_file"
+    exit 1
+fi
+if [ "$(grep -c '^gpgcheck=1' "$main_file")" -ne 3 ] || \
+   [ "$(grep -c '^repo_gpgcheck=1' "$main_file")" -ne 3 ]; then
+    echo "ERROR: $main_file must enable gpgcheck and repo_gpgcheck on all 3 sections"
+    exit 1
+fi
+if ! grep -q '^baseurl=https://packages\.microsoft\.com/azurelinux/[^/]*/beta/' "$main_file"; then
+    echo "ERROR: $main_file is missing the expected packages.microsoft.com baseurl"
+    exit 1
+fi
+if [ "$(grep -c '^metadata_expire=7d' "$main_file")" -ne 3 ]; then
+    echo "ERROR: $main_file must have metadata_expire=7d on all 3 sections"
     exit 1
 fi
 
-# Make sure the Evergreen+1 key is present in Evergreen repo files
-for repo in $RPM_BUILD_ROOT/etc/yum.repos.d/azurelinux-evergreen*.repo; do
-    gpg_lines=$(grep '^gpgkey=' $repo)
-    if test -z "$gpg_lines"; then
-        echo "ERROR: No gpgkey= lines in $repo"
+# Dev file must exist with GPG checking disabled on every section.
+if [ ! -f "$dev_file" ]; then
+    echo "ERROR: missing $dev_file"
+    exit 1
+fi
+if grep -qE '^(gpgcheck|repo_gpgcheck)=1' "$dev_file"; then
+    echo "ERROR: $dev_file must not have gpgcheck or repo_gpgcheck enabled"
+    exit 1
+fi
+if ! grep -q '^baseurl=https://stcontroltowerdevjwisitg\.blob\.core\.windows\.net/azl4-dev/' "$dev_file"; then
+    echo "ERROR: $dev_file is missing the expected dev blob-storage baseurl"
+    exit 1
+fi
+if [ "$(grep -c '^metadata_expire=6h' "$dev_file")" -ne 3 ]; then
+    echo "ERROR: $dev_file must have metadata_expire=6h on all 3 sections"
+    exit 1
+fi
 
+# Both files must have exactly one enabled=1 section (the base repo) plus
+# two enabled=0 sections (debuginfo, source).
+for repo in "$main_file" "$dev_file"; do
+    if [ "$(grep -c '^enabled=1' "$repo")" -ne 1 ] || \
+       [ "$(grep -c '^enabled=0' "$repo")" -ne 2 ]; then
+        echo "ERROR: $repo has unexpected enabled-flag distribution"
         exit 1
     fi
-    while IFS= read -r line; do
-        if ! echo "$line" | grep -q "RPM-GPG-KEY-azurelinux-${evergreen_next}"; then
-            echo "ERROR: Azure Linux ${evergreen_next} GPG key missing in $repo"
-            exit 1
-        fi
-    done <<< "$gpg_lines"
 done
 
 # Check arch keys exists on supported architectures, and RPM considers
 # them valid
 TMPRING=$(mktemp)
 DBPATH=$(mktemp -d)
-for VER in %{version} %{evergreen_release} ${evergreen_next}; do
-  echo -n > "$TMPRING"
-  for ARCH in $(sed -ne "s/^azurelinux-${VER}-primary://p" %{_sourcedir}/archmap)
-  do
+echo -n > "$TMPRING"
+for ARCH in $(sed -ne "s/^azurelinux-%{version}-primary://p" %{SOURCE1}); do
     gpg --no-default-keyring --keyring="$TMPRING" \
-      --import $RPM_BUILD_ROOT%{_sysconfdir}/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-$VER-$ARCH
-    rpm --dbpath "$DBPATH" --import $RPM_BUILD_ROOT%{_sysconfdir}/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-$VER-$ARCH --test
-  done
-  # Ensure some arch key was imported
-  gpg --no-default-keyring --keyring="$TMPRING" --list-keys | grep -A 2 '^pub\s'
+        --import $RPM_BUILD_ROOT%{_sysconfdir}/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-%{version}-$ARCH
+    rpm --dbpath "$DBPATH" --import \
+        $RPM_BUILD_ROOT%{_sysconfdir}/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-%{version}-$ARCH --test
 done
+# Ensure some arch key was imported
+gpg --no-default-keyring --keyring="$TMPRING" --list-keys | grep -A 2 '^pub\s'
 rm -f "$TMPRING"
 
 %files
 %dir /etc/yum.repos.d
-%config(noreplace) /etc/yum.repos.d/azurelinux.repo
+%config(noreplace) /etc/yum.repos.d/azurelinux.repo.main
 
-%files evergreen
-%config(noreplace) /etc/yum.repos.d/azurelinux-evergreen.repo
-
+%files dev
+%dir /etc/yum.repos.d
+%config(noreplace) /etc/yum.repos.d/azurelinux.repo.dev
 
 %files -n azurelinux-gpg-keys
 %dir /etc/pki/rpm-gpg
 /etc/pki/rpm-gpg/RPM-GPG-KEY-*
 
-# ima-certs
-# TODO(azl): review
-# /etc/keys/ima/azurelinux*ima*
-# /usr/share/ima/ca.der
-
-
 %changelog
-* Mon Apr 27 2026 Reuben Olinsky <reubeno@microsoft.com> - 4.0-7
-- Update repo definitions for next phase of releases.
-
-* Tue Apr 21 2026 Reuben Olinsky <reubeno@microsoft.com> - 4.0-6
-- Consolidate repo templates: azurelinux-unified.repo.in and azurelinux-split.repo.in.
-- Add split_repos bcond to select between unified and split URL layouts.
-- Add repo_uri_prefix macro to override the auto-computed repo URI prefix.
-- Only one azurelinux.repo file ships, selected by split_repos at build time.
-- Fix dist tag date extraction to tolerate missing date (grep || true).
-
-* Mon Apr 13 2026 Reuben Olinsky <reubeno@microsoft.com> - 4.0-5
-- Fix dist tag date extraction to handle tilde-only forms (e.g. ".azl4~20260412").
-
-* Wed Mar 25 2026 Sam Meluch <sammeluch@microsoft.com> - 4.0-4
-- Update .repo files for daily repo publishing to dev blob storage.
-
-* Wed Mar 04 2026 Reuben Olinsky <reubeno@microsoft.com> - 4.0-3
-- Update .repo files for initial Alpha release.
-
-* Wed Mar 04 2026 Reuben Olinsky <reubeno@microsoft.com> - 4.0-2
-- Update .repo files.
-
-* Fri Jan 23 2026 Reuben Olinsky <reubeno@microsoft.com> - 4.0-1
-- Initial definition based on fedora-repos spec (forked from upstream 44-0.1).
+%autochangelog

@@ -42,7 +42,7 @@ Summary:        Azure Linux release files
 Name:           azurelinux-release
 Version:        4.0
 # TODO(azl): Review whether we can move back to autorelease (with conditional -p)
-Release:        13%{?dist}
+Release:        14%{?dist}
 License:        MIT
 URL:            https://aka.ms/azurelinux
 
@@ -93,6 +93,9 @@ Requires:   azurelinux-release-variant = %{version}-%{release}
 Suggests:   azurelinux-release
 
 Requires:   azurelinux-repos(%{version})
+# Bias the solver toward the default 'azurelinux-repos' subpackage when
+# multiple providers of the requirement above exist.
+Recommends: azurelinux-repos
 Requires:   azurelinux-release-identity = %{version}-%{release}
 
 %if %{is_evergreen}
@@ -477,6 +480,9 @@ install -Dm0644 %{SOURCE22} -t %{buildroot}%{_sysctldir}/
 
 
 %changelog
+* Wed May 06 2026 Reuben Olinsky <reubeno@microsoft.com> - 4.0-14
+- Add Recommends weak dependency to prefer azurelinux-repos package.
+
 * Wed May 06 2026 Dan Streetman <ddstreet@ieee.org> - 4.0-13
 - add 50-client-alive-interval.conf
 

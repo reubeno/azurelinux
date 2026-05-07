@@ -14,6 +14,28 @@ existing tests and how to add new ones, see
 
 ## Quick start
 
+There are two ways to point the suite at a published repo set. Pick
+whichever fits your workflow:
+
+**A. One-shot, by URL prefix (the convenient form)** — assumes the
+target uses the *Standard Azure Linux Repo Layout*:
+
+```bash
+cd base/packages/tests
+.venv/bin/pytest cases/ \
+    --repo-prefix https://<published-repo-root>/ \
+    --arch x86_64 --arch aarch64
+```
+
+The prefix is expanded into the six conventional sub-repos
+(`base`, `base-debuginfo`, `base-srpms`, `sdk`, `sdk-debuginfo`,
+`sdk-srpms`) and any that 404 are silently dropped — so a partial
+mirror works fine. This matches the layout produced by
+[`scripts/synthesize-repodata.py`](../../../scripts/synthesize-repodata.py).
+
+**B. Spell out individual repos (full control)** — useful for ad-hoc
+URLs, mixed sources, or non-conventional naming:
+
 ```bash
 cd base/packages/tests
 .venv/bin/pytest cases/ \
@@ -22,6 +44,11 @@ cd base/packages/tests
     --repo 'name=base-srpms,kind=srpm,url=https://<published-repo-base-srpms>/' \
     --arch x86_64 --arch aarch64
 ```
+
+The two forms can be combined freely; an explicit `--repo` overrides
+a same-named entry that came from `--repo-prefix` (handy for pinning
+one channel to a development URL while keeping the rest from the
+published prefix).
 
 Expected outcomes:
 
@@ -92,7 +119,8 @@ base/packages/tests` followed by bare `pytest base/packages/tests/cases/
 | --- | --- | --- | --- |
 | `--repo` | yes | — (none required, but most tests skip without it) | Add a repo. Format: `name=...,kind=...,url=...` (comma-separated `key=value`). `kind` ∈ `binary` / `srpm` / `debuginfo`. URL may contain `$basearch` / `$arch` / `$releasever` placeholders — these are substituted by `librepo` at fetch time. Repo names must be globally unique across all `--repo` and `--repos-file` inputs. |
 | `--repos-file` | yes | — | Load repos from a yum/dnf-style `.repo` ini file. Each section is one repo (name = section header, `baseurl=` for URL, plus a custom `kind=` key). Combine freely with `--repo`. |
-| `--arch` | yes | `x86_64` | Architecture to test against. Substituted for `$basearch` / `$arch` in repo URLs. |
+| `--repo-prefix` | yes | — | Convenience shorthand: assume the URL hosts the *Standard Azure Linux Repo Layout* and expand it into the six conventional sub-repos (`base`, `base-debuginfo`, `base-srpms`, `sdk`, `sdk-debuginfo`, `sdk-srpms`). Each is probed for `repodata/repomd.xml`; sub-repos that 404 are silently skipped (so partial mirrors work). All-404 / connection errors are fatal. Binary/debuginfo URLs are probed against the first `--arch` as a sentinel and registered with a `$basearch` placeholder, so they still fan out across every `--arch` at fetch time. Explicit `--repo` / `--repos-file` definitions override same-named entries from a prefix. See [Examples → Use `--repo-prefix`](#use---repo-prefix). |
+| `--arch` | yes | `x86_64` | Architecture to test against. Substituted for `$basearch` / `$arch` in repo URLs. The first `--arch` (after dedup) is also used as the probing arch for `--repo-prefix`. |
 | `--releasever` | no | unset | Required iff at least one URL contains `$releasever`. Never inherited from the host. |
 | `--workdir` | no | fresh `tempfile.mkdtemp(prefix="azl-repo-tests-")` | If set, used as-is and not cleaned (post-mortem friendly). |
 | `--expected-vendor` | no | `Microsoft Corporation` | Vendor string every binary package must declare (checked by `test_vendor_tag`). |
@@ -168,6 +196,53 @@ EOF
 
 The same flag may be repeated to load several files; freely combinable
 with inline `--repo` flags.
+
+### Use `--repo-prefix`
+
+When the target uses the *Standard Azure Linux Repo Layout* (the same
+layout produced by `scripts/synthesize-repodata.py`), `--repo-prefix`
+replaces six `--repo` flags with one URL:
+
+```bash
+.venv/bin/pytest cases/ \
+    --repo-prefix https://example.com/published/ \
+    --arch x86_64 --arch aarch64
+```
+
+This probes each of the six conventional sub-repos and registers the
+ones that exist:
+
+| Probed URL                                          | Registered as          | Kind        |
+| --------------------------------------------------- | ---------------------- | ----------- |
+| `<prefix>/base/<arch>/repodata/repomd.xml`          | `base`                 | `binary`    |
+| `<prefix>/base/debuginfo/<arch>/repodata/repomd.xml`| `base-debuginfo`       | `debuginfo` |
+| `<prefix>/base/srpms/repodata/repomd.xml`           | `base-srpms`           | `srpm`      |
+| `<prefix>/sdk/<arch>/repodata/repomd.xml`           | `sdk`                  | `binary`    |
+| `<prefix>/sdk/debuginfo/<arch>/repodata/repomd.xml` | `sdk-debuginfo`        | `debuginfo` |
+| `<prefix>/sdk/srpms/repodata/repomd.xml`            | `sdk-srpms`            | `srpm`      |
+
+A sub-repo that 404s is silently dropped (so a partial mirror — say,
+`base` published but `sdk` not yet — just works). Other HTTP / network
+errors are fatal: a typo'd hostname won't masquerade as "no repos
+present". If *all six* probes 404, the prefix itself is presumed
+bogus and the run aborts.
+
+The probe uses the first `--arch` (after dedup) as a sentinel; the
+registered repo URL keeps the `$basearch` placeholder so it still fans
+out across every `--arch` at fetch time. If your prefix only publishes
+some arches, fall back to explicit `--repo` for those channels.
+
+You can mix `--repo-prefix` with `--repo` / `--repos-file` to override
+specific sub-repos:
+
+```bash
+.venv/bin/pytest cases/ \
+    --repo-prefix https://example.com/published/ \
+    --repo 'name=sdk,kind=binary,url=https://staging.example.com/dev-sdk/$basearch/'
+```
+
+Here `sdk` comes from the explicit URL; the other five come from the
+prefix.
 
 ### Reuse a workdir for fast re-runs
 

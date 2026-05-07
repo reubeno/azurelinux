@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Repo definitions and CLI parsing.
 
-Two input forms are supported, both produce a list of :class:`Repo`:
+Three input forms are supported, all produce a list of :class:`Repo`:
 
 1. ``--repos-file path.repo`` — a standard yum/dnf ``.repo`` ini file.
    The file is parsed with :mod:`configparser`. Each section becomes
@@ -13,18 +13,33 @@ Two input forms are supported, both produce a list of :class:`Repo`:
    invocations and CI matrix jobs that don't want to ship a separate
    .repo file.
 
-Both forms accept ``$basearch`` / ``$arch`` / ``$releasever`` in URLs;
-substitution happens at fetch time inside librepo.
+3. ``--repo-prefix URL`` — convenience shorthand: the URL is assumed
+   to host the *Standard Azure Linux Repo Layout* (the same layout
+   produced by ``scripts/synthesize-repodata.py``). The prefix is
+   expanded into the six conventional sub-repos (``base`` / ``sdk``
+   binary, debuginfo, and srpms); each is probed and ones that 404
+   are silently dropped. Use this when you just want to point the
+   suite at a published mirror without spelling out every URL.
+
+All three forms accept ``$basearch`` / ``$arch`` / ``$releasever``
+in URLs; substitution happens at fetch time inside librepo.
 """
 
 from __future__ import annotations
 
 import configparser
+import errno
 import hashlib
+import logging
+import urllib.error
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
 from .types import ALL_REPO_KINDS, RepoKind
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -159,9 +174,14 @@ def parse_repos_file(path: Path) -> list[Repo]:
 
 
 def collect_repos(
-    *, inline: list[str], file_paths: list[str]
+    *,
+    inline: list[str],
+    file_paths: list[str],
+    prefixes: list[str] | None = None,
+    probe_arch: str = "x86_64",
+    probe_timeout: float = 10.0,
 ) -> list[Repo]:
-    """Combine inline ``--repo`` and file-form ``--repos-file`` inputs.
+    """Combine inline ``--repo``, ``--repos-file`` and ``--repo-prefix`` inputs.
 
     Repo *names* must be globally unique across all inputs (regardless
     of source). Earlier versions of this code allowed two repos to
@@ -180,26 +200,217 @@ def collect_repos(
     The conventional naming is ``base`` for the binary repo and
     ``base-srpms`` for the matching SRPM repo — distinct names, no
     behaviour change for well-formed inputs.
+
+    Precedence rules:
+
+    * Two explicit definitions (``--repo`` / ``--repos-file``) for the
+      same name are an error — the user almost certainly didn't mean
+      to typo a name twice with different URLs.
+    * An explicit definition silently *overrides* a same-name
+      definition that came from ``--repo-prefix`` expansion. This lets
+      you point at a published prefix for the bulk of the layout while
+      pinning one channel (e.g., a development SDK) to a different
+      URL.
+    * Two ``--repo-prefix`` flags producing the same conventional name
+      are an error (the prefixes would shadow each other).
     """
     repos: list[Repo] = []
-    seen: dict[str, str] = {}
+    explicit_seen: dict[str, str] = {}
+    prefix_seen: dict[str, str] = {}
 
-    def _add(repo: Repo, source: str) -> None:
-        if repo.name in seen:
+    def _add_explicit(repo: Repo, source: str) -> None:
+        if repo.name in explicit_seen:
             raise RepoSpecError(
                 f"repo name={repo.name!r} specified more than once "
-                f"(previously: {seen[repo.name]!r}, now: {source!r}). "
+                f"(previously: {explicit_seen[repo.name]!r}, now: {source!r}). "
                 f"Repo names must be globally unique — pick distinct "
                 f"names (e.g. 'base' for the binary repo and "
                 f"'base-srpms' for the matching SRPM repo)."
             )
-        seen[repo.name] = source
+        explicit_seen[repo.name] = source
+        repos.append(repo)
+
+    def _add_prefix(repo: Repo, source: str) -> None:
+        if repo.name in prefix_seen:
+            raise RepoSpecError(
+                f"--repo-prefix name={repo.name!r} produced by more than one "
+                f"prefix (previously: {prefix_seen[repo.name]!r}, now: "
+                f"{source!r}). Each conventional sub-repo name must come "
+                f"from at most one prefix; drop one --repo-prefix or use "
+                f"explicit --repo for the conflicting entry."
+            )
+        prefix_seen[repo.name] = source
         repos.append(repo)
 
     for raw in inline:
-        _add(parse_repo_spec(raw), f"--repo {raw!r}")
+        _add_explicit(parse_repo_spec(raw), f"--repo {raw!r}")
     for fp in file_paths:
         for r in parse_repos_file(Path(fp)):
-            _add(r, f"--repos-file {fp} [{r.name}]")
+            _add_explicit(r, f"--repos-file {fp} [{r.name}]")
+    for prefix in prefixes or []:
+        for r in expand_repo_prefix(
+            prefix, probe_arch=probe_arch, probe_timeout=probe_timeout,
+        ):
+            if r.name in explicit_seen:
+                logger.info(
+                    "--repo-prefix %r: skipping conventional sub-repo %r "
+                    "(overridden by %s)",
+                    prefix, r.name, explicit_seen[r.name],
+                )
+                continue
+            _add_prefix(r, f"--repo-prefix {prefix!r} -> {r.name}")
 
     return repos
+
+
+# ---------------------------------------------------------------------------
+# --repo-prefix: probe the Standard Azure Linux Repo Layout
+# ---------------------------------------------------------------------------
+
+
+# The fixed Standard Azure Linux Repo Layout has exactly two channels
+# (``base`` / ``sdk``) and three kinds (binary main / debuginfo / srpms),
+# yielding six conventional sub-repos. The naming convention here matches
+# what the hard-coded tests expect (``base``, ``sdk``, ``base-srpms``)
+# and is symmetric for the remaining three (``sdk-srpms``,
+# ``base-debuginfo``, ``sdk-debuginfo``).
+#
+# Tuple shape: (name, kind, sub-path with ``$basearch`` placeholder)
+_PREFIX_LAYOUT: tuple[tuple[str, RepoKind, str], ...] = (
+    ("base",           "binary",    "base/$basearch"),
+    ("base-debuginfo", "debuginfo", "base/debuginfo/$basearch"),
+    ("base-srpms",     "srpm",      "base/srpms"),
+    ("sdk",            "binary",    "sdk/$basearch"),
+    ("sdk-debuginfo",  "debuginfo", "sdk/debuginfo/$basearch"),
+    ("sdk-srpms",      "srpm",      "sdk/srpms"),
+)
+
+
+def _probe_repomd(repo_url: str, *, timeout: float) -> bool:
+    """Return True if ``<repo_url>/repodata/repomd.xml`` is present.
+
+    For HTTP(S) URLs: returns True on a 2xx response, False on a clean
+    404 (the conventional "this sub-repo is not published" signal). Any
+    other HTTP/network error is fatal — raising :class:`RepoSpecError` —
+    because we cannot tell the difference between "skip, this isn't
+    published" and "the user typo'd a hostname / the network is down" in
+    a way that is safe to treat as a silent skip.
+
+    For ``file://`` URLs: returns True if the file exists, False if it
+    doesn't. Any other OSError (permission denied, bad path, etc.) is
+    fatal.
+
+    HEAD is preferred for HTTP (cheap; ``repomd.xml`` is small but
+    compounding over six probes per prefix it adds up). A handful of
+    static-file hosts return 405/501 for HEAD; we transparently retry
+    as GET in that case.
+    """
+    repomd_url = repo_url.rstrip("/") + "/repodata/repomd.xml"
+    scheme = urllib.parse.urlparse(repomd_url).scheme.lower()
+    # ``file://`` URLs go through ``urllib`` but don't speak HTTP, so
+    # ``resp.status`` is ``None`` and missingness surfaces as ``URLError``
+    # wrapping ``FileNotFoundError``. Handle them via a direct filesystem
+    # check instead — clearer, and avoids the HEAD/GET retry dance.
+    if scheme == "file":
+        local_path = urllib.request.url2pathname(
+            urllib.parse.urlparse(repomd_url).path
+        )
+        try:
+            return Path(local_path).is_file()
+        except OSError as exc:
+            raise RepoSpecError(
+                f"--repo-prefix probe of {repomd_url!r} failed: {exc}"
+            ) from exc
+    for method in ("HEAD", "GET"):
+        req = urllib.request.Request(repomd_url, method=method)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                status = resp.status
+                if status is None:
+                    # Non-HTTP scheme that succeeded: treat the successful
+                    # open as proof of existence (e.g. ftp://).
+                    return True
+                return 200 <= status < 300
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                return False
+            if exc.code in (405, 501) and method == "HEAD":
+                # Server doesn't support HEAD — fall through to GET.
+                continue
+            raise RepoSpecError(
+                f"--repo-prefix probe of {repomd_url!r} failed: "
+                f"HTTP {exc.code} {exc.reason}"
+            ) from exc
+        except urllib.error.URLError as exc:
+            # Non-HTTP backends (e.g. file://, ftp://) report a missing
+            # target via URLError wrapping the underlying OSError. Treat
+            # that as "not present" so prefix expansion can silently skip
+            # the sub-repo, mirroring the HTTP 404 path. Anything else is
+            # fatal.
+            reason = exc.reason
+            if (isinstance(reason, OSError)
+                    and reason.errno == errno.ENOENT):
+                return False
+            raise RepoSpecError(
+                f"--repo-prefix probe of {repomd_url!r} failed: {reason}"
+            ) from exc
+    # Both HEAD and GET were attempted without raising; treat as missing.
+    return False
+
+
+def expand_repo_prefix(
+    prefix: str, *, probe_arch: str, probe_timeout: float = 10.0,
+) -> list[Repo]:
+    """Expand a single ``--repo-prefix`` URL into existing conventional repos.
+
+    The Standard Azure Linux Repo Layout is::
+
+        <prefix>/base/<arch>/                 -> base           (binary)
+        <prefix>/base/debuginfo/<arch>/       -> base-debuginfo (debuginfo)
+        <prefix>/base/srpms/                  -> base-srpms     (srpm)
+        <prefix>/sdk/<arch>/                  -> sdk            (binary)
+        <prefix>/sdk/debuginfo/<arch>/        -> sdk-debuginfo  (debuginfo)
+        <prefix>/sdk/srpms/                   -> sdk-srpms      (srpm)
+
+    Each of the six is probed for ``repodata/repomd.xml``; entries
+    that 404 are silently skipped. For binary / debuginfo, the probe
+    URL uses *probe_arch* as a sentinel (typically the first
+    ``--arch``); the registered :class:`Repo` keeps the ``$basearch``
+    placeholder so it still fans out across every ``--arch`` at test
+    time. If a particular arch isn't actually published under the
+    prefix, that arch will fail at fetch time — use explicit
+    ``--repo`` for asymmetric layouts.
+
+    Raises :class:`RepoSpecError` if *all* six sub-repos 404 — the
+    prefix itself is presumed bogus / mis-typed in that case, since a
+    real Azure Linux mirror will publish at least one of them.
+    """
+    base = prefix.rstrip("/")
+    if not base:
+        raise RepoSpecError("--repo-prefix value is empty")
+
+    found: list[Repo] = []
+    for name, kind, subpath in _PREFIX_LAYOUT:
+        repo_url = f"{base}/{subpath}"
+        # Substitute $basearch with the probing arch for the presence check
+        # only; the registered Repo keeps the placeholder so librepo can
+        # expand it per-arch at fetch time.
+        probe_url = repo_url.replace("$basearch", probe_arch)
+        logger.debug("--repo-prefix: probing %s", probe_url)
+        if _probe_repomd(probe_url, timeout=probe_timeout):
+            logger.info("--repo-prefix %r: found %s -> %s", prefix, name, repo_url)
+            found.append(Repo(name=name, kind=kind, url=repo_url))
+        else:
+            logger.info(
+                "--repo-prefix %r: skipping %s (no repodata/repomd.xml at %s)",
+                prefix, name, probe_url,
+            )
+
+    if not found:
+        raise RepoSpecError(
+            f"--repo-prefix {prefix!r}: none of the {len(_PREFIX_LAYOUT)} "
+            f"conventional Azure Linux sub-repos were found under this "
+            f"prefix (probed with arch={probe_arch!r}). Verify the URL "
+            f"points at the root of a published Azure Linux repo tree."
+        )
+    return found

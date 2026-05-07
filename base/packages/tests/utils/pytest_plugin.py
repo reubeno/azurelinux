@@ -62,8 +62,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "name, kind (binary|srpm|debuginfo), url. The URL is passed "
             "through librepo, including any $basearch/$releasever "
             "placeholders. May be repeated. Combine with --repos-file "
-            "as needed; at least one --repo or --repos-file is required "
-            "for any test that touches a repo."
+            "and --repo-prefix as needed; at least one of --repo / "
+            "--repos-file / --repo-prefix is required for any test that "
+            "touches a repo."
         ),
     )
     group.addoption(
@@ -77,6 +78,28 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "section becomes one repo; the section name is the repo "
             "name, ``baseurl=`` is the URL, and a custom ``kind=`` key "
             "(binary|srpm|debuginfo) is required. May be repeated."
+        ),
+    )
+    group.addoption(
+        "--repo-prefix",
+        action="append",
+        default=[],
+        dest="azl_repo_prefixes",
+        metavar="URL",
+        help=(
+            "Convenience shorthand: assume URL hosts the Standard Azure "
+            "Linux Repo Layout (the same layout produced by "
+            "scripts/synthesize-repodata.py) and expand it into the six "
+            "conventional sub-repos: base, base-debuginfo, base-srpms, "
+            "sdk, sdk-debuginfo, sdk-srpms. Each is probed for "
+            "repodata/repomd.xml; sub-repos that 404 are silently "
+            "skipped (so a partial mirror works fine). Other HTTP/network "
+            "errors are fatal. Binary/debuginfo URLs are probed using "
+            "the first --arch as a sentinel and registered with a "
+            "$basearch placeholder, so they still fan out across all "
+            "--arch values at fetch time. Repeatable; combine with "
+            "--repo / --repos-file as needed (explicit definitions "
+            "override prefix-derived ones with the same name)."
         ),
     )
     group.addoption(
@@ -161,12 +184,7 @@ def pytest_configure(config: pytest.Config) -> None:
     """
     inline = list(config.getoption("azl_repos"))
     files = list(config.getoption("azl_repos_files"))
-    repos: list[Repo] = []
-    if inline or files:
-        try:
-            repos = collect_repos(inline=inline, file_paths=files)
-        except RepoSpecError as exc:
-            raise pytest.UsageError(str(exc)) from exc
+    prefixes = list(config.getoption("azl_repo_prefixes"))
 
     arches: list[str] = list(config.getoption("azl_arches")) or ["x86_64"]
     seen: set[str] = set()
@@ -176,6 +194,26 @@ def pytest_configure(config: pytest.Config) -> None:
             continue
         seen.add(a)
         deduped_arches.append(a)
+
+    # The probing arch for --repo-prefix is the first --arch (after
+    # dedup) so the user can steer the probe (e.g., --arch aarch64) when
+    # x86_64 isn't published. Picking deterministically — rather than
+    # probing every arch — keeps the model "one Repo per (channel, kind)
+    # with $basearch placeholder" intact; asymmetric layouts should use
+    # explicit --repo.
+    probe_arch = deduped_arches[0]
+
+    repos: list[Repo] = []
+    if inline or files or prefixes:
+        try:
+            repos = collect_repos(
+                inline=inline,
+                file_paths=files,
+                prefixes=prefixes,
+                probe_arch=probe_arch,
+            )
+        except RepoSpecError as exc:
+            raise pytest.UsageError(str(exc)) from exc
 
     releasever: str | None = config.getoption("azl_releasever")
     needs_releasever = any("$releasever" in r.url for r in repos)

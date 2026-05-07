@@ -38,6 +38,7 @@ import argparse
 import contextlib
 import json
 import shutil
+import ssl
 import subprocess
 import sys
 import urllib.error
@@ -190,7 +191,40 @@ def dedup_input_repos(repos: Iterable[InputRepo]) -> list[InputRepo]:
 
 def _http_get(url: str, dest: Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
-    urllib.request.urlretrieve(url, dest)
+    # Use urlopen rather than urlretrieve so we can plumb a custom SSL
+    # context through (urlretrieve has no `context=` parameter).
+    req = urllib.request.Request(url)
+    with urllib.request.urlopen(req, context=_SSL_CONTEXT) as resp, \
+            open(dest, "wb") as fh:
+        shutil.copyfileobj(resp, fh)
+
+
+# ---------------------------------------------------------------------------
+# SSL configuration
+# ---------------------------------------------------------------------------
+
+# Module-level SSL context applied to every HTTPS fetch. None means "use
+# Python's default" (system CA bundle, hostname verification on). Set by
+# `main()` from CLI flags before any download_repo_metadata() call.
+_SSL_CONTEXT: ssl.SSLContext | None = None
+
+
+def build_ssl_context(ca_bundle: Path | None, insecure: bool) -> ssl.SSLContext | None:
+    """Return an SSLContext honouring --ca-bundle / --insecure, or None for
+    Python's default behaviour.
+    """
+    if insecure:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        warn("TLS certificate verification disabled (--insecure); "
+             "connections are NOT authenticated")
+        return ctx
+    if ca_bundle is not None:
+        ctx = ssl.create_default_context(cafile=str(ca_bundle))
+        log(f"    using custom CA bundle: {ca_bundle}")
+        return ctx
+    return None
 
 
 def download_repo_metadata(repo: InputRepo, cache_root: Path) -> Path | None:
@@ -242,12 +276,37 @@ def download_repo_metadata(repo: InputRepo, cache_root: Path) -> Path | None:
 # Phase 2: build the package universe + RPM source map
 # ---------------------------------------------------------------------------
 
+# Universe key: (repo_kind, repo_arch, pkg_name, pkg_epoch, pkg_version,
+# pkg_release, pkg_arch). The first two fields identify the destination
+# (channel/arch) slot; the last five form the package's NEVRA so that two
+# different versions of the same package occupy different slots and are both
+# preserved in the output.
+UniverseKey = tuple[str, str, str, str, str, str, str]
+
+
 @dataclass
 class UniverseEntry:
-    """One (kind, arch, name) slot in the unioned package universe."""
+    """One NEVRA slot in the unioned package universe (one entry per
+    distinct package version)."""
 
     repo: InputRepo
     source_pkg_name: str  # extracted from rpm_sourcerpm (or pkg name for srpms)
+
+
+def _pkg_identity(pkg) -> tuple[str, str, str, str, str]:
+    """Return the package's NEVRA tuple (name, epoch, version, release, arch).
+
+    Epoch is normalised to '0' when missing/empty so two records that differ
+    only by `epoch=None` vs `epoch="0"` compare equal.
+    """
+    return (pkg.name, pkg.epoch or "0", pkg.version, pkg.release, pkg.arch)
+
+
+def _format_nevra(pkg) -> str:
+    """Return a human-readable NEVRA string, suitable for log/warn messages."""
+    epoch = pkg.epoch or "0"
+    epoch_prefix = f"{epoch}:" if epoch != "0" else ""
+    return f"{pkg.name}-{epoch_prefix}{pkg.version}-{pkg.release}.{pkg.arch}"
 
 
 def _strip_srpm_suffix(rpm_sourcerpm: str | None) -> str:
@@ -284,17 +343,25 @@ def _find_metadata_path(repo_dir: Path, kind: str) -> str:
 def build_package_universe(
     repo_to_dir: dict[InputRepo, Path],
 ) -> tuple[
-    dict[tuple[str, str, str], UniverseEntry],
+    dict[UniverseKey, UniverseEntry],
     list[dict],
 ]:
     """First pass: scan only primary.xml of each repo to build the
-    de-duplicated package universe and the rpm_source_map for azldev.
+    package universe (one entry per distinct NEVRA) and the rpm_source_map
+    for azldev.
 
     Returns (universe, rpm_source_map) where:
-      universe[(kind, arch, name)] -> UniverseEntry
+      universe[(kind, arch, name, epoch, version, release, pkg_arch)]
+          -> UniverseEntry
       rpm_source_map: list of {packageName, sourcePackageName} (deduped).
+
+    Duplicate-NEVRA collisions are deduped:
+      * cross-repo (same NEVRA in two input repos) -> WARN, keep first.
+      * same-repo (broken upstream metadata) -> quiet log, keep first.
+    Multiple distinct versions of the same package name are NOT collisions:
+    each NEVRA gets its own universe entry and lands in the output.
     """
-    universe: dict[tuple[str, str, str], UniverseEntry] = {}
+    universe: dict[UniverseKey, UniverseEntry] = {}
     src_map_set: set[tuple[str, str]] = set()
 
     for repo, repo_dir in repo_to_dir.items():
@@ -302,7 +369,7 @@ def build_package_universe(
         log(f"  scanning {repo.kind}/{repo.arch}: {repo.url}")
 
         def pkgcb(pkg, *, _repo=repo):
-            key = (_repo.kind, _repo.arch, pkg.name)
+            key: UniverseKey = (_repo.kind, _repo.arch) + _pkg_identity(pkg)
             if _repo.kind == KIND_SRPMS:
                 source_name = pkg.name
             else:
@@ -312,15 +379,25 @@ def build_package_universe(
                     # it as if it were its own SRPM so azldev still receives
                     # an entry.
                     source_name = pkg.name
+            # Always feed the source map; set semantics dedupe.
+            src_map_set.add((pkg.name, source_name))
             existing = universe.get(key)
             if existing is None:
                 universe[key] = UniverseEntry(_repo, source_name)
-                src_map_set.add((pkg.name, source_name))
-            else:
+                return
+            nevra = _format_nevra(pkg)
+            if existing.repo.url != _repo.url:
                 warn(
-                    f"duplicate package in {_repo.kind}/{_repo.arch}: "
-                    f"{pkg.name!r} kept from {existing.repo.url}, "
-                    f"ignored from {_repo.url}"
+                    f"duplicate NEVRA in {_repo.kind}/{_repo.arch}: "
+                    f"{nevra} found in both {existing.repo.url} and "
+                    f"{_repo.url}; keeping the copy from the first repo"
+                )
+            else:
+                # Same NEVRA listed twice within one repo -> broken upstream
+                # metadata. Worth a note but not alarming.
+                log(
+                    f"    note: NEVRA {nevra} appears multiple times in "
+                    f"{_repo.url}; deduping"
                 )
 
         cr.xml_parse_primary(
@@ -468,10 +545,15 @@ def _inherit_channel(
 
 
 def decide_routing(
-    universe: dict[tuple[str, str, str], UniverseEntry],
+    universe: dict[UniverseKey, UniverseEntry],
     routing: AzldevRouting,
-) -> dict[tuple[str, str, str], RoutingDecision]:
-    """Produce one RoutingDecision per universe entry.
+) -> dict[UniverseKey, RoutingDecision]:
+    """Produce one RoutingDecision per universe entry (i.e. per NEVRA).
+
+    Routing lookup is name-based: every NEVRA of a given package name lands
+    in the same destination channel. Decisions are still keyed per NEVRA so
+    that downstream emit + count logic can iterate them 1:1 with the
+    universe.
 
     NOTE: TODO(channel-inheritance) -- the new `azldev package list
     --rpm-file` output reports an empty publishChannel for type=srpm rows
@@ -482,9 +564,10 @@ def decide_routing(
     explicitly, remove this inference and treat empty publishChannel
     strictly (i.e. mark the package as unpublished).
     """
-    decisions: dict[tuple[str, str, str], RoutingDecision] = {}
+    decisions: dict[UniverseKey, RoutingDecision] = {}
     for key, entry in universe.items():
-        kind, _arch, name = key
+        kind = key[0]
+        name = key[2]
         # Foreign packages (azldev fell back to project defaults for an
         # unknown source component) are unpublished by definition.
         if name in routing.foreign_names:
@@ -621,31 +704,41 @@ class _RepoWriter:
 
 def emit_repos(
     repo_to_dir: dict[InputRepo, Path],
-    universe: dict[tuple[str, str, str], UniverseEntry],
-    decisions: dict[tuple[str, str, str], RoutingDecision],
+    universe: dict[UniverseKey, UniverseEntry],
+    decisions: dict[UniverseKey, RoutingDecision],
     output_dir: Path,
 ) -> tuple[dict[Destination, int], list[dict]]:
     """Second pass over each input repo: stream every package, decide its
     destination, set its absolute location_href, hand it to the writer.
 
     Returns (per_destination_counts, unpublished_records).
+
+    Counts are per NEVRA. The unpublished report dedupes by (kind, arch,
+    name) since the routing reason is name-based and listing every NEVRA
+    of an unpublished name would just be noise.
     """
     # Precompute counts per destination (for XML headers) and unpublished
     # records (for the report).
     dest_counts: Counter[Destination] = Counter()
     unpublished: list[dict] = []
+    unpub_seen: set[tuple[str, str, str]] = set()
     for key, decision in decisions.items():
-        kind, arch, name = key
+        kind = key[0]
+        arch = key[1]
+        name = key[2]
         entry = universe[key]
         if decision.dest_channel is None:
-            unpublished.append({
-                "name": name,
-                "kind": kind,
-                "arch": arch,
-                "source_repo": entry.repo.url,
-                "source_package": entry.source_pkg_name,
-                "reason": decision.reason,
-            })
+            nameslot = (kind, arch, name)
+            if nameslot not in unpub_seen:
+                unpub_seen.add(nameslot)
+                unpublished.append({
+                    "name": name,
+                    "kind": kind,
+                    "arch": arch,
+                    "source_repo": entry.repo.url,
+                    "source_package": entry.source_pkg_name,
+                    "reason": decision.reason,
+                })
             continue
         dest = Destination(decision.dest_channel, kind, arch)
         dest_counts[dest] += 1
@@ -656,7 +749,7 @@ def emit_repos(
     }
 
     # Iterate each input repo's full metadata and route packages.
-    emitted: set[tuple[str, str, str]] = set()
+    emitted: set[UniverseKey] = set()
     for repo, repo_dir in repo_to_dir.items():
         primary = _find_metadata_path(repo_dir, "primary")
         filelists = _find_metadata_path(repo_dir, "filelists")
@@ -670,22 +763,17 @@ def emit_repos(
             warningcb=lambda *_: True,
         )
         for pkg in pkg_iter:
-            key = (repo.kind, repo.arch, pkg.name)
+            key: UniverseKey = (repo.kind, repo.arch) + _pkg_identity(pkg)
             entry = universe.get(key)
             if entry is None or entry.repo.url != repo.url:
-                # Filtered out earlier (shouldn't happen) or this is the
-                # cross-repo duplicate copy we already warned about during
-                # the first pass.
+                # Either filtered out earlier (shouldn't happen) or this is
+                # the cross-repo duplicate copy already warned about during
+                # the first pass; skip silently.
                 continue
             if key in emitted:
-                # Same-repo duplicate of an already-emitted package: warn
-                # and skip so writer counts stay consistent with the
-                # XML headers we declared up-front.
-                warn(
-                    f"duplicate package within {repo.kind}/{repo.arch} "
-                    f"{repo.url}: {pkg.name!r} appears more than once "
-                    f"in repodata; skipping the additional occurrence"
-                )
+                # Same NEVRA appearing twice within this repo: already
+                # logged in build_package_universe; skip silently so writer
+                # counts stay consistent with the XML headers.
                 continue
             decision = decisions[key]
             if decision.dest_channel is None:
@@ -791,12 +879,34 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--keep-cache", action="store_true",
         help="Don't delete the metadata cache dir under <output-dir>/.cache/.",
     )
+    tls = parser.add_mutually_exclusive_group()
+    tls.add_argument(
+        "--ca-bundle", type=Path, default=None,
+        help=(
+            "Path to a PEM-encoded CA bundle to trust for HTTPS repo "
+            "fetches (e.g. for repos served by a self-signed CA). "
+            "Mutually exclusive with --insecure."
+        ),
+    )
+    tls.add_argument(
+        "--insecure", action="store_true",
+        help=(
+            "Disable TLS certificate verification entirely for HTTPS repo "
+            "fetches. Use only for trusted networks; prefer --ca-bundle "
+            "when possible. Mutually exclusive with --ca-bundle."
+        ),
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     arches = tuple(args.arch) if args.arch else DEFAULT_ARCHES
+
+    global _SSL_CONTEXT
+    if args.ca_bundle is not None and not args.ca_bundle.is_file():
+        return fatal(f"--ca-bundle path does not exist: {args.ca_bundle}")
+    _SSL_CONTEXT = build_ssl_context(args.ca_bundle, args.insecure)
 
     if not args.repo_prefix and not args.repo:
         return fatal("at least one --repo-prefix or --repo must be provided")
@@ -841,7 +951,7 @@ def main(argv: list[str] | None = None) -> int:
     # ---- Phase 2: build package universe + source map ------------------
     log("==> Building package universe ...")
     universe, src_map = build_package_universe(repo_to_dir)
-    log(f"    {len(universe)} unique (kind, arch, name) entries; "
+    log(f"    {len(universe)} unique (kind, arch, NEVRA) entries; "
         f"{len(src_map)} unique (pkg, srpm) pairs for azldev")
 
     # ---- Phase 3: query azldev -----------------------------------------

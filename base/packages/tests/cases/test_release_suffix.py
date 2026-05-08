@@ -3,8 +3,18 @@
 
 The required suffix is configurable via ``--release-suffix`` (a regex
 that ``re.search`` must match) so the same suite can validate AZL4
-(default: ``\\.azl4(~.*)?$``) as well as nightly verification of older
-distros (e.g. AZL3, ``\\.azl3(~.*)?$``) without a fork.
+(default: ``\\.azl4(?:\\.\\d+|~.*)?$``) as well as nightly verification of
+older distros (e.g. AZL3, ``\\.azl3(?:\\.\\d+|~.*)?$``) without a fork.
+
+The default AZL4 pattern accepts three shapes:
+
+* ``.azl4`` — the standard suffix.
+* ``.azl4~prerelease`` — a tilde-qualified pre-release tag (RPM treats
+  ``~`` as "less than", e.g. ``1.azl4~rc1`` < ``1.azl4``).
+* ``.azl4.<N>`` — a numeric rebuild bump appended after the dist tag,
+  used by some packages to track Azure-Linux-side rebuilds without
+  touching the upstream release. Only a positive integer is accepted;
+  combining it with ``~prerelease`` is intentionally not supported.
 """
 
 from __future__ import annotations

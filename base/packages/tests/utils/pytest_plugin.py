@@ -148,14 +148,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
     group.addoption(
         "--release-suffix",
-        default=r"\.azl4(~.*)?$",
+        default=r"\.azl4(?:\.\d+|~.*)?$",
         dest="azl_release_suffix",
         metavar="REGEX",
         help=(
             "Regex that every binary package's Release tag must match "
-            "(checked by test_release_suffix). Default: '\\.azl4(~.*)?$' "
-            "for AZL4. Override for nightly verification of older "
-            "distros (e.g. AZL3) without forking the test."
+            "(checked by test_release_suffix). Default: "
+            "'\\.azl4(?:\\.\\d+|~.*)?$' for AZL4 — accepts the bare "
+            "'.azl4' suffix, a '~prerelease' qualifier ('.azl4~rc1'), "
+            "or a numeric '.<N>' rebuild bump ('.azl4.4'). Override "
+            "for nightly verification of older distros (e.g. AZL3) "
+            "without forking the test."
         ),
     )
 

@@ -75,7 +75,7 @@ def expected_vendor(request: pytest.FixtureRequest) -> str:
 def release_suffix_pattern(request: pytest.FixtureRequest) -> str:
     """The expected Release-tag regex (driven by ``--release-suffix``)."""
     return getattr(
-        request.config, "_azl_release_suffix", r"\.azl4(~.*)?$"
+        request.config, "_azl_release_suffix", r"\.azl4(?:\.\d+|~.*)?$"
     )
 
 

@@ -106,6 +106,33 @@ class ConflictEntry:
         return self.flags is not None or self.version is not None
 
 
+@dataclass(frozen=True)
+class ProvidesEntry:
+    """A single ``Provides:`` entry parsed from primary repodata.
+
+    Mirrors :class:`ConflictEntry` — ``flags`` is the dnf-style
+    operator string (``EQ`` is the only one RPM emits for provides in
+    practice) when the provide carries a version, or ``None`` for a
+    bare ``Provides: <name>``. *epoch*, *version*, *release* are
+    populated only when present.
+
+    RPM auto-emits a versioned provide of the package's own name+EVR
+    (``Provides: <name> = E:V-R``); :func:`utils.repodata` ensures
+    this is always present even when createrepo somehow omits it.
+    """
+
+    name: str
+    flags: str | None = None
+    epoch: int | None = None
+    version: str | None = None
+    release: str | None = None
+
+    @property
+    def is_versioned(self) -> bool:
+        """True iff this provide carries a version."""
+        return self.flags is not None or self.version is not None
+
+
 @dataclass
 class Package:
     """Rich package record sourced from primary repodata.
@@ -128,7 +155,7 @@ class Package:
     vendor: str | None
     sourcerpm: str | None
     summary: str | None = None
-    provides: list[str] = field(default_factory=list)
+    provides: list[ProvidesEntry] = field(default_factory=list)
     conflicts: list[ConflictEntry] = field(default_factory=list)
     files: list[FileEntry] = field(default_factory=list)
     location_href: str | None = None
@@ -146,6 +173,17 @@ class Package:
     def is_source(self) -> bool:
         """True if this is a source RPM (arch is ``src`` or ``nosrc``)."""
         return self.nevra.arch in ("src", "nosrc")
+
+    @property
+    def provide_names(self) -> list[str]:
+        """The bare names of all ``Provides:`` entries.
+
+        Provided for callers that don't care about version constraints
+        (e.g., name-only virtual-provide checks). Callers that need
+        version-aware matching should iterate :attr:`provides`
+        directly.
+        """
+        return [p.name for p in self.provides]
 
     @property
     def conflict_names(self) -> list[str]:

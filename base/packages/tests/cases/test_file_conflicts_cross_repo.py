@@ -28,9 +28,12 @@ The check is a two-pass refinement of the cross-repo file index:
 
    Anything else is reported as a real install-time conflict.
 
-A pair declaring a mutual unversioned ``Conflicts:`` is also accepted
-(the user has explicitly told RPM "we know about each other"); see
-:func:`_are_marked_conflicting` for the exact rule.
+A pair declaring a ``Conflicts:`` that actually applies to the other
+package is also accepted (the user has explicitly told RPM "we know
+about each other"); see :func:`_are_marked_conflicting` and
+:func:`_conflict_matches_target` for the exact rule. Either side
+declaring the conflict is sufficient — RPM doesn't require it to be
+mutual.
 
 What gets filtered out *in this test* (because it's a different class
 of finding):
@@ -46,31 +49,37 @@ of finding):
 
 What counts as "marked as conflicting" (between two packages A and B):
 
-* A ``Conflicts:`` against the literal name of B (or vice versa), OR
-* A ``Conflicts:`` against any name that B ``Provides:`` (or vice
-  versa).
+* A's ``Conflicts:`` matches one of B's ``Provides:`` entries (or
+  vice versa) under standard RPM provides/conflicts unification:
+
+  - the names match,
+  - if either side is unversioned the constraint is satisfied,
+  - otherwise the provide's EVR satisfies the conflict's
+    operator+EVR per :func:`rpm.labelCompare`.
+
+  RPM auto-emits ``Provides: <name> = E:V-R`` for every package, so
+  even pairs whose ``Conflicts:`` targets only the literal name
+  (e.g. ``Conflicts: python3-sqlalchemy >= 2``) get evaluated
+  against the other side's full NEVRA.
 
 Both directions are checked; either side declaring the conflict is
-sufficient.
+sufficient — RPM doesn't require it to be mutual.
 
 Known limitations
 -----------------
 
-* **Name-only conflict matching.** ``Provides:`` and ``Conflicts:``
-  are treated as bare-name sets — version ranges (``Conflicts: foo
-  >= 2.0``) are not modeled. A ranged ``Conflicts:`` that does not
-  match all versions of the other package will be reported as
-  unsatisfied here even though the install-time resolver may accept
-  it. Conversely, a same-arch pair whose ranged conflict does not
-  cover the actually-published version may be reported as resolved
-  here even though install would still fail. Treat this as a
-  high-signal heuristic, not a perfect simulation.
 * **Single-arch perspective.** The test runs once per ``(arch, repo
   set)`` pair, so we never compare an ``x86_64`` package against an
   ``aarch64`` package — that's by design (the install target is one
   arch at a time). Multilib coexistence (e.g. ``glibc.i686`` next to
   ``glibc.x86_64`` on an ``x86_64`` host) and RPM's
   ``handleColorConflict`` ELF-color override are also out of scope.
+* **Boolean / rich dependencies are not modelled.** A
+  ``Conflicts: (foo and bar)`` style entry is treated as a literal
+  name lookup and will not match either operand's provides. RPM
+  packages in this repo set use rich deps almost exclusively for
+  ``Requires:`` rather than ``Conflicts:``, so the gap is mostly
+  theoretical.
 """
 
 from __future__ import annotations
@@ -81,8 +90,9 @@ import stat
 
 import pytest
 
+from utils._dnf_stack import get_rpm
 from utils.repos import Repo
-from utils.types import FileMeta, NEVRA, Package
+from utils.types import ConflictEntry, FileMeta, NEVRA, Package, ProvidesEntry
 
 
 logger = logging.getLogger(__name__)
@@ -111,47 +121,98 @@ def _srpm_name_of(pkg: Package) -> str | None:
     return m.group("name") if m else None
 
 
-def _build_provides_index(
+def _build_pkg_index(
     by_repo: dict[Repo, list[Package]]
-) -> dict[tuple, set[str]]:
-    """Map ``(NEVRA,)`` -> the set of names the package Provides:.
+) -> dict[NEVRA, Package]:
+    """Map ``NEVRA`` -> :class:`Package`.
 
-    The set always includes the package's own name (which RPM
-    auto-emits as a Provides:).
+    Source RPMs are excluded; the file-conflicts test only operates on
+    the binary side. If the same NEVRA appears in more than one binary
+    repo (it shouldn't, but multilib pools occasionally race), the
+    last writer wins — only the first three indexed attributes
+    (``nevra``, ``conflicts``, ``provides``) are read by this test
+    and they are identical across repos for a given NEVRA.
     """
-    out: dict[tuple, set[str]] = {}
+    out: dict[NEVRA, Package] = {}
     for packages in by_repo.values():
         for pkg in packages:
             if pkg.is_source:
                 continue
-            out[(pkg.nevra,)] = set(pkg.provides) | {pkg.name}
+            out[pkg.nevra] = pkg
     return out
 
 
-def _build_conflicts_index(
-    by_repo: dict[Repo, list[Package]]
-) -> dict[tuple, list]:
-    """Map ``(NEVRA,)`` -> the list of :class:`ConflictEntry` records."""
-    out: dict[tuple, list] = {}
-    for packages in by_repo.values():
-        for pkg in packages:
-            if pkg.is_source:
-                continue
-            out[(pkg.nevra,)] = list(pkg.conflicts)
-    return out
+# Cache for the dnf-style flag string -> RPM sense bitmask mapping.
+# Populated on first use because :mod:`rpm` is loaded lazily through
+# the dnf-stack shim (it's a system package, not a venv import) and
+# we want module import to stay cheap for ``--collect-only``.
+_FLAG_TO_SENSE: dict[str, int] | None = None
 
 
-def _build_srpm_index(
-    by_repo: dict[Repo, list[Package]]
-) -> dict[tuple, str | None]:
-    """Map ``(NEVRA,)`` -> the source SRPM name (or None if unparseable)."""
-    out: dict[tuple, str | None] = {}
-    for packages in by_repo.values():
-        for pkg in packages:
-            if pkg.is_source:
-                continue
-            out[(pkg.nevra,)] = _srpm_name_of(pkg)
-    return out
+def _flag_sense(flags: str) -> int:
+    global _FLAG_TO_SENSE
+    if _FLAG_TO_SENSE is None:
+        rpm = get_rpm()
+        _FLAG_TO_SENSE = {
+            "EQ": rpm.RPMSENSE_EQUAL,
+            "LT": rpm.RPMSENSE_LESS,
+            "LE": rpm.RPMSENSE_LESS | rpm.RPMSENSE_EQUAL,
+            "GT": rpm.RPMSENSE_GREATER,
+            "GE": rpm.RPMSENSE_GREATER | rpm.RPMSENSE_EQUAL,
+        }
+    return _FLAG_TO_SENSE[flags]
+
+
+def _evr_tuple(epoch, version: str | None, release: str | None) -> tuple[str, str, str]:
+    """Build the ``(epoch, version, release)`` tuple ``rpm.labelCompare`` expects.
+
+    Empty epoch is represented as ``""`` (which RPM treats as 0).
+    """
+    e = "" if epoch in (None, 0, "0", "") else str(epoch)
+    return (e, version or "", release or "")
+
+
+def _conflict_matches_provide(c: ConflictEntry, p: ProvidesEntry) -> bool:
+    """Does conflict ``c`` (versioned or not) match provide ``p``?
+
+    Standard RPM provides/conflicts unification:
+
+    * Names must match.
+    * If either side is unversioned, the constraint is satisfied
+      (an unversioned ``Conflicts:`` matches any provide; an
+      unversioned ``Provides:`` matches any conflict). This mirrors
+      libsolv / rpm's "no version means any version" rule for the
+      simple (non-rich) dependency form.
+    * Otherwise compare the provide's EVR against the conflict's
+      EVR with the conflict's operator via :func:`rpm.labelCompare`.
+    """
+    if c.name != p.name:
+        return False
+    if c.flags is None or p.flags is None:
+        return True
+    rpm = get_rpm()
+    cflag = _flag_sense(c.flags)
+    cmp = rpm.labelCompare(
+        _evr_tuple(p.epoch, p.version, p.release),
+        _evr_tuple(c.epoch, c.version, c.release),
+    )
+    if cmp < 0:
+        return bool(cflag & rpm.RPMSENSE_LESS)
+    if cmp > 0:
+        return bool(cflag & rpm.RPMSENSE_GREATER)
+    return bool(cflag & rpm.RPMSENSE_EQUAL)
+
+
+def _conflict_matches_target(c: ConflictEntry, target: Package) -> bool:
+    """Does the ``Conflicts:`` entry ``c`` actually apply to ``target``?
+
+    Mirrors RPM's install-time evaluation: ``c`` matches ``target`` iff
+    any of ``target``'s ``Provides:`` entries (which always include a
+    versioned ``Provides: <name> = E:V-R`` for the package's own name,
+    plus any explicit/virtual provides) satisfies ``c`` per
+    :func:`_conflict_matches_provide`.
+    """
+    return any(_conflict_matches_provide(c, p) for p in target.provides)
 
 
 def _rpmfiles_compatible(a: FileMeta, b: FileMeta) -> bool:
@@ -228,34 +289,31 @@ def test_file_conflicts_across_binary_repos(
     by_repo = all_binary_packages(arch)
     file_index = cross_repo_file_index(arch)
 
-    provides_by_nevra = _build_provides_index(by_repo)
-    conflicts_by_nevra = _build_conflicts_index(by_repo)
-    srpm_by_nevra = _build_srpm_index(by_repo)
+    pkg_by_nevra = _build_pkg_index(by_repo)
 
     def _are_marked_conflicting(a_nevra, b_nevra) -> bool:
-        # Only **bare** (unversioned) Conflicts: entries are treated as
-        # genuinely suppressing a file overlap. A versioned conflict
-        # (e.g., ``Conflicts: foo < 2.0``) may not actually cover the
-        # observed package version — collapsing it to a name match
-        # would silently hide real install-time conflicts when the
-        # versions don't satisfy the constraint. v1 of this check is
-        # intentionally conservative: only the bare form suppresses;
-        # versioned conflicts let the pair fall through and surface
-        # for manual triage. (See "Known limitations" in the module
-        # docstring.)
-        a_conflicts = conflicts_by_nevra.get((a_nevra,), [])
-        b_provides = provides_by_nevra.get((b_nevra,), set())
-        for c in a_conflicts:
-            if c.is_versioned:
-                continue
-            if c.name in b_provides:
+        # Either side declaring a ``Conflicts:`` that actually applies
+        # to the other package is sufficient — RPM doesn't require
+        # the declaration to be mutual.
+        #
+        # Versioned conflicts are evaluated for real via
+        # :func:`rpm.labelCompare` against the target package's NEVRA
+        # (see :func:`_conflict_matches_target`); we no longer drop
+        # the whole ranged form to "treat as no match", which used to
+        # produce false positives for pairs like
+        # ``python3-sqlalchemy`` (2.0.46) vs ``python3-sqlalchemy1.4``
+        # (which declares ``Conflicts: python3-sqlalchemy >= 2``).
+        a_pkg = pkg_by_nevra.get(a_nevra)
+        b_pkg = pkg_by_nevra.get(b_nevra)
+        if a_pkg is None or b_pkg is None:
+            # Should not happen for binary packages we already iterated
+            # — but if it does, fail safe and let the pair surface.
+            return False
+        for c in a_pkg.conflicts:
+            if _conflict_matches_target(c, b_pkg):
                 return True
-        b_conflicts = conflicts_by_nevra.get((b_nevra,), [])
-        a_provides = provides_by_nevra.get((a_nevra,), set())
-        for c in b_conflicts:
-            if c.is_versioned:
-                continue
-            if c.name in a_provides:
+        for c in b_pkg.conflicts:
+            if _conflict_matches_target(c, a_pkg):
                 return True
         return False
 
@@ -265,8 +323,12 @@ def test_file_conflicts_across_binary_repos(
         # one system, so a path overlap between them IS an install-time
         # conflict — even though they share an SRPM. Only true same-arch
         # siblings benefit from rpmbuild's build-time check.
-        sa = srpm_by_nevra.get((a_nevra,))
-        sb = srpm_by_nevra.get((b_nevra,))
+        a_pkg = pkg_by_nevra.get(a_nevra)
+        b_pkg = pkg_by_nevra.get(b_nevra)
+        if a_pkg is None or b_pkg is None:
+            return False
+        sa = _srpm_name_of(a_pkg)
+        sb = _srpm_name_of(b_pkg)
         if sa is None or sa != sb:
             return False
         return a_nevra.arch == b_nevra.arch
@@ -361,9 +423,9 @@ def test_file_conflicts_across_binary_repos(
             lines = [
                 f"on {arch}: {name_a} (from {repo_a!r}) and "
                 f"{name_b} (from {repo_b!r}) own {len(paths)} shared "
-                "file path(s) without a mutual Conflicts: declaration "
-                "and with mismatched per-file metadata "
-                "(rpmfilesCompare-equivalent). "
+                "file path(s) without an applicable Conflicts: "
+                "declaration on either side and with mismatched "
+                "per-file metadata (rpmfilesCompare-equivalent). "
                 f"Sample paths:",
             ]
             for p in sample:

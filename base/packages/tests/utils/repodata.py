@@ -43,7 +43,7 @@ from typing import Generator
 # and ``pytest --help`` to work even when it isn't.
 from ._dnf_stack import cr, get_librepo, get_rpm
 
-from .types import NEVRA, ConflictEntry, FileEntry, FileMeta, Package
+from .types import NEVRA, ConflictEntry, FileEntry, FileMeta, Package, ProvidesEntry
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +166,23 @@ def _convert_conflict(entry: tuple) -> ConflictEntry:
     )
 
 
+def _convert_provides(entry: tuple) -> ProvidesEntry:
+    """Map createrepo_c's ``(name, flags, epoch, ver, rel, pre)`` tuple.
+
+    Same shape as :func:`_convert_conflict`, separate type so callers
+    can keep ``Provides:`` and ``Conflicts:`` semantically distinct.
+    """
+    name, flags, epoch, ver, rel, _pre = entry
+    epoch_int: int | None = _epoch_to_int(epoch) if epoch else None
+    return ProvidesEntry(
+        name=name,
+        flags=flags or None,
+        epoch=epoch_int,
+        version=ver or None,
+        release=rel or None,
+    )
+
+
 def _convert_file(entry: tuple) -> FileEntry:
     """Map createrepo_c's ``(type|None, dirname, basename)`` tuple.
 
@@ -190,20 +207,28 @@ def _convert_package(crp: cr.Package) -> Package:
         arch=crp.arch,
     )
     # ``provides`` is a list of (name, flags, epoch, ver, rel, pre)
-    # tuples; for our purposes the bare name set is enough — we use
-    # it for cross-repo virtual-conflict matching only. RPM auto-emits
-    # ``Provides: <name>``, but we also force the bare name in (cheap
-    # safety net for repos where createrepo somehow omits it).
-    provides_names = [p[0] for p in (crp.provides or []) if p and p[0]]
-    if crp.name not in provides_names:
-        provides_names.append(crp.name)
+    # tuples. We retain the full structure so version-aware
+    # cross-repo conflict matching can evaluate ``Conflicts: foo
+    # >= 2`` against a versioned virtual provide. RPM auto-emits a
+    # versioned provide of the package's own name+EVR; we force a
+    # synthesized one in if createrepo somehow omits it (cheap safety
+    # net).
+    provides = [_convert_provides(p) for p in (crp.provides or []) if p and p[0]]
+    if not any(p.name == crp.name for p in provides):
+        provides.append(ProvidesEntry(
+            name=crp.name,
+            flags="EQ",
+            epoch=nevra.epoch or None,
+            version=nevra.version,
+            release=nevra.release,
+        ))
 
     return Package(
         nevra=nevra,
         vendor=crp.rpm_vendor or None,
         sourcerpm=crp.rpm_sourcerpm or None,
         summary=crp.summary or None,
-        provides=provides_names,
+        provides=provides,
         conflicts=[_convert_conflict(c) for c in (crp.conflicts or [])],
         files=[_convert_file(f) for f in (crp.files or [])],
         location_href=crp.location_href or None,

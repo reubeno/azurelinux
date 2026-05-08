@@ -25,7 +25,6 @@ BuildRequires:  pkgconfig(cairo-xcb)
 BuildRequires:  pkgconfig(colord) >= 0.1.27
 BuildRequires:  pkgconfig(dbus-1) >= 1.6
 BuildRequires:  pkgconfig(egl)
-BuildRequires:  pkgconfig(freerdp3)
 BuildRequires:  pkgconfig(gbm) >= 10.2
 BuildRequires:  pkgconfig(glesv2)
 BuildRequires:  pkgconfig(glib-2.0)
@@ -54,7 +53,7 @@ BuildRequires:  pkgconfig(libva-drm) >= 0.34.0
 BuildRequires:  pkgconfig(libwebp)
 BuildRequires:  pkgconfig(libxml-2.0) >= 2.6
 BuildRequires:  pkgconfig(mtdev) >= 1.1.0
-BuildRequires:  (pkgconfig(neatvnc) >= 0.7.0 with pkgconfig(neatvnc) < 0.10.0)
+
 BuildRequires:  pkgconfig(pangocairo)
 BuildRequires:  pkgconfig(pixman-1) >= 0.25.2
 BuildRequires:  pkgconfig(wayland-client) >= 1.22.0
@@ -119,7 +118,7 @@ Common headers for weston
 %autosetup -p1
 
 %build
-%meson
+%meson -Dbackend-rdp=false -Dbackend-vnc=false
 %meson_build
 
 %install
@@ -169,8 +168,8 @@ Common headers for weston
 %{_libdir}/libweston-%{apiver}/pipewire-backend.so
 %{_libdir}/libweston-%{apiver}/pipewire-plugin.so
 %{_libdir}/libweston-%{apiver}/remoting-plugin.so
-%{_libdir}/libweston-%{apiver}/rdp-backend.so
-%{_libdir}/libweston-%{apiver}/vnc-backend.so
+
+
 %{_libdir}/libweston-%{apiver}/wayland-backend.so
 %{_libdir}/libweston-%{apiver}/x11-backend.so
 %{_libdir}/libweston-%{apiver}/xwayland.so

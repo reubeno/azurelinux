@@ -1,0 +1,102 @@
+removed:
+  - name: chromaprint
+    description: Audio fingerprinting library (AcoustID)
+  - name: ffmpeg
+    description: Multimedia framework for audio/video encode/decode
+  - name: frei0r-plugins
+    description: Cross-platform video effects plugins
+  - name: freerdp
+    description: RDP client/server library
+  - name: gnome-remote-desktop
+    description: GNOME's RDP/VNC remote-desktop server
+  - name: gpsbabel
+    description: GPS data format converter
+  - name: kde-cli-tools
+    description: Command-line utilities for KDE Plasma
+  - name: kf6-baloo
+    description: KDE file-indexing and search framework
+  - name: kf6-kfilemetadata
+    description: KDE file-metadata extraction library
+  - name: kf6-prison
+    description: KDE barcode/QR-code generation library
+  - name: kpipewire
+    description: PipeWire integration for KDE Plasma
+  - name: kwin
+    description: KDE Plasma window manager / Wayland compositor
+  - name: libvncserver
+    description: Library for building VNC servers/clients
+  - name: mivisionx
+    description: AMD computer-vision and ML-inference toolkit
+  - name: neatvnc
+    description: Lightweight VNC server library for Wayland
+  - name: notcurses
+    description: Terminal UI library with rich text/graphics
+  - name: openal-soft
+    description: Cross-platform 3D audio API (OpenAL)
+  - name: opencv
+    description: Computer-vision and machine-learning library
+  - name: plasma-desktop
+    description: KDE Plasma desktop shell and config
+  - name: plasma-keyboard
+    description: KDE virtual keyboard for Plasma
+  - name: plasma-login-manager
+    description: Plasma's SDDM-based graphical login manager
+  - name: plasma-systemsettings
+    description: System-settings application for KDE Plasma
+  - name: plasma-workspace
+    description: Core KDE Plasma desktop workspace
+  - name: powerdevil
+    description: KDE Plasma power-management daemon
+  - name: qt6-qtmultimedia
+    description: Qt 6 multimedia (audio/video/camera) module
+  - name: qt6-qtspeech
+    description: Qt 6 text-to-speech module
+  - name: qt6-qtwebengine
+    description: Qt 6 Chromium-based web rendering engine
+  - name: qt6-qtwebview
+    description: Qt 6 native web-view component
+  - name: rocal
+    description: AMD ROCm data-augmentation library for ML
+  - name: rocdecode
+    description: AMD ROCm hardware video-decode library
+  - name: rocjpeg
+    description: AMD ROCm hardware JPEG-decode library
+  - name: rocm-rpp
+    description: AMD ROCm Performance Primitives library
+  - name: tigervnc
+    description: VNC remote-desktop server/client suite
+  - name: xine-lib
+    description: Multimedia playback engine library
+
+surgery:
+  - name: python-pyqt6
+    description: Python bindings for Qt 6
+    detail: "Drop cmake(Qt6Multimedia) BR + QtMultimedia* %files entries"
+  - name: python-pyside6
+    description: Official Qt-for-Python bindings (PySide6)
+    detail: "Drop cmake() BRs for Qt6 Multimedia / WebEngine* / WebView"
+  - name: qt5-qtmultimedia
+    description: Qt 5 multimedia module
+    detail: "Flip %global openal 1 -> 0 (disable OpenAL/QtAudioEngine)"
+  - name: libksysguard
+    description: KDE system-monitor / process-info library
+    detail: "Drop cmake(Qt6WebEngineWidgets) BR"
+  - name: libzypp
+    description: SUSE package-management library (zypper)
+    detail: "Drop cmake(Notcurses++) BR (off-by-default devtool)"
+  - name: weston
+    description: Reference Wayland compositor
+    detail: "Disable RDP+VNC backends (meson + BRs + %files)"
+  - name: wireshark
+    description: Network protocol analyzer / packet-capture tool
+    detail: "Drop qt6-qtmultimedia-devel BR (optional RTP audio)"
+
+other:
+  - name: mesa
+    description: Open-source OpenGL / Vulkan implementation
+    action: comment-only
+    detail: "Reword with_va rationale; no behavior change"
+  - name: kde-settings
+    description: KDE distro-default configuration files
+    action: publish-list-trim
+    detail: "Drop kde-settings-plasmalogin from sdk channel"

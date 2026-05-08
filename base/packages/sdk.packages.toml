@@ -322,7 +322,6 @@ packages = [
     "cgnslib-openmpi-devel", # srpm: cgnslib
     "cgnslib-openmpi-libs", # srpm: cgnslib
     "chezdav", # srpm: phodav
-    "chromaprint-tools", # srpm: chromaprint
     "chromedriver", # srpm: chromium
     "chromium", # srpm: chromium
     "chromium-common", # srpm: chromium
@@ -665,8 +664,6 @@ packages = [
     "ffcall", # srpm: ffcall
     "ffcall-devel", # srpm: ffcall
     "ffcall-static", # srpm: ffcall
-    "ffmpeg-free", # srpm: ffmpeg
-    "ffmpeg-free-devel", # srpm: ffmpeg
     "firefox", # srpm: firefox
     "firefox-langpacks", # srpm: firefox
     "fish", # srpm: fish
@@ -774,13 +771,6 @@ packages = [
     "freeipa-server-dns", # srpm: freeipa
     "freeipa-server-encrypted-dns", # srpm: freeipa
     "freeipa-server-trust-ad", # srpm: freeipa
-    "freerdp", # srpm: freerdp
-    "freerdp-devel", # srpm: freerdp
-    "freerdp-libs", # srpm: freerdp
-    "freerdp-server", # srpm: freerdp
-    "frei0r-devel", # srpm: frei0r-plugins
-    "frei0r-plugins", # srpm: frei0r-plugins
-    "frei0r-plugins-opencv", # srpm: frei0r-plugins
     "frugally-deep-devel", # srpm: frugally-deep
     "fxdiv-devel", # srpm: fxdiv
     "ganesha_monitoring", # srpm: nfs-ganesha
@@ -2113,7 +2103,6 @@ packages = [
     "gnome-online-accounts", # srpm: gnome-online-accounts
     "gnome-online-accounts-devel", # srpm: gnome-online-accounts
     "gnome-online-accounts-libs", # srpm: gnome-online-accounts
-    "gnome-remote-desktop", # srpm: gnome-remote-desktop
     "gnome-session", # srpm: gnome-session
     "gnome-settings-daemon", # srpm: gnome-settings-daemon
     "gnome-settings-daemon-devel", # srpm: gnome-settings-daemon
@@ -2561,8 +2550,6 @@ packages = [
     "gpm-devel", # srpm: gpm
     "gpm-libs", # srpm: gpm
     "gpm-static", # srpm: gpm
-    "gpsbabel", # srpm: gpsbabel
-    "gpsbabel-gui", # srpm: gpsbabel
     "gpsd", # srpm: gpsd
     "gpsd-clients", # srpm: gpsd
     "gpsd-compat", # srpm: gpsd
@@ -2588,7 +2575,6 @@ packages = [
     "gstreamer1-plugins-bad-free-fluidsynth", # srpm: gstreamer1-plugins-bad-free
     "gstreamer1-plugins-bad-free-libs", # srpm: gstreamer1-plugins-bad-free
     "gstreamer1-plugins-bad-free-lv2", # srpm: gstreamer1-plugins-bad-free
-    "gstreamer1-plugins-bad-free-opencv", # srpm: gstreamer1-plugins-bad-free
     "gstreamer1-plugins-bad-free-wildmidi", # srpm: gstreamer1-plugins-bad-free
     "gstreamer1-plugins-bad-free-zbar", # srpm: gstreamer1-plugins-bad-free
     "gstreamer1-plugins-good", # srpm: gstreamer1-plugins-good
@@ -2714,7 +2700,6 @@ packages = [
     "initial-setup", # srpm: initial-setup
     "initial-setup-gui", # srpm: initial-setup
     "initial-setup-gui-wayland-generic", # srpm: initial-setup
-    "initial-setup-gui-wayland-plasma", # srpm: kde-settings
     "inkscape", # srpm: inkscape
     "inkscape-docs", # srpm: inkscape
     "inkscape-libs", # srpm: inkscape
@@ -2808,20 +2793,15 @@ packages = [
     "kaccounts-integration-qt6", # srpm: kaccounts-integration
     "kaccounts-integration-qt6-devel", # srpm: kaccounts-integration
     "kactivitymanagerd", # srpm: kactivitymanagerd
-    "kcm-plasma-keyboard", # srpm: plasma-keyboard
-    "kcm-plasmalogin", # srpm: plasma-login-manager
-    "kde-cli-tools", # srpm: kde-cli-tools
     "kde-qdoc-common", # srpm: kde-qdoc-common
     "kde-settings", # srpm: kde-settings
     "kde-settings-plasma", # srpm: kde-settings
-    "kde-settings-plasmalogin", # srpm: kde-settings
     "kde-settings-pulseaudio", # srpm: kde-settings
     "kde-settings-sddm", # srpm: kde-settings
     "kdecoration", # srpm: kdecoration
     "kdecoration-devel", # srpm: kdecoration
     "kdegraphics-mobipocket", # srpm: kdegraphics-mobipocket
     "kdegraphics-mobipocket-devel", # srpm: kdegraphics-mobipocket
-    "kdesu", # srpm: kde-cli-tools
     "kdsoap", # srpm: kdsoap
     "kdsoap-devel", # srpm: kdsoap
     "kdsoap-devel-common", # srpm: kdsoap
@@ -2935,12 +2915,6 @@ packages = [
     "kf6-attica-devel", # srpm: kf6-attica
     "kf6-attica-doc", # srpm: kf6-attica
     "kf6-attica-html", # srpm: kf6-attica
-    "kf6-baloo", # srpm: kf6-baloo
-    "kf6-baloo-devel", # srpm: kf6-baloo
-    "kf6-baloo-doc", # srpm: kf6-baloo
-    "kf6-baloo-file", # srpm: kf6-baloo
-    "kf6-baloo-html", # srpm: kf6-baloo
-    "kf6-baloo-libs", # srpm: kf6-baloo
     "kf6-breeze-icons", # srpm: kf6-breeze-icons
     "kf6-breeze-icons-devel", # srpm: kf6-breeze-icons
     "kf6-filesystem", # srpm: kf6
@@ -3019,10 +2993,6 @@ packages = [
     "kf6-kdoctools-devel", # srpm: kf6-kdoctools
     "kf6-kdoctools-doc", # srpm: kf6-kdoctools
     "kf6-kdoctools-html", # srpm: kf6-kdoctools
-    "kf6-kfilemetadata", # srpm: kf6-kfilemetadata
-    "kf6-kfilemetadata-devel", # srpm: kf6-kfilemetadata
-    "kf6-kfilemetadata-doc", # srpm: kf6-kfilemetadata
-    "kf6-kfilemetadata-html", # srpm: kf6-kfilemetadata
     "kf6-kglobalaccel", # srpm: kf6-kglobalaccel
     "kf6-kglobalaccel-devel", # srpm: kf6-kglobalaccel
     "kf6-kglobalaccel-doc", # srpm: kf6-kglobalaccel
@@ -3165,10 +3135,6 @@ packages = [
     "kf6-networkmanager-qt-devel", # srpm: kf6-networkmanager-qt
     "kf6-networkmanager-qt-doc", # srpm: kf6-networkmanager-qt
     "kf6-networkmanager-qt-html", # srpm: kf6-networkmanager-qt
-    "kf6-prison", # srpm: kf6-prison
-    "kf6-prison-devel", # srpm: kf6-prison
-    "kf6-prison-doc", # srpm: kf6-prison
-    "kf6-prison-html", # srpm: kf6-prison
     "kf6-qqc2-desktop-style", # srpm: kf6-qqc2-desktop-style
     "kf6-rpm-macros", # srpm: kf6
     "kf6-solid", # srpm: kf6-solid
@@ -3216,19 +3182,12 @@ packages = [
     "kokkos-devel", # srpm: kokkos
     "kokkos-rocm", # srpm: kokkos
     "kokkos-rocm-devel", # srpm: kokkos
-    "kpipewire", # srpm: kpipewire
-    "kpipewire-devel", # srpm: kpipewire
     "kscreenlocker", # srpm: kscreenlocker
     "kscreenlocker-devel", # srpm: kscreenlocker
     "ksystemstats", # srpm: ksystemstats
     "kwayland", # srpm: kwayland
     "kwayland-devel", # srpm: kwayland
     "kwayland-doc", # srpm: kwayland
-    "kwin", # srpm: kwin
-    "kwin-common", # srpm: kwin
-    "kwin-devel", # srpm: kwin
-    "kwin-doc", # srpm: kwin
-    "kwin-libs", # srpm: kwin
     "kwrited", # srpm: kwrited
     "kyua", # srpm: kyua
     "kyua-tests", # srpm: kyua
@@ -3296,18 +3255,8 @@ packages = [
     "libatf-sh-devel", # srpm: atf
     "libavc1394", # srpm: libavc1394
     "libavc1394-devel", # srpm: libavc1394
-    "libavcodec-free", # srpm: ffmpeg
-    "libavcodec-free-devel", # srpm: ffmpeg
-    "libavdevice-free", # srpm: ffmpeg
-    "libavdevice-free-devel", # srpm: ffmpeg
-    "libavfilter-free", # srpm: ffmpeg
-    "libavfilter-free-devel", # srpm: ffmpeg
-    "libavformat-free", # srpm: ffmpeg
-    "libavformat-free-devel", # srpm: ffmpeg
     "libavtp", # srpm: libavtp
     "libavtp-devel", # srpm: libavtp
-    "libavutil-free", # srpm: ffmpeg
-    "libavutil-free-devel", # srpm: ffmpeg
     "libbs2b", # srpm: libbs2b
     "libbs2b-devel", # srpm: libbs2b
     "libbson", # srpm: mongo-c-driver
@@ -3336,8 +3285,6 @@ packages = [
     "libcerf-devel", # srpm: libcerf
     "libcgif", # srpm: libcgif
     "libcgif-devel", # srpm: libcgif
-    "libchromaprint", # srpm: chromaprint
-    "libchromaprint-devel", # srpm: chromaprint
     "libclc", # srpm: libclc
     "libclc-devel", # srpm: libclc
     "libclc-spirv", # srpm: libclc
@@ -3460,7 +3407,6 @@ packages = [
     "libksysguard", # srpm: libksysguard
     "libksysguard-common", # srpm: libksysguard
     "libksysguard-devel", # srpm: libksysguard
-    "libkworkspace6", # srpm: plasma-workspace
     "libldm", # srpm: libldm
     "libldm-devel", # srpm: libldm
     "liblockfile", # srpm: liblockfile
@@ -3519,8 +3465,6 @@ packages = [
     "libplasma-doc", # srpm: libplasma
     "libplist", # srpm: libplist
     "libplist-devel", # srpm: libplist
-    "libpostproc-free", # srpm: ffmpeg
-    "libpostproc-free-devel", # srpm: ffmpeg
     "libppd", # srpm: libppd
     "libppd-devel", # srpm: libppd
     "libqalculate", # srpm: libqalculate
@@ -3576,10 +3520,6 @@ packages = [
     "libsvm-java", # srpm: libsvm
     "libsvm-javadoc", # srpm: libsvm
     "libsvm-svm-toy-qt", # srpm: libsvm
-    "libswresample-free", # srpm: ffmpeg
-    "libswresample-free-devel", # srpm: ffmpeg
-    "libswscale-free", # srpm: ffmpeg
-    "libswscale-free-devel", # srpm: ffmpeg
     "libtatsu", # srpm: libtatsu
     "libtatsu-devel", # srpm: libtatsu
     "libtimezonemap", # srpm: libtimezonemap
@@ -3605,11 +3545,6 @@ packages = [
     "libvisio-devel", # srpm: libvisio
     "libvisio-doc", # srpm: libvisio
     "libvisio-tools", # srpm: libvisio
-    "libvncserver", # srpm: libvncserver
-    "libvncserver-devel", # srpm: libvncserver
-    "libvncserver-examples", # srpm: libvncserver
-    "libwinpr", # srpm: freerdp
-    "libwinpr-devel", # srpm: freerdp
     "libwmf", # srpm: libwmf
     "libwmf-devel", # srpm: libwmf
     "libwmf-lite", # srpm: libwmf
@@ -4155,8 +4090,6 @@ packages = [
     "mint-y-theme", # srpm: mint-themes
     "mintlocale", # srpm: mintlocale
     "mintlocale-set-default-locale", # srpm: mintlocale
-    "mivisionx", # srpm: mivisionx
-    "mivisionx-devel", # srpm: mivisionx
     "mjpegtools", # srpm: mjpegtools
     "mjpegtools-devel", # srpm: mjpegtools
     "mjpegtools-gui", # srpm: mjpegtools
@@ -4245,8 +4178,6 @@ packages = [
     "nauty", # srpm: nauty
     "nbd", # srpm: nbd
     "ncompress", # srpm: ncompress
-    "neatvnc", # srpm: neatvnc
-    "neatvnc-devel", # srpm: neatvnc
     "nemo", # srpm: nemo
     "nemo-devel", # srpm: nemo
     "nemo-extensions", # srpm: nemo
@@ -4283,10 +4214,6 @@ packages = [
     "nmh", # srpm: nmh
     "nodejs-antlr4", # srpm: antlr4-project
     "nodejs-esbuild", # srpm: golang-github-evanw-esbuild
-    "notcurses", # srpm: notcurses
-    "notcurses-devel", # srpm: notcurses
-    "notcurses-static", # srpm: notcurses
-    "notcurses-utils", # srpm: notcurses
     "nss-mdns", # srpm: nss-mdns
     "nss_nis", # srpm: nss_nis
     "ntfs-3g-system-compression", # srpm: ntfs-3g-system-compression
@@ -4352,75 +4279,9 @@ packages = [
     "onnxruntime-rocm", # srpm: onnxruntime
     "onnxruntime-rocm-devel", # srpm: onnxruntime
     "open-sans-fonts", # srpm: open-sans-fonts
-    "openal-soft", # srpm: openal-soft
-    "openal-soft-devel", # srpm: openal-soft
-    "openal-soft-examples", # srpm: openal-soft
-    "openal-soft-qt", # srpm: openal-soft
     "openbox", # srpm: openbox
     "openbox-devel", # srpm: openbox
-    "openbox-kde", # srpm: openbox
     "openbox-libs", # srpm: openbox
-    "opencv", # srpm: opencv
-    "opencv-alphamat", # srpm: opencv
-    "opencv-aruco", # srpm: opencv
-    "opencv-bgsegm", # srpm: opencv
-    "opencv-bioinspired", # srpm: opencv
-    "opencv-calib3d", # srpm: opencv
-    "opencv-ccalib", # srpm: opencv
-    "opencv-core", # srpm: opencv
-    "opencv-cvv", # srpm: opencv
-    "opencv-data", # srpm: opencv
-    "opencv-datasets", # srpm: opencv
-    "opencv-devel", # srpm: opencv
-    "opencv-dnn", # srpm: opencv
-    "opencv-dnn_objdetect", # srpm: opencv
-    "opencv-dnn_superres", # srpm: opencv
-    "opencv-doc", # srpm: opencv
-    "opencv-dpm", # srpm: opencv
-    "opencv-face", # srpm: opencv
-    "opencv-features2d", # srpm: opencv
-    "opencv-flann", # srpm: opencv
-    "opencv-freetype", # srpm: opencv
-    "opencv-fuzzy", # srpm: opencv
-    "opencv-gapi", # srpm: opencv
-    "opencv-hdf", # srpm: opencv
-    "opencv-hfs", # srpm: opencv
-    "opencv-highgui", # srpm: opencv
-    "opencv-img_hash", # srpm: opencv
-    "opencv-imgcodecs", # srpm: opencv
-    "opencv-imgproc", # srpm: opencv
-    "opencv-intensity_transform", # srpm: opencv
-    "opencv-java", # srpm: opencv
-    "opencv-line_descriptor", # srpm: opencv
-    "opencv-mcc", # srpm: opencv
-    "opencv-ml", # srpm: opencv
-    "opencv-objdetect", # srpm: opencv
-    "opencv-optflow", # srpm: opencv
-    "opencv-phase_unwrapping", # srpm: opencv
-    "opencv-photo", # srpm: opencv
-    "opencv-plot", # srpm: opencv
-    "opencv-quality", # srpm: opencv
-    "opencv-rapid", # srpm: opencv
-    "opencv-reg", # srpm: opencv
-    "opencv-rgbd", # srpm: opencv
-    "opencv-saliency", # srpm: opencv
-    "opencv-shape", # srpm: opencv
-    "opencv-signal", # srpm: opencv
-    "opencv-stereo", # srpm: opencv
-    "opencv-stitching", # srpm: opencv
-    "opencv-structured_light", # srpm: opencv
-    "opencv-superres", # srpm: opencv
-    "opencv-surface_matching", # srpm: opencv
-    "opencv-text", # srpm: opencv
-    "opencv-tracking", # srpm: opencv
-    "opencv-video", # srpm: opencv
-    "opencv-videoio", # srpm: opencv
-    "opencv-videostab", # srpm: opencv
-    "opencv-viz", # srpm: opencv
-    "opencv-wechat_qrcode", # srpm: opencv
-    "opencv-ximgproc", # srpm: opencv
-    "opencv-xobjdetect", # srpm: opencv
-    "opencv-xphoto", # srpm: opencv
     "opendmarc", # srpm: opendmarc
     "opendmarc-tools", # srpm: opendmarc
     "openexr2-devel", # srpm: openexr2
@@ -5210,22 +5071,10 @@ packages = [
     "plasma-breeze-common", # srpm: plasma-breeze
     "plasma-breeze-qt5", # srpm: plasma-breeze
     "plasma-breeze-qt6", # srpm: plasma-breeze
-    "plasma-desktop", # srpm: plasma-desktop
-    "plasma-desktop-doc", # srpm: plasma-desktop
-    "plasma-desktop-kimpanel-scim", # srpm: plasma-desktop
     "plasma-integration", # srpm: plasma-integration
     "plasma-integration-qt5", # srpm: plasma-integration
-    "plasma-keyboard", # srpm: plasma-keyboard
-    "plasma-login-manager", # srpm: plasma-login-manager
-    "plasma-lookandfeel-fedora", # srpm: plasma-workspace
-    "plasma-systemsettings", # srpm: plasma-systemsettings
     "plasma-wayland-protocols", # srpm: plasma-wayland-protocols
     "plasma-wayland-protocols-devel", # srpm: plasma-wayland-protocols
-    "plasma-workspace", # srpm: plasma-workspace
-    "plasma-workspace-common", # srpm: plasma-workspace
-    "plasma-workspace-devel", # srpm: plasma-workspace
-    "plasma-workspace-doc", # srpm: plasma-workspace
-    "plasma-workspace-libs", # srpm: plasma-workspace
     "plasma5support", # srpm: plasma5support
     "plasma5support-devel", # srpm: plasma5support
     "plasma5support-doc", # srpm: plasma5support
@@ -5300,7 +5149,6 @@ packages = [
     "postgresql17-test-rpm-macros", # srpm: postgresql17
     "postgresql17-upgrade", # srpm: postgresql17
     "postgresql17-upgrade-devel", # srpm: postgresql17
-    "powerdevil", # srpm: powerdevil
     "pre-commit", # srpm: pre-commit
     "priv_wrapper", # srpm: priv_wrapper
     "procmail", # srpm: procmail
@@ -5892,7 +5740,6 @@ packages = [
     "python3-normality", # srpm: python-normality
     "python3-nose2", # srpm: python-nose2
     "python3-nose2+coverage_plugin", # srpm: python-nose2
-    "python3-notcurses", # srpm: notcurses
     "python3-notebook", # srpm: python-notebook
     "python3-notebook-shim", # srpm: python-notebook-shim
     "python3-novaclient", # srpm: python-novaclient
@@ -5910,7 +5757,6 @@ packages = [
     "python3-olefile", # srpm: python-olefile
     "python3-onnxruntime", # srpm: onnxruntime
     "python3-opcodes", # srpm: python-opcodes
-    "python3-opencv", # srpm: opencv
     "python3-openid", # srpm: python3-openid
     "python3-openstackclient", # srpm: python-openstackclient
     "python3-openstackdocstheme", # srpm: python-openstackdocstheme
@@ -6580,23 +6426,12 @@ packages = [
     "qt6-qtlocation", # srpm: qt6-qtlocation
     "qt6-qtlocation-devel", # srpm: qt6-qtlocation
     "qt6-qtlocation-examples", # srpm: qt6-qtlocation
-    "qt6-qtmultimedia", # srpm: qt6-qtmultimedia
-    "qt6-qtmultimedia-devel", # srpm: qt6-qtmultimedia
-    "qt6-qtmultimedia-examples", # srpm: qt6-qtmultimedia
     "qt6-qtnetworkauth", # srpm: qt6-qtnetworkauth
     "qt6-qtnetworkauth-devel", # srpm: qt6-qtnetworkauth
     "qt6-qtnetworkauth-examples", # srpm: qt6-qtnetworkauth
-    "qt6-qtpdf", # srpm: qt6-qtwebengine
-    "qt6-qtpdf-devel", # srpm: qt6-qtwebengine
-    "qt6-qtpdf-examples", # srpm: qt6-qtwebengine
     "qt6-qtserialbus", # srpm: qt6-qtserialbus
     "qt6-qtserialbus-devel", # srpm: qt6-qtserialbus
     "qt6-qtserialbus-examples", # srpm: qt6-qtserialbus
-    "qt6-qtspeech", # srpm: qt6-qtspeech
-    "qt6-qtspeech-devel", # srpm: qt6-qtspeech
-    "qt6-qtspeech-examples", # srpm: qt6-qtspeech
-    "qt6-qtspeech-flite", # srpm: qt6-qtspeech
-    "qt6-qtspeech-speechd", # srpm: qt6-qtspeech
     "qt6-qttranslations", # srpm: qt6-qttranslations
     "qt6-qtvirtualkeyboard", # srpm: qt6-qtvirtualkeyboard
     "qt6-qtvirtualkeyboard-devel", # srpm: qt6-qtvirtualkeyboard
@@ -6605,13 +6440,6 @@ packages = [
     "qt6-qtwayland-adwaita-decoration", # srpm: qt6-qtwayland
     "qt6-qtwayland-devel", # srpm: qt6-qtwayland
     "qt6-qtwayland-examples", # srpm: qt6-qtwayland
-    "qt6-qtwebengine", # srpm: qt6-qtwebengine
-    "qt6-qtwebengine-devel", # srpm: qt6-qtwebengine
-    "qt6-qtwebengine-devtools", # srpm: qt6-qtwebengine
-    "qt6-qtwebengine-examples", # srpm: qt6-qtwebengine
-    "qt6-qtwebview", # srpm: qt6-qtwebview
-    "qt6-qtwebview-devel", # srpm: qt6-qtwebview
-    "qt6-qtwebview-examples", # srpm: qt6-qtwebview
     "qtwebkit", # srpm: qtwebkit
     "qtwebkit-devel", # srpm: qtwebkit
     "qv4l2", # srpm: v4l-utils
@@ -6647,19 +6475,11 @@ packages = [
     "roc-toolkit-devel", # srpm: roc-toolkit
     "roc-toolkit-doc", # srpm: roc-toolkit
     "roc-toolkit-utils", # srpm: roc-toolkit
-    "rocal", # srpm: rocal
-    "rocal-devel", # srpm: rocal
-    "rocdecode", # srpm: rocdecode
-    "rocdecode-devel", # srpm: rocdecode
-    "rocjpeg", # srpm: rocjpeg
-    "rocjpeg-devel", # srpm: rocjpeg
     "rocm", # srpm: rocm
     "rocm-core", # srpm: rocm-core
     "rocm-core-devel", # srpm: rocm-core
     "rocm-devel", # srpm: rocm
     "rocm-examples", # srpm: rocm-examples
-    "rocm-rpp", # srpm: rocm-rpp
-    "rocm-rpp-devel", # srpm: rocm-rpp
     "rocm-test", # srpm: rocm
     "rocwmma-devel", # srpm: rocwmma
     "rootlesskit", # srpm: rootlesskit
@@ -17368,10 +17188,8 @@ packages = [
     "scotch-devel-metis", # srpm: scotch
     "scotch-doc", # srpm: scotch
     "sddm", # srpm: sddm
-    "sddm-breeze", # srpm: plasma-desktop
     "sddm-themes", # srpm: sddm
     "sddm-wayland-generic", # srpm: sddm
-    "sddm-wayland-plasma", # srpm: plasma-workspace
     "sddm-x11", # srpm: sddm
     "seatd", # srpm: seatd
     "selenium-manager", # srpm: selenium-manager
@@ -24477,14 +24295,6 @@ packages = [
     "texlive-zxjatype-doc", # srpm: texlive
     "texlive-zztex", # srpm: texlive
     "thermald", # srpm: thermald
-    "tigervnc", # srpm: tigervnc
-    "tigervnc-icons", # srpm: tigervnc
-    "tigervnc-license", # srpm: tigervnc
-    "tigervnc-selinux", # srpm: tigervnc
-    "tigervnc-server-common", # srpm: tigervnc
-    "tigervnc-wayland-server", # srpm: tigervnc
-    "tigervnc-x11-server", # srpm: tigervnc
-    "tigervnc-x11-server-module", # srpm: tigervnc
     "tinyxml2", # srpm: tinyxml2
     "tinyxml2-devel", # srpm: tinyxml2
     "tlfloat", # srpm: tlfloat
@@ -24666,9 +24476,6 @@ packages = [
     "xfdesktop", # srpm: xfdesktop
     "xfwm4", # srpm: xfwm4
     "xhost", # srpm: xhost
-    "xine-lib", # srpm: xine-lib
-    "xine-lib-devel", # srpm: xine-lib
-    "xine-lib-extras", # srpm: xine-lib
     "xmessage", # srpm: xmessage
     "xmvn-connector-ivy", # srpm: xmvn-connector-ivy
     "xmvn-connector-ivy-javadoc", # srpm: xmvn-connector-ivy

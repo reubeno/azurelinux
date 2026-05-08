@@ -8,3 +8,48 @@ description = "Replace hardcoded redhat-linux-build with %{_vpath_builddir} so t
 type = "spec-search-replace"
 regex = 'redhat-linux-build'
 replacement = '%{_vpath_builddir}'
+
+# PySide6 uses CMake/shiboken to auto-detect available Qt6 modules and
+# generate Python bindings for whichever ones it finds. In Azure Linux,
+# qt6-qtmultimedia, qt6-qtwebengine, and qt6-qtwebview are removed
+# alongside ffmpeg, so drop the matching `cmake(...)` BuildRequires
+# lines. PySide6 will skip the corresponding bindings (PySide6.QtMultimedia,
+# PySide6.QtWebEngine*, PySide6.QtWebView). The %files block uses a
+# directory wildcard for site-packages content, so no %files surgery is
+# required.
+
+[[components.python-pyside6.overlays]]
+description = "Drop cmake(Qt6Multimedia) BR — qt6-qtmultimedia is removed from AZL"
+type = "spec-search-replace"
+regex = '^BuildRequires:\s+cmake\(Qt6Multimedia\)\s*>=\s*%\{qt6ver\}$'
+replacement = ""
+
+[[components.python-pyside6.overlays]]
+description = "Drop cmake(Qt6MultimediaWidgets) BR — qt6-qtmultimedia is removed from AZL"
+type = "spec-search-replace"
+regex = '^BuildRequires:\s+cmake\(Qt6MultimediaWidgets\)\s*>=\s*%\{qt6ver\}$'
+replacement = ""
+
+[[components.python-pyside6.overlays]]
+description = "Drop cmake(Qt6WebEngineCore) BR — qt6-qtwebengine is removed from AZL"
+type = "spec-search-replace"
+regex = '^BuildRequires:\s+cmake\(Qt6WebEngineCore\)\s*>=\s*%\{qt6ver\}$'
+replacement = ""
+
+[[components.python-pyside6.overlays]]
+description = "Drop cmake(Qt6WebEngineWidgets) BR — qt6-qtwebengine is removed from AZL"
+type = "spec-search-replace"
+regex = '^BuildRequires:\s+cmake\(Qt6WebEngineWidgets\)\s*>=\s*%\{qt6ver\}$'
+replacement = ""
+
+[[components.python-pyside6.overlays]]
+description = "Drop cmake(Qt6WebEngineQuick) BR — qt6-qtwebengine is removed from AZL"
+type = "spec-search-replace"
+regex = '^BuildRequires:\s+cmake\(Qt6WebEngineQuick\)\s*>=\s*%\{qt6ver\}$'
+replacement = ""
+
+[[components.python-pyside6.overlays]]
+description = "Drop cmake(Qt6WebView) BR — qt6-qtwebview is removed from AZL"
+type = "spec-search-replace"
+regex = '^BuildRequires:\s+cmake\(Qt6WebView\)\s*>=\s*%\{qt6ver\}$'
+replacement = ""

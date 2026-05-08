@@ -1,0 +1,40 @@
+[components.weston]
+
+# Azure Linux ships Weston as a reference Wayland compositor with the
+# default KMS/X11/headless backends only. The optional RDP and VNC
+# remote-display backends pull in freerdp and neatvnc, which were
+# removed from the distro alongside ffmpeg. Disable both backends in
+# the meson configuration so weston continues to build, drop the
+# corresponding BuildRequires, and remove the now-uninstalled
+# rdp-backend.so / vnc-backend.so entries from %files libs so RPM
+# doesn't flag them as missing files.
+
+[[components.weston.overlays]]
+description = "Drop pkgconfig(freerdp3) BuildRequires (RDP backend disabled — freerdp removed from AZL)"
+type = "spec-remove-tag"
+tag = "BuildRequires"
+value = "pkgconfig(freerdp3)"
+
+[[components.weston.overlays]]
+description = "Drop neatvnc rich BuildRequires (VNC backend disabled — neatvnc removed from AZL)"
+type = "spec-search-replace"
+regex = '^BuildRequires:\s+\(pkgconfig\(neatvnc\).*$'
+replacement = ""
+
+[[components.weston.overlays]]
+description = "Disable RDP and VNC remote-display backends in meson configuration"
+type = "spec-search-replace"
+regex = '^%meson$'
+replacement = "%meson -Dbackend-rdp=false -Dbackend-vnc=false"
+
+[[components.weston.overlays]]
+description = "Drop rdp-backend.so from %files libs (RDP backend disabled — file no longer built)"
+type = "spec-search-replace"
+regex = '^%\{_libdir\}/libweston-%\{apiver\}/rdp-backend\.so$'
+replacement = ""
+
+[[components.weston.overlays]]
+description = "Drop vnc-backend.so from %files libs (VNC backend disabled — file no longer built)"
+type = "spec-search-replace"
+regex = '^%\{_libdir\}/libweston-%\{apiver\}/vnc-backend\.so$'
+replacement = ""

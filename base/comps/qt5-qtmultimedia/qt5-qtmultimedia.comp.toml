@@ -1,0 +1,15 @@
+[components.qt5-qtmultimedia]
+
+# qt5-qtmultimedia optionally uses OpenAL for the QtAudioEngine module.
+# In Azure Linux, openal-soft is removed alongside ffmpeg, so disable
+# the openal feature by flipping `%global openal 1` to `%global openal 0`.
+# This turns off the conditional `BuildRequires: pkgconfig(openal)` and
+# the conditional `%files` entry for the QtAudioEngine QML plugin —
+# everything else (audio playback via PulseAudio/GStreamer, mediaservice
+# plugins, etc.) continues to build normally.
+
+[[components.qt5-qtmultimedia.overlays]]
+description = "Disable optional OpenAL/QtAudioEngine support — openal-soft is removed from AZL"
+type = "spec-search-replace"
+regex = '^%global openal 1$'
+replacement = "%global openal 0"

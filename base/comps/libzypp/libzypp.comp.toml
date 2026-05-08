@@ -1,0 +1,15 @@
+[components.libzypp]
+
+# libzypp's BuildRequires on cmake(Notcurses++) is for the optional
+# DEVTOOL_REPOMIRROR feature, which upstream gates with
+# OPTION(ENABLE_DEVTOOL_REPOMIRROR ... OFF) in zypp/tools/CMakeLists.txt
+# (default OFF). The tool is a developer-only repo-mirroring helper that
+# is never enabled in distro builds. Notcurses is removed from Azure
+# Linux alongside ffmpeg, so drop the BR — the default build path does
+# not touch the Notcurses code path.
+
+[[components.libzypp.overlays]]
+description = "Drop cmake(Notcurses++) BR — only needed for ENABLE_DEVTOOL_REPOMIRROR (off by default), and notcurses is removed from AZL"
+type = "spec-remove-tag"
+tag = "BuildRequires"
+value = "cmake(Notcurses++)"

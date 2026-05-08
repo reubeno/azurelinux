@@ -1,0 +1,15 @@
+[components.wireshark]
+
+# Wireshark's Qt GUI uses Qt Multimedia for the optional RTP audio
+# playback feature. Upstream's CMakeLists.txt declares Multimedia in
+# OPTIONAL_COMPONENTS, so dropping the build dependency makes CMake
+# gracefully skip the audio-player feature instead of failing the
+# configure step. This lets wireshark continue to build (and
+# wireshark-cli/wireshark-devel continue to ship in the SDK channel)
+# after qt6-qtmultimedia has been removed from Azure Linux.
+
+[[components.wireshark.overlays]]
+description = "Drop qt6-qtmultimedia-devel BuildRequires; the Qt RTP audio-player feature is optional in wireshark's CMake (and qt6-qtmultimedia is no longer shipped on AZL)"
+type = "spec-remove-tag"
+tag = "BuildRequires"
+value = "qt6-qtmultimedia-devel"

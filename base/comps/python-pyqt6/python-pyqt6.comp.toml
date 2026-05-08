@@ -1,0 +1,27 @@
+[components.python-pyqt6]
+
+# PyQt6 uses sip-build to auto-generate Python bindings for whichever
+# Qt6 modules it can find at build time. In Azure Linux, qt6-qtmultimedia
+# is removed alongside ffmpeg, so:
+#   * drop the BuildRequires on cmake(Qt6Multimedia) — sip-build will
+#     skip the QtMultimedia/QtMultimediaWidgets bindings cleanly,
+#   * remove the matching entries from %files so the build doesn't fail
+#     on missing QtMultimedia.* / QtMultimediaWidgets.* binding files.
+
+[[components.python-pyqt6.overlays]]
+description = "Drop cmake(Qt6Multimedia) BR — qt6-qtmultimedia is removed from AZL; sip-build skips QtMultimedia bindings cleanly"
+type = "spec-remove-tag"
+tag = "BuildRequires"
+value = "cmake(Qt6Multimedia)"
+
+[[components.python-pyqt6.overlays]]
+description = "Remove QtMultimedia binding from %files (no longer built without Qt6Multimedia)"
+type = "spec-search-replace"
+regex = '^%\{python3_sitearch\}/PyQt6/QtMultimedia\.\*$'
+replacement = ""
+
+[[components.python-pyqt6.overlays]]
+description = "Remove QtMultimediaWidgets binding from %files (no longer built without Qt6Multimedia)"
+type = "spec-search-replace"
+regex = '^%\{python3_sitearch\}/PyQt6/QtMultimediaWidgets\.\*$'
+replacement = ""

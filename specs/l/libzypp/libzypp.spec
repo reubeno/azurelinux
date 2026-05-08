@@ -40,7 +40,6 @@ Patch1001:      zypp-logic-squidproxy-path-check.patch
 BuildRequires:  %{_bindir}/asciidoctor
 BuildRequires:  %{_bindir}/xsltproc
 BuildRequires:  cmake >= 3.1
-BuildRequires:  cmake(Notcurses++)
 BuildRequires:  doxygen
 BuildRequires:  gcc
 BuildRequires:  gcc-c++

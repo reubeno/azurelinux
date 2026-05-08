@@ -30,7 +30,6 @@ BuildRequires: cmake(Qt6Bluetooth)
 BuildRequires: cmake(Qt6DBus)
 BuildRequires: cmake(Qt6Designer)
 BuildRequires: cmake(Qt6Gui)
-BuildRequires: cmake(Qt6Multimedia)
 BuildRequires: cmake(Qt6Nfc)
 BuildRequires: cmake(Qt6Network)
 BuildRequires: cmake(Qt6OpenGL)
@@ -171,8 +170,8 @@ sed -i \
 %{python3_sitearch}/PyQt6/QtBluetooth.*
 %{python3_sitearch}/PyQt6/QtDesigner.*
 %{python3_sitearch}/PyQt6/QtHelp.*
-%{python3_sitearch}/PyQt6/QtMultimedia.*
-%{python3_sitearch}/PyQt6/QtMultimediaWidgets.*
+
+
 %{python3_sitearch}/PyQt6/QtNfc.*
 %if 0%{?fedora} || 0%{?epel}
 %ifarch %{qt6_qtwebengine_arches}

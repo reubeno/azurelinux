@@ -1,0 +1,14 @@
+[components.libksysguard]
+
+# libksysguard optionally uses Qt WebEngine to render HTML in some
+# system-monitor dialogs. In Azure Linux, qt6-qtwebengine is removed
+# alongside ffmpeg, so drop the cmake(Qt6WebEngineWidgets) BR. The
+# accompanying cmake(Qt6WebChannel) BR (still in the same %ifarch block)
+# is left in place — that one is satisfied by qt6-qtwebchannel, which
+# remains in the distro.
+
+[[components.libksysguard.overlays]]
+description = "Drop cmake(Qt6WebEngineWidgets) BR — qt6-qtwebengine is removed from AZL; libksysguard's HTML viewer code path will be disabled"
+type = "spec-remove-tag"
+tag = "BuildRequires"
+value = "cmake(Qt6WebEngineWidgets)"

@@ -1,11 +1,6 @@
 ## START: Set by rpmautospec
 ## (rpmautospec version 0.8.3)
-## RPMAUTOSPEC: autorelease, autochangelog
-%define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 3;
-    base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
-    print(release_number + base_release_number - 1);
-}%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
+## RPMAUTOSPEC: autochangelog
 ## END: Set by rpmautospec
 
 # This spec file has been modified by azldev to include build configuration overlays.
@@ -41,9 +36,9 @@ Epoch: 6
 Version: 0.8.8
 License: Apache-2.0 AND BSD-2-Clause AND BSD-3-Clause AND MIT
 %if %{defined autorelease}
-Release: %autorelease
+Release: 3
 %else
-Release: 1
+Release: 3
 %endif
 %if %{defined golang_arches_future}
 ExclusiveArch: %{golang_arches_future}

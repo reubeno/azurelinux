@@ -38,7 +38,6 @@ BuildRequires:  cmake(Qt6Core5Compat)
 
 # Qt6 Web packages do not exist on those architectures.
 %ifarch %{qt6_qtwebengine_arches}
-BuildRequires:  cmake(Qt6WebEngineWidgets)
 BuildRequires:  cmake(Qt6WebChannel)
 %endif
 

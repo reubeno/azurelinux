@@ -68,7 +68,6 @@ BuildRequires:	qt6-qttools-devel
 BuildRequires:	qt6-linguist
 BuildRequires:	qt6-qtbase-devel
 BuildRequires:	qt6-qt5compat-devel
-BuildRequires:	qt6-qtmultimedia-devel
 BuildRequires:	qt6-qtsvg-devel
 BuildRequires:  qt6-qtimageformats
 BuildRequires:	zlib-devel

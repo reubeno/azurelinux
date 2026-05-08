@@ -3,7 +3,7 @@
 
 %global qt_module qtmultimedia
 
-%global openal 1
+%global openal 0
 
 %global gst 0.10
 %if 0%{?fedora} || 0%{?rhel} > 7

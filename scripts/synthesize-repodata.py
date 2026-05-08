@@ -707,21 +707,24 @@ def emit_repos(
     universe: dict[UniverseKey, UniverseEntry],
     decisions: dict[UniverseKey, RoutingDecision],
     output_dir: Path,
-) -> tuple[dict[Destination, int], list[dict]]:
+) -> tuple[dict[Destination, int], list[dict], list[dict]]:
     """Second pass over each input repo: stream every package, decide its
     destination, set its absolute location_href, hand it to the writer.
 
-    Returns (per_destination_counts, unpublished_records).
+    Returns (per_destination_counts, unpublished_records, fallback_records).
 
-    Counts are per NEVRA. The unpublished report dedupes by (kind, arch,
-    name) since the routing reason is name-based and listing every NEVRA
-    of an unpublished name would just be noise.
+    Counts are per NEVRA. The unpublished and fallback reports both dedupe
+    by (kind, arch, name) since the routing reason is name-based and
+    listing every NEVRA of an affected name would just be noise.
     """
-    # Precompute counts per destination (for XML headers) and unpublished
-    # records (for the report).
+    # Precompute counts per destination (for XML headers), unpublished
+    # records (excluded from output), and fallback records (routed via
+    # Phase-4 inheritance rather than an explicit publishChannel).
     dest_counts: Counter[Destination] = Counter()
     unpublished: list[dict] = []
     unpub_seen: set[tuple[str, str, str]] = set()
+    fallbacks: list[dict] = []
+    fb_seen: set[tuple[str, str, str]] = set()
     for key, decision in decisions.items():
         kind = key[0]
         arch = key[1]
@@ -742,6 +745,19 @@ def emit_repos(
             continue
         dest = Destination(decision.dest_channel, kind, arch)
         dest_counts[dest] += 1
+        if decision.inherited:
+            nameslot = (kind, arch, name)
+            if nameslot not in fb_seen:
+                fb_seen.add(nameslot)
+                fallbacks.append({
+                    "name": name,
+                    "kind": kind,
+                    "arch": arch,
+                    "source_repo": entry.repo.url,
+                    "source_package": entry.source_pkg_name,
+                    "dest_channel": decision.dest_channel,
+                    "reason": decision.reason,
+                })
 
     # Open writers up-front with correct counts.
     writers: dict[Destination, _RepoWriter] = {
@@ -800,11 +816,11 @@ def emit_repos(
                 f"{dest_counts[dest]} pkgs but emitted {writer.added}"
             )
 
-    return dict(dest_counts), unpublished
+    return dict(dest_counts), unpublished, fallbacks
 
 
 # ---------------------------------------------------------------------------
-# Phase 7: unpublished-packages report
+# Phase 7: unpublished-packages and fallback-channel reports
 # ---------------------------------------------------------------------------
 
 def write_unpublished_report(
@@ -831,6 +847,47 @@ def write_unpublished_report(
             for r in sorted(entries, key=lambda x: (x["kind"], x["arch"], x["name"])):
                 fh.write(
                     f"  {r['kind']:9s} {r['arch']:7s} {r['name']}  "
+                    f"(srpm={r['source_package']!r}, src={r['source_repo']})\n"
+                )
+    return json_path, txt_path
+
+
+def write_fallback_report(
+    fallbacks: list[dict], output_dir: Path
+) -> tuple[Path, Path]:
+    """Mirror :func:`write_unpublished_report` for inheritance-fallback
+    routings. These packages WERE routed (so they appear in the published
+    repos) but only because Phase-4 inferred a channel from sibling rpms
+    rather than reading an explicit ``publishChannel`` from azldev. Once
+    the underlying TOML config publishes srpm/debuginfo channels
+    explicitly the fallback path goes away and these reports should
+    shrink to zero.
+    """
+    json_path = output_dir / "fallback-channel-packages.json"
+    txt_path = output_dir / "fallback-channel-packages.txt"
+    json_path.write_text(json.dumps(fallbacks, indent=2))
+
+    by_reason: dict[str, list[dict]] = defaultdict(list)
+    for r in fallbacks:
+        by_reason[r["reason"]].append(r)
+
+    with txt_path.open("w") as fh:
+        fh.write(
+            f"# {len(fallbacks)} package(s) routed via the Phase-4 channel "
+            f"inheritance fallback (no explicit publishChannel from azldev).\n"
+            f"# These packages ARE published, but only because a sibling rpm's "
+            f"channel was inferred. Once azldev publishes channels explicitly "
+            f"for srpm/debuginfo/etc. this list should be empty.\n"
+            f"# Grouped by reason; within each group, sorted by "
+            f"(kind, arch, name).\n"
+        )
+        for reason in sorted(by_reason):
+            entries = by_reason[reason]
+            fh.write(f"\n## {reason}  ({len(entries)} package(s))\n")
+            for r in sorted(entries, key=lambda x: (x["kind"], x["arch"], x["name"])):
+                fh.write(
+                    f"  {r['kind']:9s} {r['arch']:7s} {r['name']}  "
+                    f"-> {r['dest_channel']}  "
                     f"(srpm={r['source_package']!r}, src={r['source_repo']})\n"
                 )
     return json_path, txt_path
@@ -975,20 +1032,25 @@ def main(argv: list[str] | None = None) -> int:
 
     # ---- Phase 5+6: open writers and emit ------------------------------
     log("==> Writing per-destination repos ...")
-    dest_counts, unpublished = emit_repos(
+    dest_counts, unpublished, fallbacks = emit_repos(
         repo_to_dir, universe, decisions, output_dir
     )
 
-    # ---- Phase 7: unpublished report -----------------------------------
+    # ---- Phase 7: unpublished + fallback reports -----------------------
     log("==> Writing unpublished-packages report ...")
     json_path, txt_path = write_unpublished_report(unpublished, output_dir)
     log(f"    -> {json_path.name}, {txt_path.name}")
+
+    log("==> Writing fallback-channel-packages report ...")
+    fb_json, fb_txt = write_fallback_report(fallbacks, output_dir)
+    log(f"    -> {fb_json.name}, {fb_txt.name}")
 
     # ---- Summary -------------------------------------------------------
     log("\n==> Summary")
     for dest in sorted(dest_counts, key=lambda d: (d.channel, d.kind, d.arch)):
         log(f"    {dest.relpath():35s}  {dest_counts[dest]:6d} pkg(s)")
     log(f"    {'(unpublished)':35s}  {len(unpublished):6d} pkg(s)")
+    log(f"    {'(fallback-channel)':35s}  {len(fallbacks):6d} pkg(s)")
 
     if not args.keep_cache:
         with contextlib.suppress(FileNotFoundError):

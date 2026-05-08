@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# dnf-with-azl-repos — invoke `dnf` against Azure Linux repos discovered under
+# one or more URL prefixes that follow the Standard Azure Linux Repo Layout.
+#
+# For each --repo-prefix URL the following six sub-repos are probed and added
+# to the dnf invocation when reachable (404s silently skipped):
+#
+#     <prefix>/base/$basearch                (main, base channel)
+#     <prefix>/base/debuginfo/$basearch      (debuginfo, base channel)
+#     <prefix>/base/srpms                    (sources, base channel)
+#     <prefix>/sdk/$basearch                 (main, sdk channel)
+#     <prefix>/sdk/debuginfo/$basearch       (debuginfo, sdk channel)
+#     <prefix>/sdk/srpms                     (sources, sdk channel)
+#
+# The wrapper invokes dnf with `--disablerepo='*' --refresh` and one
+# `--repofrompath <id>,<url> --enablerepo=<id>` pair per discovered repo, then
+# appends any additional arguments verbatim.
+#
+# Usage:
+#   dnf-with-azl-repos [--repo-prefix URL]... [--] <dnf-args>...
+#
+# Examples:
+#   dnf-with-azl-repos --repo-prefix https://example.com/azl4 list available
+#   dnf-with-azl-repos --repo-prefix https://example.com/azl4 install foo
+#
+# Notes:
+#   * --repo-prefix is repeatable; each prefix yields its own repo IDs.
+#   * Probing uses the host arch (uname -m); URLs passed to dnf keep
+#     `$basearch` so dnf performs its own substitution at use time.
+#   * To pass --help (or any flag we'd otherwise intercept) through to dnf,
+#     separate it with `--`, e.g. `dnf-with-azl-repos --repo-prefix URL -- --help`.
+
+set -euo pipefail
+
+prog=$(basename "$0")
+
+die() {
+    echo "$prog: $*" >&2
+    exit 2
+}
+
+usage() {
+    sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'
+}
+
+prefixes=()
+passthrough=()
+
+while (( $# > 0 )); do
+    case "$1" in
+        --repo-prefix)
+            [[ $# -ge 2 ]] || die "--repo-prefix requires a URL"
+            prefixes+=("$2")
+            shift 2
+            ;;
+        --repo-prefix=*)
+            prefixes+=("${1#*=}")
+            shift
+            ;;
+        -h|--wrapper-help)
+            usage
+            exit 0
+            ;;
+        --)
+            shift
+            while (( $# > 0 )); do
+                passthrough+=("$1")
+                shift
+            done
+            ;;
+        *)
+            passthrough+=("$1")
+            shift
+            ;;
+    esac
+done
+
+(( ${#prefixes[@]} > 0 )) || die "at least one --repo-prefix URL is required (try --wrapper-help)"
+
+command -v curl >/dev/null || die "curl is required"
+command -v dnf  >/dev/null || die "dnf is required"
+
+host_arch=$(uname -m)
+
+probe_repo() {
+    # Reachable if repodata/repomd.xml is accessible within 30s.
+    # Stderr is suppressed; we log our own per-repo result below.
+    curl -fsSL --head -o /dev/null --max-time 30 "$1/repodata/repomd.xml" 2>/dev/null
+}
+
+# name_suffix : path used for probing : path passed to dnf (keeps $basearch)
+sub_repos=(
+    "base:base/$host_arch:base/\$basearch"
+    "base-debuginfo:base/debuginfo/$host_arch:base/debuginfo/\$basearch"
+    "base-srpms:base/srpms:base/srpms"
+    "sdk:sdk/$host_arch:sdk/\$basearch"
+    "sdk-debuginfo:sdk/debuginfo/$host_arch:sdk/debuginfo/\$basearch"
+    "sdk-srpms:sdk/srpms:sdk/srpms"
+)
+
+dnf_args=(--disablerepo='*' --refresh)
+
+idx=0
+total_found=0
+for prefix in "${prefixes[@]}"; do
+    idx=$((idx + 1))
+    prefix_trim=${prefix%/}
+    multi_suffix=""
+    if (( ${#prefixes[@]} > 1 )); then
+        multi_suffix="-${idx}"
+    fi
+
+    echo "$prog: discovering repos under $prefix_trim" >&2
+    found_here=0
+    for entry in "${sub_repos[@]}"; do
+        IFS=':' read -r name_suffix probe_rel dnf_rel <<<"$entry"
+        probe_full="$prefix_trim/$probe_rel"
+        dnf_full="$prefix_trim/$dnf_rel"
+        repo_id="azl-${name_suffix}${multi_suffix}"
+        if probe_repo "$probe_full"; then
+            echo "  + $repo_id <- $dnf_full" >&2
+            dnf_args+=(--repofrompath "$repo_id,$dnf_full" --enablerepo="$repo_id")
+            found_here=$((found_here + 1))
+        else
+            echo "  - $repo_id (no repodata at $probe_full/repodata/repomd.xml)" >&2
+        fi
+    done
+    if (( found_here == 0 )); then
+        echo "$prog: warning: no repos discovered under $prefix_trim" >&2
+    fi
+    total_found=$((total_found + found_here))
+done
+
+(( total_found > 0 )) || die "no repos discovered under any --repo-prefix"
+
+exec dnf "${dnf_args[@]}" ${passthrough[@]+"${passthrough[@]}"}

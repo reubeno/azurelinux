@@ -63,34 +63,38 @@ Expected outcomes:
 
 The test suite runs entirely in-process — there is no shell-out to
 `dnf5` and no container backend. All work is done by the dnf-stack
-Python libraries (`createrepo_c`, `librepo`, `libdnf5`).
+Python libraries (`createrepo_c`, `librepo`, `libdnf5`, `rpm`).
 
 | Dependency | Provided by | Notes |
 | --- | --- | --- |
 | Python 3.12+ | the host | |
 | `createrepo_c` Python module | `pyproject.toml` (pip) | manylinux wheel on PyPI; pulled in automatically. |
-| `python3-librepo`, `python3-libdnf5` | system package manager | NOT on PyPI. Install via your distro (`dnf install python3-librepo python3-libdnf5` on Fedora/AZL/RHEL; `apt install python3-librepo python3-libdnf5` on Debian/Ubuntu). |
+| `python3-librepo`, `python3-libdnf5`, `python3-rpm` | system package manager | NOT on PyPI. Install via your distro (`dnf install python3-librepo python3-libdnf5 python3-rpm` on Fedora/AZL/RHEL; `apt install python3-librepo python3-libdnf5 python3-rpm` on Debian/Ubuntu). |
 | Network access to the repo URLs | the host | |
 
-`librepo` handles the metadata fetch (with checksum verification,
-zchunk/zstd/xz/gz decompression, and atomic-rename caching);
-`createrepo_c` parses primary/filelists; `libdnf5` (libsolv) drives
-repoclosure — the same call (`PackageQuery.is_dep_satisfied`) that
-`dnf5 repoclosure` itself uses, so rich/boolean dependencies (`if`,
-`unless`, `with`, `or`, `and`, `else`) are evaluated correctly. These
-are the same libraries `dnf` itself uses internally — so our metadata
-interpretation is guaranteed to match dnf's.
+`librepo` handles the metadata fetch and per-package RPM downloads
+(with checksum verification, zchunk/zstd/xz/gz decompression, and
+atomic-rename caching); `createrepo_c` parses primary/filelists;
+`libdnf5` (libsolv) drives repoclosure — the same call
+(`PackageQuery.is_dep_satisfied`) that `dnf5 repoclosure` itself
+uses, so rich/boolean dependencies (`if`, `unless`, `with`, `or`,
+`and`, `else`) are evaluated correctly. `rpm` reads per-file
+metadata (mode/owner/group/size/digest/linkto) out of downloaded
+RPM headers so the cross-repo file-conflicts test can mirror RPM's
+own `rpmfilesCompare` rules. These are all the same libraries `dnf`
+itself uses internally — so our metadata interpretation is
+guaranteed to match dnf's.
 
 > ⚠️ **`uv run pytest` does not work out of the box.** `uv` creates
 > isolated venvs and currently has no `--system-site-packages`
-> equivalent, so the system-only `python3-librepo` / `python3-libdnf5`
-> are invisible from inside a `uv`-managed venv. Use the stdlib
-> `venv` workflow shown under [Invocation](#invocation) instead.
-> (`pytest --collect-only` and `pytest --help` still work under `uv`
-> because the dnf-stack libraries are lazy-imported, so collection
-> errors are not silent — but actually fetching a repo will fail
-> with a clear "install python3-librepo via your system package
-> manager" message.)
+> equivalent, so the system-only `python3-librepo` /
+> `python3-libdnf5` / `python3-rpm` are invisible from inside a
+> `uv`-managed venv. Use the stdlib `venv` workflow shown under
+> [Invocation](#invocation) instead. (`pytest --collect-only` and
+> `pytest --help` still work under `uv` because the dnf-stack
+> libraries are lazy-imported, so collection errors are not silent
+> — but actually fetching a repo will fail with a clear "install
+> python3-librepo via your system package manager" message.)
 
 ## Invocation
 
@@ -107,7 +111,7 @@ python -m venv --system-site-packages .venv
 ```
 
 `--system-site-packages` is required so the venv can see
-`python3-librepo` / `python3-libdnf5` from the
+`python3-librepo` / `python3-libdnf5` / `python3-rpm` from the
 system. The project's `pip install -e .` registers the `pytest11`
 plugin entry point that wires up the suite's CLI options.
 

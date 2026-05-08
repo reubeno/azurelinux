@@ -172,10 +172,13 @@ Each entry covers:
 * **Markers:** none — uses `binary_repos` directly.
 * **Fan-out:** one test per arch.
 * **Fixtures:** `arch`, `binary_repos`, `all_binary_packages`,
-  `cross_repo_file_index`.
+  `cross_repo_file_index`, `package_file_metadata`.
 * **Filtering applied (in order):**
   * Directory entries — RPM permits shared directory ownership
-    (filtered by the metadata service).
+    when modes/owner/group match (filtered by the metadata service
+    as a cheap first pass; not re-validated, on the assumption that
+    dirs are the overwhelming majority of legitimate sharing and
+    re-validating each would mean downloading every RPM).
   * `%ghost` entries — RPM's canonical mechanism for non-conflicting
     shared "ownership" of a path (filtered by the metadata service).
   * Identical NEVRAs across repos are deduped (one owner per unique
@@ -183,6 +186,18 @@ Each entry covers:
   * Same-SRPM sibling pairs are exempted in this test — `rpmbuild`
     already prevents same-SRPM siblings from genuinely conflicting at
     install time; cross-SRPM pairs are the real signal here.
+  * Pairs that mutually `Conflicts:` each other — RPM will refuse
+    to coinstall them anyway, so file overlap is moot.
+  * **`rpmfilesCompare`-equivalent refinement:** for every
+    candidate `(pkg_a, pkg_b, path)` triple still surviving the
+    filters above, both packages' RPMs are downloaded on demand
+    (via `package_file_metadata(arch, nevra)`) and the per-file
+    metadata is compared using the same rules `rpmfi.cc:898
+    rpmfilesCompare` applies — modes (except both symlink), owner,
+    group, plus type-specific checks (size+digest for regular
+    files, linkto+size for symlinks, rdev for device nodes). Pairs
+    that match across all those fields are silently dropped, which
+    is what RPM does at install time.
 * **Failure:** aggregated, **grouped by package pair** with sample
   paths per pair (5 by default). Sorted worst-offenders-first so a
   single high-volume issue (e.g., `mariadb-test` vs `mysql-test-data`

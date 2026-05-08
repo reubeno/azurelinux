@@ -28,12 +28,15 @@ import pytest
 from .repodata import (
     RepoLayout,
     RepodataError,
+    RpmDownloadError,
+    download_rpm,
     fetch_repo,
     iter_filelist_entries,
     iter_packages,
+    read_rpm_file_metadata,
 )
 from .repos import Repo
-from .types import FileOwner, Package
+from .types import FileMeta, FileOwner, Package
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +56,15 @@ class MetadataService:
             tuple[tuple[str, ...], str], dict[str, list[FileOwner]]
         ] = {}
         self._layout_cache: dict[tuple[str, str], RepoLayout] = {}
+        # Per-NEVRA cache of {path -> FileMeta} for packages that have
+        # had their RPM downloaded for ``rpmfilesCompare``-style
+        # comparison (used by the cross-repo file-conflicts test).
+        # Keyed on NEVRA alone (epoch / version / release / arch fully
+        # determine the RPM contents, regardless of the repo it was
+        # served from).
+        self._package_files_cache: dict[
+            tuple[str, int, str, str, str], dict[str, FileMeta]
+        ] = {}
 
     # ------------------------------------------------------------------
     # Caching helpers
@@ -127,18 +139,31 @@ class MetadataService:
     ) -> dict[str, list[FileOwner]]:
         """Return ``path -> [FileOwner, ...]`` for every *real* file across *repos*.
 
-        Filtering applied before insertion into the index:
+        This is the *first-pass* index used by the cross-repo
+        file-conflicts test. Filtering applied here is intentionally
+        cheap and metadata-only:
 
         * Directory entries (``type="dir"``) — RPM permits shared
-          directory ownership.
+          directory ownership when modes/owner/group match; the
+          ``rpmfilesCompare``-equivalent comparison in the test
+          itself re-validates that, but for path-overlap discovery
+          we drop dirs because RPM's vast majority of legitimate
+          shared ownerships are dirs and including them would force
+          a per-package RPM download for nearly every repo file.
         * Ghost entries (``type="ghost"``) — these mean "I claim this
           path but don't install it". Multiple packages can ghost the
           same path; that is the canonical mechanism for non-conflicting
-          shared file ownership in RPM.
+          shared file ownership in RPM, and ``rpmfilesCompare`` short-
+          circuits any pair where either side is ghost.
 
         Identical NEVRAs that appear in multiple repos contribute a
         single :class:`FileOwner` (the first repo encountered wins for
         the ``repo_name`` attribution).
+
+        The returned overlaps are *candidates*: the test layer uses
+        :meth:`fetch_package_files` to download the involved RPMs and
+        compare per-file metadata via the same rules
+        ``rpmfilesCompare`` itself applies.
         """
         key = (tuple(sorted(r.fingerprint for r in repos)), arch)
         if key in self._file_index_cache:
@@ -178,3 +203,68 @@ class MetadataService:
             arch, len(result),
         )
         return result
+
+    # ------------------------------------------------------------------
+    # Per-package file-metadata fetcher (downloads RPMs on demand)
+    # ------------------------------------------------------------------
+
+    def _package_cache_dir(self, repo: Repo, arch: str) -> Path:
+        """Per-repo, per-arch cache dir for downloaded RPMs.
+
+        Same xdist-worker scoping as :meth:`cache_dir_for` so parallel
+        workers never race on the same destination filename. A reused
+        ``--workdir`` keeps RPMs warm across runs.
+        """
+        rv = self._releasever or "none"
+        worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
+        return (
+            self._workdir
+            / "rpms"
+            / f"rv-{rv}"
+            / worker
+            / arch
+            / f"{repo.name}-{repo.fingerprint}"
+        )
+
+    def fetch_package_files(
+        self, repo: Repo, package: Package, arch: str
+    ) -> dict[str, FileMeta]:
+        """Return ``path -> FileMeta`` for *package*, downloading the RPM if needed.
+
+        Memoized per NEVRA: a package that appears in two different
+        repos (identical NEVRA) is only fetched once. The downloaded
+        RPM is also cached on disk in :meth:`_package_cache_dir` so
+        a rerun against the same ``--workdir`` doesn't re-download.
+
+        Raises :class:`utils.repodata.RepodataError` (typically
+        :class:`utils.repodata.RpmDownloadError`) if the RPM cannot
+        be fetched or read.
+        """
+        nevra = package.nevra
+        key = (nevra.name, nevra.epoch, nevra.version, nevra.release, nevra.arch)
+        cached = self._package_files_cache.get(key)
+        if cached is not None:
+            return cached
+
+        if not package.location_href:
+            raise RepodataError(
+                f"package {nevra} from repo {repo.name!r} has no "
+                f"location_href in primary metadata; cannot fetch the "
+                f"RPM to read per-file metadata"
+            )
+
+        rpm_path = download_rpm(
+            repo_url=repo.url,
+            location_href=package.location_href,
+            location_base=package.location_base,
+            arch=arch,
+            releasever=self._releasever,
+            dest_dir=self._package_cache_dir(repo, arch),
+        )
+        meta = read_rpm_file_metadata(rpm_path)
+        self._package_files_cache[key] = meta
+        logger.debug(
+            "Fetched + parsed RPM for %s (%d file entries) from %s",
+            nevra, len(meta), repo.name,
+        )
+        return meta

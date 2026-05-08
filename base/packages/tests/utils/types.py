@@ -44,6 +44,45 @@ class FileEntry:
 
 
 @dataclass(frozen=True)
+class FileMeta:
+    """Per-file attributes RPM compares when deciding whether two
+    packages owning the same path actually conflict.
+
+    Mirrors the inputs to ``rpmfilesCompare`` (``lib/rpmfi.cc``). The
+    rules — quoted from RPM's own implementation — are:
+
+    * Either side ``%ghost`` → never a conflict.
+    * Modes must match exactly, *except* when both entries are
+      symlinks (``LINK`` mode bits are deliberately ignored).
+    * ``user`` / ``group`` must match.
+    * For ``REG`` / ``LINK``: ``size`` must match.
+    * For ``REG``: ``digest`` must match (with the same ``digest_algo``).
+    * For ``LINK``: ``linkto`` must match.
+    * For ``CDEV`` / ``BDEV``: ``rdev`` must match.
+
+    Anything else is a conflict.
+
+    *digest_algo* is the libgcrypt-style numeric algo id RPM stamps
+    on the package via ``RPMTAG_FILEDIGESTALGO`` (e.g. ``8`` for
+    SHA-256). RPM refuses to compare digests across different algos
+    even when the digest bytes happen to be the same length.
+
+    *fmode* is the full mode value (with the ``S_IFMT`` type bits
+    intact) so consumers can re-derive the file type without
+    importing :mod:`stat` themselves.
+    """
+
+    fmode: int
+    user: str
+    group: str
+    size: int
+    digest: str = ""
+    digest_algo: int = 0
+    linkto: str = ""
+    rdev: int = 0
+
+
+@dataclass(frozen=True)
 class ConflictEntry:
     """A single ``Conflicts:`` entry parsed from primary repodata.
 
@@ -76,6 +115,13 @@ class Package:
     createrepo). Full file listings come from filelists metadata and
     are surfaced through the ``cross_repo_file_index`` fixture, not
     through this attribute.
+
+    *location_href* and *location_base* are the repo-relative path
+    and (optional) override base URL emitted by createrepo into
+    ``primary.xml``. Together with the parent :class:`Repo`'s
+    ``url`` they let consumers reconstruct the package's download
+    URL, which the file-conflicts test uses to fetch RPMs on demand
+    for ``rpmfilesCompare``-equivalent metadata extraction.
     """
 
     nevra: NEVRA
@@ -85,6 +131,8 @@ class Package:
     provides: list[str] = field(default_factory=list)
     conflicts: list[ConflictEntry] = field(default_factory=list)
     files: list[FileEntry] = field(default_factory=list)
+    location_href: str | None = None
+    location_base: str | None = None
 
     @property
     def name(self) -> str:

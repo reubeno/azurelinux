@@ -23,7 +23,7 @@ import pytest
 from utils.metadata import MetadataService
 from utils.repoclosure import Repoclosure, make_repoclosure
 from utils.repos import Repo
-from utils.types import FileOwner, Package, RepoclosureResult
+from utils.types import FileMeta, FileOwner, NEVRA, Package, RepoclosureResult
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +160,57 @@ def cross_repo_file_index(
     """Return a callable ``arch -> dict[path, list[FileOwner]]``."""
     def _load(arch: str) -> dict[str, list[FileOwner]]:
         return metadata_service.build_file_index(binary_repos, arch)
+
+    return _load
+
+
+@pytest.fixture
+def package_file_metadata(
+    metadata_service: MetadataService,
+    all_binary_packages,
+):
+    """Return a callable ``(arch, nevra) -> dict[path, FileMeta]``.
+
+    The metadata service downloads the requested RPM on first lookup
+    (and caches it on disk under the workdir) and parses per-file
+    attributes — ``mode`` / ``user`` / ``group`` / ``size`` /
+    ``digest`` / ``linkto`` / ``rdev`` — out of its header. This is
+    the data the cross-repo file-conflicts test needs to mirror RPM's
+    own ``rpmfilesCompare`` rules; ``filelists.xml`` does not carry
+    any of it.
+
+    Lookups are O(1) after the first call per arch — we build the
+    NEVRA → (Repo, Package) map once and memoize it.
+    """
+    cached_index: dict[str, dict[NEVRA, tuple[Repo, Package]]] = {}
+
+    def _build_index(arch: str) -> dict[NEVRA, tuple[Repo, Package]]:
+        if arch in cached_index:
+            return cached_index[arch]
+        idx: dict[NEVRA, tuple[Repo, Package]] = {}
+        for repo, packages in all_binary_packages(arch).items():
+            for pkg in packages:
+                if pkg.is_source:
+                    continue
+                # Identical NEVRAs in two repos: keep the first
+                # encountered, mirroring the dedup behaviour in
+                # build_file_index. The RPM bytes are identical, so
+                # which repo we fetch from doesn't matter.
+                idx.setdefault(pkg.nevra, (repo, pkg))
+        cached_index[arch] = idx
+        return idx
+
+    def _load(arch: str, nevra: NEVRA) -> dict[str, FileMeta]:
+        idx = _build_index(arch)
+        try:
+            repo, pkg = idx[nevra]
+        except KeyError as exc:
+            raise KeyError(
+                f"NEVRA {nevra} not found in any binary repo at arch "
+                f"{arch}; the cross-repo file index referenced a NEVRA "
+                f"that doesn't appear in primary metadata"
+            ) from exc
+        return metadata_service.fetch_package_files(repo, pkg, arch)
 
     return _load
 

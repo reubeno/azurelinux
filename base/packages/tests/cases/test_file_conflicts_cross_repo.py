@@ -1,31 +1,48 @@
 # SPDX-License-Identifier: MIT
 """Across all provided binary repos, distinct packages from *different
-SRPMs* that own the same file path must be marked as conflicting.
+SRPMs* that own the same file path must not actually conflict at
+RPM-install time.
 
-This is a heuristic check on top of repodata — it is not a perfect
-simulation of RPM's install-time conflict resolution. It catches the
-common class of "two unrelated packages own /usr/bin/foo and don't
-declare Conflicts: between each other".
+The check is a two-pass refinement of the cross-repo file index:
 
-What gets filtered out before the check (in the metadata service):
+1. **Repodata pass** (cheap, all packages). Build the full
+   ``path -> [FileOwner]`` map from every binary repo's
+   ``filelists.xml``. Skip dirs and ``%ghost`` entries; dedupe
+   identical NEVRAs across repos.
 
-* Directory entries — RPM permits shared directory ownership.
-* ``%ghost`` entries — these mean "I claim this path but don't install
-  it"; multiple packages may legitimately ``%ghost`` the same path
-  (alternatives slots, log files, runtime state, etc.).
-* Identical NEVRA appearing in multiple repos is deduped.
+2. **RPM-header pass** (lazy, only for candidate overlaps). For each
+   surviving cross-SRPM, cross-name pair on a shared path, fetch
+   both RPMs and compare per-file metadata using the same rules
+   ``rpmfilesCompare`` (RPM's own ``lib/rpmfi.cc``) applies at
+   install time. RPM permits two packages to own the same path iff
+   **all** of these match between their file entries:
+
+   * either side ``%ghost`` (already filtered above);
+   * mode bits — except both being symlinks (``LINK`` mode is
+     deliberately ignored by RPM);
+   * owner (``user``) and group;
+   * for ``REG`` / ``LINK``: ``size``;
+   * for ``REG``: digest *and* digest algo;
+   * for ``LINK``: ``linkto`` target;
+   * for ``CDEV`` / ``BDEV``: ``rdev``.
+
+   Anything else is reported as a real install-time conflict.
+
+A pair declaring a mutual unversioned ``Conflicts:`` is also accepted
+(the user has explicitly told RPM "we know about each other"); see
+:func:`_are_marked_conflicting` for the exact rule.
 
 What gets filtered out *in this test* (because it's a different class
 of finding):
 
-* Same-SRPM sibling pairs. Two sub-packages produced by the same SRPM
-  are checked against each other by ``rpmbuild`` at build time; if
-  they reach the published repo with overlapping files, that's an
-  upstream packaging hygiene issue (typically shared ``%doc``
-  directories, ``%license`` files, or a missing ``%ghost`` on a
-  variant tarball) rather than the install-time conflict this test is
-  meant to catch. We exempt these so the cross-SRPM signal isn't
-  drowned out.
+* Same-SRPM same-arch sibling pairs. Two sub-packages produced by the
+  same SRPM at the same arch are checked against each other by
+  ``rpmbuild`` at build time; if they reach the published repo with
+  overlapping files, that's an upstream packaging hygiene issue rather
+  than the install-time conflict this test is meant to catch. We
+  exempt these so the cross-SRPM signal isn't drowned out. A noarch
+  sibling of an arch-specific sibling is *not* exempted because both
+  do install simultaneously.
 
 What counts as "marked as conflicting" (between two packages A and B):
 
@@ -52,17 +69,23 @@ Known limitations
   set)`` pair, so we never compare an ``x86_64`` package against an
   ``aarch64`` package — that's by design (the install target is one
   arch at a time). Multilib coexistence (e.g. ``glibc.i686`` next to
-  ``glibc.x86_64`` on an ``x86_64`` host) is also out of scope.
+  ``glibc.x86_64`` on an ``x86_64`` host) and RPM's
+  ``handleColorConflict`` ELF-color override are also out of scope.
 """
 
 from __future__ import annotations
 
+import logging
 import re
+import stat
 
 import pytest
 
 from utils.repos import Repo
-from utils.types import Package
+from utils.types import FileMeta, NEVRA, Package
+
+
+logger = logging.getLogger(__name__)
 
 
 # rules-as-code: paths where multiple owners are intentionally
@@ -131,11 +154,65 @@ def _build_srpm_index(
     return out
 
 
+def _rpmfiles_compatible(a: FileMeta, b: FileMeta) -> bool:
+    """Return True iff RPM's ``rpmfilesCompare`` would accept ``a == b``.
+
+    Mirrors ``int rpmfilesCompare(...)`` in RPM upstream
+    (``lib/rpmfi.cc``). The C function returns 0 (== "no conflict")
+    only when every applicable attribute matches; we return ``True``
+    in the same cases.
+
+    Ghost handling is *not* re-checked here — the cross-repo file
+    index already strips ghost entries before they reach this
+    function (see :class:`utils.metadata.MetadataService.build_file_index`).
+    """
+    a_what = stat.S_IFMT(a.fmode)
+    b_what = stat.S_IFMT(b.fmode)
+
+    # Mode difference is a conflict, except for symlink-vs-symlink.
+    both_links = a_what == stat.S_IFLNK and b_what == stat.S_IFLNK
+    if not both_links and a.fmode != b.fmode:
+        return False
+
+    # Owner / group must match for any file type.
+    if a.user != b.user or a.group != b.group:
+        return False
+
+    # Type-specific: size (REG/LINK), digest (REG), linkto (LINK), rdev (CDEV/BDEV).
+    if a_what in (stat.S_IFREG, stat.S_IFLNK):
+        if a.size != b.size:
+            return False
+
+    if a_what == stat.S_IFLNK:
+        # rpmfilesCompare allows null-vs-null on LINK target; both
+        # being non-null and equal is the common case.
+        if a.linkto != b.linkto:
+            return False
+    elif a_what == stat.S_IFREG:
+        if not a.digest or not b.digest:
+            # rpmfilesCompare treats a missing digest on either side
+            # as "can't prove equality" -> conflict.
+            return False
+        if a.digest_algo != b.digest_algo:
+            return False
+        if a.digest != b.digest:
+            return False
+    elif a_what in (stat.S_IFCHR, stat.S_IFBLK):
+        if a.rdev != b.rdev:
+            return False
+
+    # DIR / FIFO / SOCKET reach this point with everything we can
+    # check having matched. RPM does not compare additional
+    # attributes for them.
+    return True
+
+
 def test_file_conflicts_across_binary_repos(
     arch: str,
     binary_repos: list[Repo],
     all_binary_packages,
     cross_repo_file_index,
+    package_file_metadata,
     subtests,
 ) -> None:
     if not binary_repos:
@@ -194,6 +271,45 @@ def test_file_conflicts_across_binary_repos(
             return False
         return a_nevra.arch == b_nevra.arch
 
+    # Per-NEVRA file-metadata cache populated lazily as the loop
+    # discovers candidate overlaps. ``None`` is stored on download
+    # failure so the same broken NEVRA is not retried on every path.
+    files_by_nevra: dict[NEVRA, dict[str, FileMeta] | None] = {}
+
+    def _files_for(nevra: NEVRA) -> dict[str, FileMeta] | None:
+        cached = files_by_nevra.get(nevra, _MISSING)
+        if cached is not _MISSING:
+            return cached
+        try:
+            meta = package_file_metadata(arch, nevra)
+        except Exception as exc:  # noqa: BLE001 — log + treat as opaque
+            logger.warning(
+                "could not load file metadata for %s: %s — falling back "
+                "to reporting any overlap involving this package as a "
+                "conflict",
+                nevra, exc,
+            )
+            files_by_nevra[nevra] = None
+            return None
+        files_by_nevra[nevra] = meta
+        return meta
+
+    def _rpm_would_accept(a_nevra, b_nevra, path) -> bool:
+        a_files = _files_for(a_nevra)
+        b_files = _files_for(b_nevra)
+        if a_files is None or b_files is None:
+            # Be conservative: can't prove equivalence -> report.
+            return False
+        a_meta = a_files.get(path)
+        b_meta = b_files.get(path)
+        if a_meta is None or b_meta is None:
+            # The cross-repo index said both packages own this path,
+            # but we couldn't find it in one of their RPM headers.
+            # That's a metadata mismatch worth surfacing — keep the
+            # pair as a candidate.
+            return False
+        return _rpmfiles_compatible(a_meta, b_meta)
+
     # (name_a, repo_a, name_b, repo_b) -> list[paths]; the tuple is
     # always sorted so order is canonical regardless of which file
     # encountered the pair first.
@@ -222,6 +338,8 @@ def test_file_conflicts_across_binary_repos(
                     continue
                 if _are_marked_conflicting(a.nevra, b.nevra):
                     continue
+                if _rpm_would_accept(a.nevra, b.nevra, path):
+                    continue
                 key = tuple(sorted(
                     [(a.nevra.name, a.repo_name), (b.nevra.name, b.repo_name)]
                 ))
@@ -243,7 +361,9 @@ def test_file_conflicts_across_binary_repos(
             lines = [
                 f"on {arch}: {name_a} (from {repo_a!r}) and "
                 f"{name_b} (from {repo_b!r}) own {len(paths)} shared "
-                "file path(s) without a mutual Conflicts: declaration. "
+                "file path(s) without a mutual Conflicts: declaration "
+                "and with mismatched per-file metadata "
+                "(rpmfilesCompare-equivalent). "
                 f"Sample paths:",
             ]
             for p in sample:
@@ -256,4 +376,9 @@ def test_file_conflicts_across_binary_repos(
 # How many sample paths to show per offending package pair in each
 # subtest's failure message.
 _SAMPLE_PATHS_PER_PAIR = 5
+
+# Sentinel for the "not yet looked up" state in the per-NEVRA file
+# metadata cache (``None`` already means "looked up and the lookup
+# failed"; we need a distinct "never tried" value for ``dict.get``).
+_MISSING = object()
 

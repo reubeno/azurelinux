@@ -58,9 +58,10 @@ The implementation layer is intentionally a thin shim over the
 canonical dnf-stack libraries:
 
 * **`librepo`** (`python3-librepo`) — fetches `repomd.xml`, primary,
-  and filelists into a per-repo cache directory; verifies checksums;
-  decompresses zchunk / zstd / xz / gz transparently; substitutes
-  `$basearch` / `$releasever` in URLs.
+  and filelists into a per-repo cache directory, plus per-package
+  RPMs on demand; verifies checksums; decompresses zchunk / zstd /
+  xz / gz transparently; substitutes `$basearch` / `$releasever` in
+  URLs.
 * **`createrepo_c`** (PyPI; pure-C bindings) — parses primary and
   filelists into typed `Package` objects via libxml2 (streaming).
 * **`libdnf5`** (`python3-libdnf5`, libsolv bindings) — loads the
@@ -70,8 +71,14 @@ canonical dnf-stack libraries:
   `(foo with bar)`, `(foo unless bar)` are evaluated as boolean
   conditionals over the available providers — no special handling
   in our code.
+* **`rpm`** (`python3-rpm`, librpm bindings) — reads per-file
+  metadata (mode, owner, group, size, digest, linkto) out of
+  downloaded RPM headers. Used by the cross-repo file-conflicts
+  test to mirror RPM's own `rpmfilesCompare` rules; the createrepo
+  XML schema and libdnf5's `Package.get_files` only carry the
+  path / type / digest subset.
 
-All three are the same libraries `dnf` itself uses internally, so
+All four are the same libraries `dnf` itself uses internally, so
 the suite's metadata interpretation is guaranteed to match dnf's
 without any subprocess shell-out.
 
@@ -148,7 +155,8 @@ actually consume:
 | `all_repos` | session | `list[Repo]` | rarely used directly |
 | `repo_packages(repo, arch)` | function | `list[Package]` | metadata-only per-repo tests |
 | `all_binary_packages(arch)` | function | `dict[Repo, list[Package]]` | cross-repo metadata tests |
-| `cross_repo_file_index(arch)` | function | `dict[path, list[FileOwner]]` | the file-conflicts test |
+| `cross_repo_file_index(arch)` | function | `dict[path, list[FileOwner]]` | the file-conflicts test (first-pass overlap discovery) |
+| `package_file_metadata(arch, nevra)` | function | `dict[path, FileMeta]` | the file-conflicts test (second-pass `rpmfilesCompare`) |
 | `repoclosure(target_repos, arch)` | function | `RepoclosureResult` | the repoclosure tests |
 | `require_named_repos(names, kind=...)` | function | `list[Repo]` | tests with hard-coded repo expectations |
 
@@ -186,7 +194,14 @@ tests don't see noisy tracebacks from below the abstraction. Provides
 the high-level operations the fixtures need:
 
 * `list_packages(repo, arch) -> list[Package]`
-* `build_file_index(repos, arch) -> dict[path, list[FileOwner]]`
+* `build_file_index(repos, arch) -> dict[path, list[FileOwner]]` —
+  first-pass path-overlap candidates (skips dirs and ghosts).
+* `fetch_package_files(repo, package, arch) -> dict[path, FileMeta]` —
+  on-demand RPM download (via librepo) plus per-file metadata
+  extraction (mode/owner/group/size/digest/linkto via python3-rpm).
+  Memoized per NEVRA. The file-conflicts test calls this only for
+  the small set of packages involved in candidate overlaps, then
+  applies `rpmfilesCompare`-equivalent rules.
 * `fetch(repo, arch) -> RepoLayout` — exposes the on-disk paths of
   the librepo-fetched repomd/primary/filelists. Used by `Repoclosure`
   so the metadata cache is shared (no double fetch).
@@ -366,8 +381,8 @@ libraries:
   invocation; metadata is parsed once per session and reused by
   every dependent test.
 
-The two new requirements are system packages (`python3-librepo`,
-`python3-libdnf5`), not pip-installable wheels.
+The new requirements are system packages (`python3-librepo`,
+`python3-libdnf5`, `python3-rpm`), not pip-installable wheels.
 This is consistent with the previous host-backend requirement on
 the `dnf5` binary; users running the suite in a Fedora/AZL/RHEL
 container or on those distros already have them. See

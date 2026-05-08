@@ -41,9 +41,9 @@ from typing import Generator
 # because it's a system package (``python3-librepo``) that may not be
 # visible from inside isolated venvs — we want ``pytest --collect-only``
 # and ``pytest --help`` to work even when it isn't.
-from ._dnf_stack import cr, get_librepo
+from ._dnf_stack import cr, get_librepo, get_rpm
 
-from .types import NEVRA, ConflictEntry, FileEntry, Package
+from .types import NEVRA, ConflictEntry, FileEntry, FileMeta, Package
 
 logger = logging.getLogger(__name__)
 
@@ -206,6 +206,8 @@ def _convert_package(crp: cr.Package) -> Package:
         provides=provides_names,
         conflicts=[_convert_conflict(c) for c in (crp.conflicts or [])],
         files=[_convert_file(f) for f in (crp.files or [])],
+        location_href=crp.location_href or None,
+        location_base=crp.location_base or None,
     )
 
 
@@ -277,3 +279,143 @@ def iter_filelist_entries(
             f"failed to parse {filelists_path}: {exc}"
         ) from exc
     yield from entries
+
+
+# ---------------------------------------------------------------------------
+# Per-package RPM fetching + file-metadata extraction
+# ---------------------------------------------------------------------------
+#
+# The cross-repo file-conflicts test needs more than what filelists.xml
+# carries (path + type + ghost flag): to mirror RPM's own
+# ``rpmfilesCompare`` rules it needs ``mode`` / ``user`` / ``group`` /
+# ``size`` / ``digest`` / ``linkto`` / ``rdev``. Those attributes are
+# not in any createrepo XML record and ``libdnf5`` does not expose them
+# either (its ``Package.get_files()`` is the same path-only set as
+# filelists). The accurate path is to download the RPM and read the
+# attributes straight out of its header via ``python3-rpm``.
+#
+# We do this lazily and on a per-NEVRA basis, only for packages that
+# actually appear in a candidate cross-repo overlap, so the bandwidth
+# cost scales with the number of suspected conflicts rather than the
+# repo size. RPMs are cached on disk under the metadata workdir so a
+# rerun against the same workdir doesn't re-download.
+
+
+class RpmDownloadError(RepodataError):
+    """Raised when librepo fails to fetch a single RPM."""
+
+
+def download_rpm(
+    *,
+    repo_url: str,
+    location_href: str,
+    location_base: str | None,
+    arch: str,
+    releasever: str | None,
+    dest_dir: Path,
+    expected_pkg_id: str | None = None,
+) -> Path:
+    """Fetch one RPM into *dest_dir* and return the local path.
+
+    Uses the same librepo handle pattern :func:`fetch_repo` uses so
+    ``$basearch`` / ``$arch`` / ``$releasever`` substitutions in the
+    repo URL are handled identically. ``location_base`` (rare —
+    set when a repo overrides the per-package base via
+    ``<location xml:base="...">``) takes precedence over ``repo_url``.
+
+    The resulting file is named after the basename of *location_href*,
+    so a second call for the same package will hit the existing file
+    and skip download (cache reuse). *expected_pkg_id*, when supplied,
+    is the SHA-256 of the RPM header that createrepo_c stamps as
+    ``pkgId``; we ask librepo to verify it after download.
+    """
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    final_path = dest_dir / Path(location_href).name
+    if final_path.exists() and final_path.stat().st_size > 0:
+        return final_path
+
+    librepo = get_librepo()
+    h = librepo.Handle()
+    h.urls = [(location_base or repo_url).rstrip("/")]
+    h.repotype = librepo.YUMREPO
+    h.local = False
+    varsub = [("arch", arch), ("basearch", arch)]
+    if releasever:
+        varsub.append(("releasever", releasever))
+    h.varsub = varsub
+
+    target_kwargs: dict = dict(
+        relative_url=location_href,
+        dest=str(dest_dir),
+        handle=h,
+    )
+    if expected_pkg_id:
+        target_kwargs.update(
+            checksum_type=librepo.CHECKSUM_SHA256,
+            checksum=expected_pkg_id,
+        )
+    target = librepo.PackageTarget(**target_kwargs)
+    try:
+        librepo.download_packages([target], failfast=True)
+    except librepo.LibrepoException as exc:
+        raise RpmDownloadError(
+            f"librepo refused download of {location_href!r} "
+            f"from {(location_base or repo_url)!r}: {exc}"
+        ) from exc
+
+    if target.err:
+        raise RpmDownloadError(
+            f"failed to download {location_href!r} from "
+            f"{(location_base or repo_url)!r}: {target.err}"
+        )
+    return Path(target.local_path) if target.local_path else final_path
+
+
+def read_rpm_file_metadata(rpm_path: Path) -> dict[str, FileMeta]:
+    """Return ``path -> FileMeta`` for every file recorded in *rpm_path*.
+
+    Reads the package header via :mod:`rpm` (signature/digest checks
+    are deliberately disabled — the file came in over librepo, which
+    already verified the header SHA-256 against ``pkgId``, and we
+    only care about file metadata, not chain-of-trust here).
+
+    Ghost-flagged entries are returned as :class:`FileMeta` records
+    too: the caller already knows from filelists.xml whether a path
+    is a ghost on a given package, and the
+    ``rpmfilesCompare``-equivalent comparison short-circuits on
+    ghost before consulting :class:`FileMeta` anyway. We include
+    them so the returned mapping faithfully mirrors the RPM's full
+    file table.
+    """
+    rpm = get_rpm()
+    ts = rpm.TransactionSet()
+    # We only read the header — skip every signature / digest check
+    # to avoid false errors on packages signed with keys we don't
+    # have in the test environment.
+    ts.setVSFlags(
+        rpm.RPMVSF_MASK_NOSIGNATURES | rpm.RPMVSF_MASK_NODIGESTS
+    )
+
+    with open(rpm_path, "rb") as fh:
+        try:
+            hdr = ts.hdrFromFdno(rpm.fd(fh.fileno(), "r"))
+        except rpm.error as exc:
+            raise RepodataParseError(
+                f"failed to read RPM header from {rpm_path}: {exc}"
+            ) from exc
+
+    digest_algo = hdr[rpm.RPMTAG_FILEDIGESTALGO] or 0
+    files = rpm.files(hdr)
+    out: dict[str, FileMeta] = {}
+    for f in files:
+        out[f.name] = FileMeta(
+            fmode=int(f.mode),
+            user=str(f.user or ""),
+            group=str(f.group or ""),
+            size=int(f.size),
+            digest=str(f.digest or ""),
+            digest_algo=int(digest_algo),
+            linkto=str(f.linkto or ""),
+            rdev=int(f.rdev or 0),
+        )
+    return out

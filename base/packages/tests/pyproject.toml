@@ -26,12 +26,21 @@ dependencies = [
 # with dnf's. Document them in README "Prerequisites".
 #
 # * python3-librepo  — used by utils/repodata.py to fetch + verify +
-#                      decompress repomd/primary/filelists.
+#                      decompress repomd/primary/filelists, and to
+#                      download individual RPMs on demand for the
+#                      cross-repo file-conflicts test.
 # * python3-libdnf5  — used by utils/repoclosure.py to load metadata
 #                      into a libdnf5 Base/repo_sack and evaluate
 #                      `Requires` (including rich/boolean deps) via
 #                      libsolv's pool_satisfieddep_map. Same call
 #                      `dnf5 repoclosure` itself makes.
+# * python3-rpm      — used by utils/repodata.py to read per-file
+#                      metadata (mode/owner/group/size/digest/linkto)
+#                      out of downloaded RPM headers, so the
+#                      cross-repo file-conflicts test can mirror
+#                      RPM's own `rpmfilesCompare` rules. createrepo
+#                      XML and libdnf5 only expose path + type +
+#                      digest, not the rest.
 
 [build-system]
 requires = ["hatchling"]

@@ -1,10 +1,14 @@
 # SPDX-License-Identifier: MIT
-"""Every SRPM in the ``base-srpms`` repo must be build-time-closed
-against ``base + sdk`` binary repos.
+"""Every SRPM in the ``base-srpms`` and ``sdk-srpms`` repos must be
+build-time-closed against ``base + sdk`` binary repos.
 
-This asserts that for each source RPM in ``base-srpms``, its
-``BuildRequires:`` set is satisfiable by binary providers in
-``base ∪ sdk ∪ base-srpms``.
+This asserts that for each source RPM in ``base-srpms ∪ sdk-srpms``,
+its ``BuildRequires:`` set is satisfiable by binary providers in
+``base ∪ sdk ∪ base-srpms ∪ sdk-srpms``. The two SRPM channels are
+checked together because the underlying binary universe is the
+same: all of azldev's daily builds (regardless of publish channel)
+run against ``base + sdk`` binaries, so build-time closure is a
+single property over the union, not a per-channel one.
 
 How this maps to dnf5
 ---------------------
@@ -28,8 +32,8 @@ closure of any binary that participates as a provider are checked.
 Skip / fail behavior
 --------------------
 
-Hard-coded for ``base-srpms`` + ``base`` + ``sdk``. If any of those
-``--repo`` flags are missing, the test fails (see
+Hard-coded for ``base-srpms`` + ``sdk-srpms`` + ``base`` + ``sdk``.
+If any of those ``--repo`` flags are missing, the test fails (see
 :func:`require_named_repos` — release-gating closure tests are only
 meaningful with the full named repo set, and silently skipping a
 release-gating closure check is worse than failing loudly). Use
@@ -267,10 +271,10 @@ EXPECTED_MISSING_DEPS: dict[str, frozenset[str]] = {
 }
 
 
-def test_repoclosure_base_srpms_buildtime(
+def test_repoclosure_srpms_buildtime(
     arch: str, require_named_repos, repoclosure, subtests
 ) -> None:
-    srpms = require_named_repos(["base-srpms"], kind="srpm")
+    srpms = require_named_repos(["base-srpms", "sdk-srpms"], kind="srpm")
     binaries = require_named_repos(["base", "sdk"], kind="binary")
     result = repoclosure(
         target_repos=srpms,

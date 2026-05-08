@@ -113,19 +113,21 @@ Each entry covers:
   missing → fail.
 * **Failure:** per `(target-set, arch)`.
 
-### `test_repoclosure_base_srpms_buildtime.py`
+### `test_repoclosure_srpms_buildtime.py`
 
-* **Asserts:** Every SRPM in `base-srpms` is build-time-closed
-  against `base ∪ sdk`. RPM surfaces an SRPM's `BuildRequires:` as
-  `Requires:` on the source-arch package in primary metadata, so
-  walking the SRPM repo's requires against the binary universe
-  checks build-time closure naturally.
+* **Asserts:** Every SRPM in `base-srpms ∪ sdk-srpms` is
+  build-time-closed against `base ∪ sdk`. RPM surfaces an SRPM's
+  `BuildRequires:` as `Requires:` on the source-arch package in
+  primary metadata, so walking the SRPM repos' requires against the
+  binary universe checks build-time closure naturally. The two SRPM
+  channels are checked together because azldev's daily builds run
+  against `base + sdk` regardless of the SRPM's publish channel.
 * **Markers:** none — repos are hard-coded.
 * **Fan-out:** one test per arch.
 * **Fixtures:** `arch`, `require_named_repos`, `repoclosure` (used
   with `check_kind="buildtime"`).
-* **Fail behavior:** all of `{base-srpms, base, sdk}` provided →
-  run; any missing → fail.
+* **Fail behavior:** all of `{base-srpms, sdk-srpms, base, sdk}`
+  provided → run; any missing → fail.
 * **Failure:** per `(target-set, arch)`. The "buildtime" check kind
   examines packages of arch ∈ {*arch*, `noarch`, `src`, `nosrc`}, so
   findings include both unresolved BuildRequires *and* runtime breakage

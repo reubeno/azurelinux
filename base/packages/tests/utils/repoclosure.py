@@ -274,7 +274,7 @@ class Repoclosure:
         to_check_query.filter_latest_evr()
 
         # For "buildtime" we deliberately do NOT filter findings to
-        # ``target_repos`` — see test_repoclosure_base_srpms_buildtime
+        # ``target_repos`` — see test_repoclosure_srpms_buildtime
         # for the rationale (we MUST surface broken runtime closure of
         # binary providers from non-target repos that satisfy a
         # checked SRPM's BuildRequires; otherwise the check is moot).

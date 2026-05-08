@@ -51,7 +51,7 @@ run after the gap closes).
 
 This list is the *runtime*-closure baseline. Many of the same gaps
 also surface (with extra entries) in
-``test_repoclosure_base_srpms_buildtime.py``'s build-time
+``test_repoclosure_srpms_buildtime.py``'s build-time
 baseline; the two are intentionally independent so that fixing a
 runtime gap can land without coordinating a buildtime change.
 """

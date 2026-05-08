@@ -151,7 +151,7 @@ To run only against the `base` repo:
 * Tests scoped to other repo kinds/names will skip with a clear
   "no --repo matched markers ..." message.
 * Tests hard-coded for a specific repo set (e.g.
-  `test_repoclosure_base_plus_sdk`, `test_repoclosure_base_srpms_buildtime`)
+  `test_repoclosure_base_plus_sdk`, `test_repoclosure_srpms_buildtime`)
   fail loudly if any of their named repos are missing — they are
   release-gating invariants that are only meaningful with the full
   set provided. Use `pytest -k` / `--ignore` to deselect them

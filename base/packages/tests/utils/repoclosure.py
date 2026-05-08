@@ -38,8 +38,11 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Union
+
+import pytest
 
 from .repos import Repo
 from .types import NEVRA, RepoclosureResult
@@ -48,6 +51,14 @@ if TYPE_CHECKING:
     from .metadata import MetadataService
 
 logger = logging.getLogger(__name__)
+
+
+# Per-consumer allowlist value: either a flat frozenset (applies on
+# every arch) or a Mapping[arch_name, Iterable[dep_str]] (applies
+# only on the listed arches; other arches see the consumer as
+# absent from the allowlist entirely).
+ExpectedMissingValue = Union[frozenset[str], Mapping[str, Iterable[str]]]
+ExpectedMissingMap = Mapping[str, ExpectedMissingValue]
 
 
 # ---------------------------------------------------------------------------
@@ -359,3 +370,148 @@ def make_repoclosure(metadata_service: "MetadataService") -> Repoclosure:
     need libdnf5.
     """
     return Repoclosure(metadata_service)
+
+
+def _resolve_expected_for_arch(
+    expected: ExpectedMissingMap, arch: str,
+) -> dict[str, frozenset[str]]:
+    """Project ``expected`` down to the entries that apply on ``arch``.
+
+    A flat ``frozenset`` value applies on every arch. A ``Mapping``
+    value applies only on the arches it explicitly lists; consumers
+    whose entry is arch-gated and does not mention ``arch`` are
+    omitted from the projection (so they are treated as absent from
+    the allowlist on this arch — neither classified as expected
+    failures nor subject to the stale-entry safety rails).
+    """
+    out: dict[str, frozenset[str]] = {}
+    for name, entry in expected.items():
+        if isinstance(entry, frozenset):
+            out[name] = entry
+        elif isinstance(entry, Mapping):
+            arch_entry = entry.get(arch)
+            if arch_entry is not None:
+                out[name] = frozenset(arch_entry)
+        else:
+            raise TypeError(
+                f"EXPECTED_MISSING_DEPS[{name!r}] must be frozenset "
+                f"or Mapping[arch, Iterable[str]], got "
+                f"{type(entry).__name__}"
+            )
+    return out
+
+
+def assert_expected_missing(
+    result: RepoclosureResult,
+    arch: str,
+    expected: ExpectedMissingMap,
+    *,
+    subtests,
+    dep_kind: str = "dep",
+) -> None:
+    """Classify a :class:`RepoclosureResult` against an allowlist and
+    emit subtests for the four outcomes (real failure, expected
+    failure / xfail, stale-consumer, stale-dep).
+
+    ``expected`` is keyed by consumer name (no epoch/version/release
+    /arch). Each value is either a flat ``frozenset[str]`` of
+    permitted missing-dep strings (applies on every arch) or a
+    ``Mapping[arch_name, Iterable[str]]`` (applies only on the listed
+    arches; on other arches the consumer is treated as absent from
+    the allowlist).
+
+    ``dep_kind`` is the human word used in failure / xfail messages
+    (e.g. ``"dep"`` for build-time, ``"runtime dep"`` for runtime).
+    """
+    effective = _resolve_expected_for_arch(expected, arch)
+
+    # Aggregate observed (consumer_name, dep) pairs so the per-dep
+    # stale-entry safety rail can fire even when the consumer is
+    # still failing for other reasons.
+    observed_deps_by_name: dict[str, set[str]] = {}
+    for nevra, missing in result.unresolved.items():
+        observed_deps_by_name.setdefault(nevra.name, set()).update(missing)
+
+    # Classify each failing NEVRA: real fail, expected fail (XFAIL),
+    # or new-offender (consumer not in allowlist on this arch).
+    real_failures: dict[NEVRA, list[str]] = {}
+    expected_failures: dict[NEVRA, list[str]] = {}
+    for nevra, missing in result.unresolved.items():
+        listed = effective.get(nevra.name)
+        if listed is not None and set(missing).issubset(listed):
+            expected_failures[nevra] = missing
+        else:
+            real_failures[nevra] = missing
+
+    # Stale-entry safety rails -- both fire as real failures so the
+    # dict shrinks as gaps get fixed. Only consumers active on this
+    # arch (i.e. present in ``effective``) participate; arch-gated
+    # entries are silently inactive on non-matching arches.
+    stale_consumer_entries: list[str] = sorted(
+        name for name in effective
+        if name not in observed_deps_by_name
+    )
+    stale_dep_entries: list[tuple[str, str]] = sorted(
+        (name, dep)
+        for name, listed in effective.items()
+        if name in observed_deps_by_name
+        for dep in listed
+        if dep not in observed_deps_by_name[name]
+    )
+
+    for nevra in sorted(real_failures, key=str):
+        missing = real_failures[nevra]
+        repo = result.repos_by_nevra.get(nevra)
+        suffix = f" (from {repo!r})" if repo else ""
+        listed = effective.get(nevra.name, frozenset())
+        new_deps = sorted(set(missing) - listed)
+        with subtests.test(package=str(nevra), arch=arch):
+            if nevra.name not in effective:
+                pytest.fail(
+                    f"{nevra}{suffix} has unresolved {dep_kind}(s) "
+                    f"and the consumer name is not yet listed in "
+                    f"EXPECTED_MISSING_DEPS:\n"
+                    + "\n".join(f"  - {d}" for d in missing)
+                    + f"\n\nAdd a {nevra.name!r} entry to "
+                    f"EXPECTED_MISSING_DEPS if intentional."
+                )
+            pytest.fail(
+                f"{nevra}{suffix} has unresolved {dep_kind}(s):\n"
+                + "\n".join(f"  - {d}" for d in missing)
+                + f"\n\nNew (un-allowlisted) {dep_kind}(s) for "
+                f"{nevra.name!r} -- extend its EXPECTED_MISSING_DEPS "
+                f"entry if intentional:\n"
+                + "\n".join(f"  - {d}" for d in new_deps)
+            )
+
+    for nevra in sorted(expected_failures, key=str):
+        missing = expected_failures[nevra]
+        repo = result.repos_by_nevra.get(nevra)
+        suffix = f" (from {repo!r})" if repo else ""
+        with subtests.test(package=str(nevra), arch=arch):
+            pytest.xfail(
+                f"known-missing {dep_kind}(s) (tracked in "
+                f"EXPECTED_MISSING_DEPS[{nevra.name!r}]): "
+                f"{nevra}{suffix}:\n"
+                + "\n".join(f"  - {d}" for d in missing)
+            )
+
+    for name in stale_consumer_entries:
+        with subtests.test(consumer=name, arch=arch, kind="stale-consumer"):
+            pytest.fail(
+                f"consumer {name!r} is listed in "
+                f"EXPECTED_MISSING_DEPS but no NEVRA of that name "
+                f"is reporting unresolved deps on {arch}. Please "
+                f"remove the entry."
+            )
+
+    for name, dep in stale_dep_entries:
+        with subtests.test(
+            consumer=name, missing_dep=dep, arch=arch, kind="stale-dep",
+        ):
+            pytest.fail(
+                f"dep {dep!r} is listed in "
+                f"EXPECTED_MISSING_DEPS[{name!r}] but is no longer "
+                f"reported as missing for any NEVRA of {name!r} on "
+                f"{arch}. Please remove that dep from the entry."
+            )

@@ -59,7 +59,12 @@ azl_repo = "utils.pytest_plugin"
 # Captured logs are still attached to *failed* tests by default, so
 # diagnostic info is available when something goes wrong without
 # flooding stdout for green runs.
-addopts = ["--tb=short", "--import-mode=importlib"]
+#
+# ``-rxX`` adds an ``XFAIL`` / ``XPASS`` block to the short test
+# summary so tracked-but-tolerated violations (see the
+# ``EXPECTED_FAILURES`` dicts in individual test modules) stay
+# visible even when running without ``-v``.
+addopts = ["--tb=short", "--import-mode=importlib", "-rxX"]
 log_cli = false
 log_cli_level = "WARNING"
 log_format = "%(asctime)s %(levelname)-5s %(name)s: %(message)s"

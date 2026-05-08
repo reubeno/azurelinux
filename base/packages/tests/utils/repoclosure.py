@@ -1,16 +1,34 @@
 # SPDX-License-Identifier: MIT
-"""In-process repoclosure using ``hawkey`` (libsolv).
+"""In-process repoclosure using ``libdnf5`` (libsolv).
 
-This module replaces the previous backend abstraction (``host`` and
-``container`` flavours that shelled out to ``dnf5 repoclosure``) with
-a single in-process implementation. Because ``hawkey`` is the same
-library ``dnf`` uses internally for solver work, the semantics match
-``dnf repoclosure``'s own "for each package, check that every
-``Requires:`` has a provider in the loaded sack" — but without the
-subprocess plumbing, the JSON-vs-text output schema-drift handling,
-the ``--json`` capability probe, the bind-mount/SELinux relabel
-gymnastics, or the host-vs-container split that existed only because
-older host ``dnf5`` lacked ``--json``.
+This module mirrors what ``dnf5 repoclosure`` itself does — it builds
+a :class:`libdnf5.base.Base`, loads each universe repo, and asks
+libsolv (via :class:`libdnf5.rpm.PackageQuery.is_dep_satisfied`)
+whether each ``Requires:`` of every checked package is satisfied.
+
+Why ``libdnf5`` rather than ``hawkey`` directly
+-----------------------------------------------
+
+Earlier revisions of this module used ``hawkey.Query.filter(provides=)``
+to look up providers. That works fine for plain (name [op evr]) deps
+but is the **wrong API** for rich/boolean dependencies — for an entry
+like ``(foo if bar)`` it asks libsolv to find a Solvable that
+literally provides the rich expression as a single Provides string,
+which never matches; the conditional is not evaluated. The result was
+a flood of false-positive closure violations any time an upstream
+package used rich deps (which Fedora-derived packages do
+extensively, e.g. ``(appstream-data if PackageKit)``,
+``(kernel-rt-devel if kernel-rt-core)``).
+
+``PackageQuery.is_dep_satisfied`` calls libsolv's
+``pool_satisfieddep_map`` directly, which evaluates the full rich
+grammar — ``if`` / ``unless`` / ``and`` / ``or`` / ``with`` /
+``else`` — against the loaded universe. A conditional whose
+trigger-side has no provider in the universe is correctly reported
+as satisfied, because the consequence-side never fires. This is the
+same call the upstream ``dnf5-plugins/repoclosure_plugin``
+(``repoclosure.cpp``) makes, so our findings now match
+``dnf5 repoclosure``'s own.
 
 Tests do not import this directly — they consume the ``repoclosure``
 fixture in ``conftest.py``.
@@ -19,7 +37,9 @@ fixture in ``conftest.py``.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+import os
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from .repos import Repo
 from .types import NEVRA, RepoclosureResult
@@ -28,17 +48,6 @@ if TYPE_CHECKING:
     from .metadata import MetadataService
 
 logger = logging.getLogger(__name__)
-
-
-# Suppress hawkey's "use dnf.repo.Repo instead" DeprecationWarning. We
-# deliberately use ``hawkey.Repo`` (via the underlying C class
-# ``hawkey._hawkey.Repo``) because it lets us point the sack at
-# already-downloaded metadata files without pulling in the full
-# dnf.Base initialisation cost (which is what dnf.repo.Repo expects).
-# The deprecation has been "scheduled for 2019-12-31" since libdnf
-# 0.x and shows no sign of actually happening; using the C class
-# directly bypasses the warning, which the Python wrapper emits via
-# ``warnings.simplefilter('always')`` (overriding any user filter).
 
 
 # ---------------------------------------------------------------------------
@@ -87,57 +96,106 @@ def _arches_to_check(check_kind: str, arch: str) -> set[str] | None:
 # ---------------------------------------------------------------------------
 
 
-# Requires that the solver pretends are real but that no actual
-# package can satisfy. ``rpmlib(...)`` encodes runtime capabilities
-# of the rpm tool itself (e.g. ``rpmlib(CompressedFileNames)``) —
-# rpm-the-tool provides them implicitly at install time, not any
-# RPM in the repo, so a literal provider lookup never finds one.
-# ``solvable:prereqmarker`` is libsolv's internal marker between
-# Requires and PreReq lists. dnf's own repoclosure ignores both.
-def _is_synthetic_dep(name: str) -> bool:
-    return name.startswith("rpmlib(") or name == "solvable:prereqmarker"
-
-
 class Repoclosure:
-    """Run hawkey-based repoclosure against a set of repos.
+    """Run libdnf5-based repoclosure against a set of repos.
 
     Holds a reference to the :class:`MetadataService` so it can reuse
     the same on-disk metadata cache the metadata-only tests already
-    populated (no double fetch).
+    populated (no double fetch — libdnf5 loads from a ``file://`` URL
+    pointing at librepo's destdir).
     """
 
     def __init__(self, metadata_service: "MetadataService") -> None:
         self._metadata = metadata_service
 
-    def _build_sack(self, repos: list[Repo], arch: str) -> object:
-        """Build a hawkey ``Sack`` containing every repo's metadata."""
-        # Lazy-load via the dnf-stack helper so a missing system
-        # ``python3-hawkey`` surfaces as a clear, actionable error
-        # naming the package to install (rather than a bare
-        # ``ModuleNotFoundError`` deep in the import chain that breaks
-        # ``pytest --collect-only``).
-        from ._dnf_stack import get_hawkey
-        hawkey = get_hawkey()
+    # ------------------------------------------------------------------
+    # libdnf5 setup
+    # ------------------------------------------------------------------
 
-        sack = hawkey.Sack(arch=arch, make_cache_dir=False)
-        # Hawkey doesn't have a session-cache concept the way dnf
-        # does; loading from the librepo destdir is direct.
+    def _libdnf5_cache_dir(self, arch: str) -> Path:
+        """Per-arch cache dir for libdnf5's own metadata mirror.
+
+        libdnf5 writes its own copy of repomd/primary/filelists into
+        this directory when ``load_repos`` is called — even when the
+        source URL is ``file://``. Scoping by arch keeps multiple
+        ``--arch`` runs from clobbering each other; scoping by xdist
+        worker mirrors :meth:`MetadataService.cache_dir_for` so
+        parallel workers never share a cache and never race on writes.
+        We deliberately reuse this across :meth:`run` invocations
+        (rather than creating a fresh tempdir per call) so the second
+        and later calls for the same arch hit a warm cache.
+        """
+        worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
+        return self._metadata._workdir / "libdnf5-cache" / worker / arch
+
+    def _build_base(
+        self,
+        repos: list[Repo],
+        arch: str,
+    ) -> Any:
+        """Build a fully loaded :class:`libdnf5.base.Base` for *repos* at *arch*.
+
+        Each call produces a fresh ``Base`` because libdnf5 doesn't
+        support reconfiguring an already-set-up Base. Callers that
+        need to run several queries against the same universe should
+        do so via the returned object rather than rebuilding.
+        """
+        from ._dnf_stack import get_libdnf5
+        libdnf5 = get_libdnf5()
+
+        base = libdnf5.base.Base()
+        config = base.get_config()
+
+        cache_dir = self._libdnf5_cache_dir(arch)
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        config.get_cachedir_option().set(str(cache_dir))
+        # /var/empty is owned by root and intentionally empty on
+        # Fedora/AZL/RHEL; pointing installroot at it stops libdnf5
+        # from reading the host's rpm db / dnf config / system
+        # metadata and keeps the run hermetic. We never install
+        # anything — Base is purely a query surface here.
+        config.get_installroot_option().set("/var/empty")
+        # Filelists are required because some packages in the repos
+        # under test have file-path Requires (e.g. ``Requires:
+        # /usr/bin/python3``) that only the filelists metadata can
+        # satisfy. The same Option.add() pattern dnf5 itself uses.
+        config.get_optional_metadata_types_option().add(
+            libdnf5.conf.Option.Priority_RUNTIME, "filelists"
+        )
+
+        # Override the target architecture via Vars *before*
+        # ``setup()``. libdnf5 derives the default ``arch`` /
+        # ``basearch`` from the running kernel; without this override,
+        # checking aarch64 closure on an x86_64 host would silently
+        # filter out all aarch64 packages (because libsolv treats
+        # foreign-arch solvables as uninstallable on the configured
+        # arch). We set ``arch`` and ``basearch`` to the same value
+        # because URL substitution and solver-arch checks each look
+        # at one or the other (matching dnf5's own convention).
+        vars_ = base.get_vars().get()
+        vars_.set("arch", arch, libdnf5.conf.Vars.Priority_RUNTIME)
+        vars_.set("basearch", arch, libdnf5.conf.Vars.Priority_RUNTIME)
+
+        base.setup()
+
+        repo_sack = base.get_repo_sack()
         for repo in repos:
-            layout = self._metadata.fetch(repo, arch)
-            # Use the underlying C class ``hawkey._hawkey.Repo`` (rather
-            # than the Python ``hawkey.Repo`` subclass) to avoid the
-            # always-on deprecation warning the Python wrapper emits.
-            # See module docstring — this is intentional, not an
-            # over-reach into a private name.
-            hk_repo = hawkey._hawkey.Repo(repo.name)
-            hk_repo.repomd_fn = str(layout.repomd)
-            hk_repo.primary_fn = str(layout.primary)
-            hk_repo.filelists_fn = str(layout.filelists)
-            # ``load_filelists=True`` makes file-path Requires
-            # (e.g. ``Requires: /usr/bin/python3``) resolvable via
-            # filelists, matching dnf's default behaviour.
-            sack.load_repo(hk_repo, load_filelists=True)
-        return sack
+            # Force a librepo fetch (or cache hit) for the source repo
+            # so the destdir is guaranteed to contain a valid
+            # ``repodata/repomd.xml`` before libdnf5 looks at it.
+            self._metadata.fetch(repo, arch)
+            destdir = self._metadata.cache_dir_for(repo, arch)
+            ld_repo = repo_sack.create_repo(repo.name)
+            ld_repo.get_config().get_baseurl_option().set(
+                [f"file://{destdir}"]
+            )
+
+        repo_sack.load_repos(libdnf5.repo.Repo.Type_AVAILABLE)
+        return base
+
+    # ------------------------------------------------------------------
+    # Public entry point
+    # ------------------------------------------------------------------
 
     def run(
         self,
@@ -156,70 +214,129 @@ class Repoclosure:
         if universe_repos is None:
             universe_repos = target_repos
         universe_names = {r.name for r in universe_repos}
-        missing_targets = [r.name for r in target_repos if r.name not in universe_names]
+        missing_targets = [
+            r.name for r in target_repos if r.name not in universe_names
+        ]
         if missing_targets:
             raise ValueError(
                 f"target_repos {missing_targets} are not in universe_repos "
                 f"{sorted(universe_names)}"
             )
 
-        from ._dnf_stack import get_hawkey
-        hawkey = get_hawkey()
+        from ._dnf_stack import get_libdnf5
+        libdnf5 = get_libdnf5()
 
-        sack = self._build_sack(universe_repos, arch)
-        check_arches = _arches_to_check(check_kind, arch)
+        base = self._build_base(universe_repos, arch)
 
-        target_names = tuple(r.name for r in target_repos)
+        # ``available_query`` is the set of providers the solver may
+        # use to satisfy any dep — the full universe filtered to the
+        # *latest EVR per name*. This matches ``dnf5 repoclosure``'s
+        # default behaviour (``best=1``): the universe of "what dnf
+        # would actually pick at install time" is what closure should
+        # be evaluated against, not "any version that ever existed in
+        # the repo". Without this filter, a partial-rebuild scenario
+        # where a published repo carries N-1 of every subpackage but
+        # only N for the parent would falsely close — the parent's
+        # ``Requires: subpkg = N`` would resolve against the still-
+        # present N-1 build of a peer subpackage, even though dnf
+        # would never actually combine them. With the filter, the
+        # mismatch surfaces (which is exactly what catches the
+        # kernel/anaconda/azurelinux-release partial-rebuild bugs in
+        # real Koji output).
+        #
+        # ``to_check_query`` is ALSO filtered to latest EVR per name,
+        # which deviates from ``dnf5 repoclosure`` (it checks every
+        # NEVRA). The deviation removes a class of stale-EVR noise:
+        # when the published repo carries both N-1 and N of a
+        # tightly-pinned package family (e.g. all of
+        # ``azurelinux-release-*`` exists at both ``-12.azl4`` and
+        # ``-13.azl4``), dnf5 reports the older ``-12.azl4`` set as
+        # broken because the latest-EVR filter on the available side
+        # leaves only ``-13.azl4`` peers — i.e. "you can no longer
+        # downgrade to ``-12.azl4``". That is technically true but
+        # not actionable: the repo's *latest installable* state is
+        # the only thing closure is meant to validate. Filtering the
+        # to-check side too means we only ask "what would
+        # ``dnf install <pkg>`` actually pick, and does it close?".
+        # This still catches the kernel/anaconda style
+        # version-pinning bugs (those have a *single* EVR that pins
+        # a *missing* peer, not an *older* EVR pinning an older but
+        # present peer), so no real signal is lost.
+        available_query = libdnf5.rpm.PackageQuery(base)
+        available_query.filter_latest_evr()
+        to_check_query = libdnf5.rpm.PackageQuery(base)
+        to_check_query.filter_latest_evr()
+
         # For "buildtime" we deliberately do NOT filter findings to
         # ``target_repos`` — see test_repoclosure_base_srpms_buildtime
-        # for the rationale (we MUST surface broken runtime closure
-        # of binary providers from non-target repos that satisfy a
+        # for the rationale (we MUST surface broken runtime closure of
+        # binary providers from non-target repos that satisfy a
         # checked SRPM's BuildRequires; otherwise the check is moot).
-        # For other kinds we filter to packages whose owning repo is
-        # in ``target_repos``.
-        target_filter = (
-            None if check_kind == "buildtime" else {r.name for r in target_repos}
-        )
+        if check_kind != "buildtime":
+            to_check_query.filter_repo_id([r.name for r in target_repos])
 
-        # Walk every checked package and verify each Requires has a
-        # provider in the loaded sack.
+        check_arches = _arches_to_check(check_kind, arch)
+        if check_arches is not None:
+            to_check_query.filter_arch(sorted(check_arches))
+
+        # Cache reldep -> satisfied? by the libsolv reldep id. The
+        # same reldep is shared across many packages, so this turns
+        # an O(packages × deps) lookup loop into roughly O(distinct
+        # reldeps) — exactly what dnf5's own repoclosure plugin does.
+        resolved: dict[int, bool] = {}
+
         unresolved: dict[NEVRA, list[str]] = {}
         repos_by_nevra: dict[NEVRA, str] = {}
 
-        all_pkgs = hawkey.Query(sack).run()
-        for pkg in all_pkgs:
-            if check_arches is not None and pkg.arch not in check_arches:
-                continue
-            if target_filter is not None and pkg.reponame not in target_filter:
-                continue
+        for pkg in to_check_query:
             missing: list[str] = []
-            for req in pkg.requires:
-                req_str = str(req)
-                if _is_synthetic_dep(req_str):
-                    continue
-                if not hawkey.Query(sack).filter(provides=req).run():
-                    missing.append(req_str)
+            for reldep in pkg.get_requires():
+                rid = reldep.get_id().id
+                cached = resolved.get(rid)
+                if cached is None:
+                    sat = available_query.is_dep_satisfied(reldep)
+                    resolved[rid] = sat
+                else:
+                    sat = cached
+                if not sat:
+                    missing.append(reldep.to_string())
             if not missing:
                 continue
+            # Deduplicate while preserving order (a single Requires:
+            # entry can appear more than once on a package via
+            # weak-dep machinery in some upstream specs).
+            seen: set[str] = set()
+            unique_missing: list[str] = []
+            for entry in missing:
+                if entry in seen:
+                    continue
+                seen.add(entry)
+                unique_missing.append(entry)
+
+            epoch_str = pkg.get_epoch() or "0"
+            try:
+                epoch_int = int(epoch_str)
+            except ValueError:
+                epoch_int = 0
             nevra = NEVRA(
-                name=pkg.name,
-                epoch=int(pkg.epoch),
-                version=pkg.version,
-                release=pkg.release,
-                arch=pkg.arch,
+                name=pkg.get_name(),
+                epoch=epoch_int,
+                version=pkg.get_version(),
+                release=pkg.get_release(),
+                arch=pkg.get_arch(),
             )
-            unresolved[nevra] = missing
-            repos_by_nevra[nevra] = pkg.reponame
+            unresolved[nevra] = unique_missing
+            repos_by_nevra[nevra] = pkg.get_repo_id()
 
         result = RepoclosureResult(
-            target_repo_names=target_names,
+            target_repo_names=tuple(r.name for r in target_repos),
             arch=arch,
             unresolved=unresolved,
             repos_by_nevra=repos_by_nevra,
         )
         logger.debug(
             "repoclosure(%s, arch=%s, kind=%s): %d unresolved package(s)",
-            target_names, arch, check_kind, len(unresolved),
+            result.target_repo_names, arch, check_kind, len(unresolved),
         )
         return result
 
@@ -227,12 +344,12 @@ class Repoclosure:
 def make_repoclosure(metadata_service: "MetadataService") -> Repoclosure:
     """Construct a :class:`Repoclosure`.
 
-    Hawkey availability is checked lazily on first use (via
-    :func:`utils._dnf_stack.get_hawkey`) — the resulting
+    libdnf5 availability is checked lazily on first use (via
+    :func:`utils._dnf_stack.get_libdnf5`) — the resulting
     :class:`MissingDependencyError` carries an actionable install
     message — so we don't probe at construction time. Doing so here
     would run during fixture setup for *every* invocation, including
     sessions that select only metadata-only tests and never actually
-    need hawkey.
+    need libdnf5.
     """
     return Repoclosure(metadata_service)

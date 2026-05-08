@@ -45,7 +45,7 @@ existing tests and the recipe for adding new ones, see
                                  │                   │
                     ┌────────────▼─────────┐  ┌──────▼─────────────┐
    utils/           │  repodata.py         │  │  repoclosure.py    │
-   (implementation) │  librepo + createrepo│  │  hawkey (libsolv)  │
+   (implementation) │  librepo + createrepo│  │  libdnf5 (libsolv) │
                     └──────────────────────┘  └────────────────────┘
 ```
 
@@ -63,8 +63,13 @@ canonical dnf-stack libraries:
   `$basearch` / `$releasever` in URLs.
 * **`createrepo_c`** (PyPI; pure-C bindings) — parses primary and
   filelists into typed `Package` objects via libxml2 (streaming).
-* **`hawkey`** (`python3-hawkey`, libsolv bindings) — loads the
-  fetched metadata into a sack and walks `Requires` for repoclosure.
+* **`libdnf5`** (`python3-libdnf5`, libsolv bindings) — loads the
+  fetched metadata into a Base/repo_sack and evaluates rich-dep
+  requirements via `pool_satisfieddep_map` (the same call
+  `dnf5 repoclosure` makes). Rich expressions like `(foo if bar)`,
+  `(foo with bar)`, `(foo unless bar)` are evaluated as boolean
+  conditionals over the available providers — no special handling
+  in our code.
 
 All three are the same libraries `dnf` itself uses internally, so
 the suite's metadata interpretation is guaranteed to match dnf's
@@ -188,9 +193,12 @@ the high-level operations the fixtures need:
 
 ### `Repoclosure` (`utils/repoclosure.py`)
 
-In-process repoclosure runner. Loads each repo's metadata into a
-`hawkey.Sack`, walks every checked package's `Requires`, and reports
-each requirement that has no provider in the universe.
+In-process repoclosure runner. Builds a `libdnf5.base.Base`, loads
+each universe repo from the librepo-fetched cache as a `file://`
+mirror, and for each checked package walks every `Requires` entry
+through `PackageQuery.is_dep_satisfied` (libsolv's native rich-dep
+evaluator). Reports each requirement that has no provider in the
+universe.
 
 ```python
 def run(
@@ -221,10 +229,35 @@ contribute providers. `check_kind` selects which package arches the
   surfaced even though its source repo is not in `target_repos`.
 * `"all"` — no arch filter on the checker.
 
-`hawkey` is the libsolv binding `dnf` itself uses for solver work,
-so the semantics match `dnf repoclosure`'s own "every Requires must
-have a provider" rule. There is no subprocess shell-out; no JSON-vs-text
-output schema-drift handling; no `--json` capability probe; no
+`libdnf5` is the libsolv binding `dnf5 repoclosure` itself uses, so
+the rich-dep semantics match exactly: every `Requires` must have a
+provider in the universe filtered to latest EVR per name (the
+`best=1` model dnf uses at install time). Rich/boolean dependencies
+(`if`, `unless`, `with`, `or`, `and`, `else`) are evaluated
+correctly without any special handling in our code —
+`pool_satisfieddep_map` treats them as boolean conditionals over
+the available providers, so a `(foo if bar)` whose trigger has no
+provider is correctly reported as satisfied.
+
+We deliberately deviate from `dnf5 repoclosure` in **one** place:
+the *to-check* set is also filtered to latest EVR per name. Stock
+`dnf5 repoclosure` walks every NEVRA in the target repo, which
+means a snapshot that publishes both N-1 and N of a tightly-pinned
+package family (e.g. all of `azurelinux-release-*` carried at both
+`-12.azl4` and `-13.azl4` mid-rebuild) reports the older `-12.azl4`
+set as broken — its peers were filtered out by the latest-EVR
+filter on the available side. That signal is technically true ("you
+can no longer downgrade to `-12.azl4`") but not actionable: the
+repo's *latest installable* state is the only thing closure is
+meant to validate. Filtering the to-check side too means we
+effectively ask *"would `dnf install <pkg>` actually pick a
+closeable set?"* This still catches kernel/anaconda-style
+version-pinning bugs (those have a *single* EVR pinning a
+*missing* peer, not an *older* EVR pinning an older but present
+peer), so no real signal is lost.
+
+There is no subprocess shell-out; no JSON-vs-text output
+schema-drift handling; no `--json` capability probe; no
 host-vs-container backend split. The previous abstraction existed
 only because older host `dnf5` builds lacked `--json`, which is
 irrelevant when we drive the solver in-process.
@@ -251,19 +284,32 @@ codepaths are now guaranteed to interpret repodata identically.
 
 ### `utils/repoclosure.py`
 
-A thin wrapper over `hawkey`. `Repoclosure.run` builds a
-`hawkey.Sack`, loads each universe repo from the librepo-fetched
-metadata files (reusing the `MetadataService` cache), and walks
-every checked package's `Requires` looking for entries with no
-provider. `rpmlib(...)` and similar synthetic deps are filtered
-(matching `dnf repoclosure`'s own behaviour).
+A thin wrapper over `libdnf5`. `Repoclosure.run` builds a
+`libdnf5.base.Base`, loads each universe repo from the
+librepo-fetched cache (reusing the `MetadataService` cache as a
+`file://` mirror), filters BOTH the available-providers query and
+the to-check query to latest EVR per name (see semantics
+discussion above), and walks every checked package's `Requires`
+looking for entries that `PackageQuery.is_dep_satisfied` reports
+as unsatisfied. `rpmlib(...)` and `solvable:prereqmarker` synthetic
+deps are already filtered by libdnf5 (matching `dnf5 repoclosure`'s
+own behaviour).
 
 The previous implementation shelled out to `dnf5 repoclosure` and
 parsed its output (JSON when available, falling back to a
 line-oriented text parser); it shipped two backends (host and
 container) plus an output-format-capability probe and per-finding
 NEVRA reparser. All of that is gone — we just call libsolv via
-hawkey, in-process, with a few dozen lines.
+libdnf5, in-process, with a few dozen lines.
+
+An earlier in-process revision used `hawkey.Query.filter(provides=)`
+on each Requires entry. That looked correct but actually treated
+rich expressions as literal Provides strings (libsolv was being
+asked "does any Solvable literally Provides the string
+`(foo if bar)`?", which is never true), so every rich dep was
+reported as unresolved. `libdnf5.rpm.PackageQuery.is_dep_satisfied`
+is the call `dnf5 repoclosure` itself uses; it routes through
+`pool_satisfieddep_map`, which evaluates the full rich grammar.
 
 ## Caching strategy
 
@@ -308,7 +354,7 @@ libraries:
 
 * **Eliminates the host-vs-container backend split.** The split
   existed only because older host `dnf5` builds lacked
-  `repoclosure --json`. Driving libsolv in-process via hawkey makes
+  `repoclosure --json`. Driving libsolv in-process via libdnf5 makes
   output parsing irrelevant — there is no output.
 * **Removes ~1300 lines of infra code** (XML iterparse, HTTP retry
   loop, checksum verify, decompression fallbacks, JSON-vs-text
@@ -320,8 +366,8 @@ libraries:
   invocation; metadata is parsed once per session and reused by
   every dependent test.
 
-The three new requirements are system packages (`python3-librepo`,
-`python3-hawkey`, `python3-libdnf`), not pip-installable wheels.
+The two new requirements are system packages (`python3-librepo`,
+`python3-libdnf5`), not pip-installable wheels.
 This is consistent with the previous host-backend requirement on
 the `dnf5` binary; users running the suite in a Fedora/AZL/RHEL
 container or on those distros already have them. See

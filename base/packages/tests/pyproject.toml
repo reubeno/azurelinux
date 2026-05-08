@@ -27,10 +27,11 @@ dependencies = [
 #
 # * python3-librepo  — used by utils/repodata.py to fetch + verify +
 #                      decompress repomd/primary/filelists.
-# * python3-hawkey   — used by utils/repodata.py's repoclosure to
-#                      load metadata into a libsolv sack and walk
-#                      requires/provides.
-# * python3-libdnf   — pulled in transitively by python3-hawkey.
+# * python3-libdnf5  — used by utils/repoclosure.py to load metadata
+#                      into a libdnf5 Base/repo_sack and evaluate
+#                      `Requires` (including rich/boolean deps) via
+#                      libsolv's pool_satisfieddep_map. Same call
+#                      `dnf5 repoclosure` itself makes.
 
 [build-system]
 requires = ["hatchling"]

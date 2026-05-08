@@ -16,17 +16,16 @@ Two concerns drive this module:
    redirecting fd 2 to ``/dev/null`` for the duration of the import
    only, so any *real* parser errors during later use still surface.
 
-2. **`librepo` / `hawkey` are NOT pip-installable system packages.**
+2. **`librepo` / `libdnf5` are NOT pip-installable system packages.**
    Their PyPI presence is essentially nil; users must install
-   ``python3-librepo`` / ``python3-hawkey`` (and their transitive
-   ``python3-libdnf``) via the system package manager. Importing them
-   eagerly at module load time would break ``pytest --collect-only``
-   and ``pytest --help`` whenever the system packages aren't visible
-   to the active interpreter (e.g. when running inside a ``uv``-managed
-   isolated venv, which has no equivalent of
-   ``--system-site-packages``). We therefore lazy-import them at first
-   use and surface a clear, actionable error message naming the
-   system package to install.
+   ``python3-librepo`` / ``python3-libdnf5`` via the system package
+   manager. Importing them eagerly at module load time would break
+   ``pytest --collect-only`` and ``pytest --help`` whenever the
+   system packages aren't visible to the active interpreter (e.g.
+   when running inside a ``uv``-managed isolated venv, which has no
+   equivalent of ``--system-site-packages``). We therefore lazy-import
+   them at first use and surface a clear, actionable error message
+   naming the system package to install.
 """
 
 from __future__ import annotations
@@ -99,21 +98,41 @@ def get_librepo() -> Any:
 
 
 # ---------------------------------------------------------------------------
-# hawkey — lazy, system package
+# libdnf5 — lazy, system package
 # ---------------------------------------------------------------------------
 
 
-def get_hawkey() -> Any:
-    """Import and return the ``hawkey`` module, with a clear missing-dep error."""
+def get_libdnf5() -> Any:
+    """Import and return the ``libdnf5`` package, with a clear missing-dep error.
+
+    Returns the top-level ``libdnf5`` package; submodules
+    (``libdnf5.base``, ``libdnf5.rpm``, ``libdnf5.repo``,
+    ``libdnf5.conf``) are accessed via attribute lookup. We
+    deliberately import the umbrella package only so this loader stays
+    a single-line probe; the consumer (:mod:`utils.repoclosure`) does
+    its own ``import libdnf5.base`` etc. once it has confirmed the
+    package is installed.
+    """
     try:
-        import hawkey  # noqa: PLC0415 (intentional lazy import)
+        import libdnf5  # noqa: PLC0415 (intentional lazy import)
+        # Submodule imports are what the consumer actually calls; do
+        # them here so a partial install (umbrella present, submodules
+        # missing) surfaces as the same "install python3-libdnf5"
+        # error rather than a confusing AttributeError later.
+        import libdnf5.base  # noqa: F401, PLC0415
+        import libdnf5.conf  # noqa: F401, PLC0415
+        import libdnf5.repo  # noqa: F401, PLC0415
+        import libdnf5.rpm  # noqa: F401, PLC0415
     except ImportError as exc:
         raise _missing_dep_error(
-            "hawkey",
-            system_package="python3-hawkey",
-            purpose="running repoclosure (load metadata into a libsolv sack)",
+            "libdnf5",
+            system_package="python3-libdnf5",
+            purpose=(
+                "running repoclosure (libsolv-backed dependency "
+                "evaluation, including rich/boolean deps)"
+            ),
         ) from exc
-    return hawkey
+    return libdnf5
 
 
 # ---------------------------------------------------------------------------

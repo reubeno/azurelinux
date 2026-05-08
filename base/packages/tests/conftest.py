@@ -121,7 +121,7 @@ def metadata_service(workdir: Path, releasever: str | None) -> MetadataService:
 
 @pytest.fixture(scope="session")
 def _repoclosure_runner(metadata_service: MetadataService) -> Repoclosure:
-    """The hawkey-backed in-process repoclosure runner.
+    """The libdnf5-backed in-process repoclosure runner.
 
     Tests should not call this directly — use the ``repoclosure``
     fixture instead. The metadata cache is shared with

@@ -115,15 +115,14 @@ class Repoclosure:
     def _libdnf5_cache_dir(self, arch: str) -> Path:
         """Per-arch cache dir for libdnf5's own metadata mirror.
 
-        libdnf5 writes its own copy of repomd/primary/filelists into
-        this directory when ``load_repos`` is called — even when the
-        source URL is ``file://``. Scoping by arch keeps multiple
-        ``--arch`` runs from clobbering each other; scoping by xdist
-        worker mirrors :meth:`MetadataService.cache_dir_for` so
-        parallel workers never share a cache and never race on writes.
-        We deliberately reuse this across :meth:`run` invocations
-        (rather than creating a fresh tempdir per call) so the second
-        and later calls for the same arch hit a warm cache.
+        libdnf5 fetches repomd/primary/filelists/other/updateinfo into
+        this directory the first time ``load_repos`` is called. Scoping
+        by arch keeps multiple ``--arch`` runs from clobbering each
+        other; scoping by xdist worker mirrors
+        :meth:`MetadataService.cache_dir_for` so parallel workers never
+        share a cache and never race on writes. Reused across
+        :meth:`run` invocations so the second and later calls for the
+        same arch hit a warm cache.
         """
         worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
         return self._metadata._workdir / "libdnf5-cache" / worker / arch
@@ -180,15 +179,22 @@ class Repoclosure:
 
         repo_sack = base.get_repo_sack()
         for repo in repos:
-            # Force a librepo fetch (or cache hit) for the source repo
-            # so the destdir is guaranteed to contain a valid
-            # ``repodata/repomd.xml`` before libdnf5 looks at it.
-            self._metadata.fetch(repo, arch)
-            destdir = self._metadata.cache_dir_for(repo, arch)
             ld_repo = repo_sack.create_repo(repo.name)
-            ld_repo.get_config().get_baseurl_option().set(
-                [f"file://{destdir}"]
-            )
+            # Hand libdnf5 the original repo URL (with $basearch /
+            # $releasever placeholders intact — libdnf5 substitutes
+            # via the Vars we just set above) and let it fetch +
+            # cache via its own librepo handle into the cachedir we
+            # configured. Earlier revisions tried to share our
+            # MetadataService.fetch() destdir as a ``file://`` baseurl
+            # to avoid the second fetch, but that fights both layers:
+            # libdnf5's internal librepo treats ``file://`` baseurl
+            # as a remote mirror and (a) demands every record listed
+            # in repomd.xml (other.xml.zst, updateinfo.xml.zst — not
+            # what our fetch_repo asks for), and (b) refuses to start
+            # if the destdir is already populated. The "double fetch"
+            # is roughly 10MB per repo, paid once per session; the
+            # win in fragility / clarity is well worth it.
+            ld_repo.get_config().get_baseurl_option().set([repo.url])
 
         repo_sack.load_repos(libdnf5.repo.Repo.Type_AVAILABLE)
         return base

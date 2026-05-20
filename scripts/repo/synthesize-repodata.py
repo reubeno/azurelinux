@@ -69,8 +69,20 @@ DEFAULT_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_ARCHES = ("x86_64", "aarch64")
 SRPM_ARCH = "src"
 CHANNEL_PREFIX = "rpm-"
+# azldev encodes a per-subrepo channel of the form
+# ``rpm-<channel>[-<kind>]`` where ``<channel>`` is the destination
+# channel name (e.g. ``base``/``sdk``) and the optional ``<kind>``
+# suffix marks the subrepo kind that the row was emitted for:
+#   * no suffix       -> main binary rpms
+#   * ``-srpm``       -> source rpms
+#   * ``-debuginfo``  -> debuginfo / debugsource binary rpms
+# The synthesize tool only cares about the channel; the subrepo kind is
+# already determined by the universe entry's kind (KIND_MAIN /
+# KIND_SRPMS / KIND_DEBUGINFO), so the suffix is stripped during parsing.
+CHANNEL_KIND_SUFFIXES: tuple[str, ...] = ("-srpm", "-debuginfo")
 # The fixed Standard Azure Linux Repo Layout has exactly two output channels.
-# Anything else returned by azldev is treated as unpublished (and reported).
+# Anything else returned by azldev (after suffix-stripping) is treated as
+# unpublished (and reported).
 ALLOWED_OUTPUT_CHANNELS = frozenset(CHANNELS)
 
 # HTTP knobs for repodata fetches.
@@ -561,6 +573,31 @@ class AzldevRouting:
     foreign_names: set[str] = field(default_factory=set)
 
 
+def _normalize_publish_channel(raw_channel: str) -> str:
+    """Extract the destination channel from an azldev ``publishChannel``.
+
+    azldev publishes channel names as ``rpm-<channel>[-<kind>]`` (see the
+    notes alongside :data:`CHANNEL_PREFIX` / :data:`CHANNEL_KIND_SUFFIXES`).
+    Strip both the ``rpm-`` prefix and the optional kind-suffix so the
+    result is just ``<channel>`` (e.g. ``base``/``sdk``), which is the
+    only piece the synthesize tool routes on; the subrepo kind comes from
+    the universe entry, not the azldev row.
+
+    Returns an empty string for an empty input. A value that doesn't match
+    the expected ``rpm-`` prefix is returned unchanged (the caller will
+    flag it as not matching :data:`ALLOWED_OUTPUT_CHANNELS`).
+    """
+    if not raw_channel:
+        return ""
+    if not raw_channel.startswith(CHANNEL_PREFIX):
+        return raw_channel
+    s = raw_channel[len(CHANNEL_PREFIX):]
+    for suffix in CHANNEL_KIND_SUFFIXES:
+        if s.endswith(suffix) and len(s) > len(suffix):
+            return s[: -len(suffix)]
+    return s
+
+
 def query_azldev(
     repo_root: Path,
     rpm_source_map: list[dict],
@@ -588,10 +625,7 @@ def query_azldev(
         rtype = row.get("type", "")
         component = row.get("component", "") or ""
         raw_channel = row.get("publishChannel", "") or ""
-        channel = (
-            raw_channel[len(CHANNEL_PREFIX):]
-            if raw_channel.startswith(CHANNEL_PREFIX) else raw_channel
-        )
+        channel = _normalize_publish_channel(raw_channel)
         if component and component not in known_components:
             # Foreign package: azldev synthesised a default channel for
             # something not actually built by AZL. Track and skip.
@@ -690,14 +724,12 @@ def decide_routing(
     that downstream emit + count logic can iterate them 1:1 with the
     universe.
 
-    NOTE: TODO(channel-inheritance) -- the new `azldev package list
-    --rpm-file` output reports an empty publishChannel for type=srpm rows
-    and for binary RPMs not explicitly configured (e.g. *-debuginfo,
-    *-debugsource). We work around this by inheriting the channel from the
-    parent component's published binary rpms. Once the underlying TOML
-    config (and azldev) is updated to publish srpm/debuginfo channels
-    explicitly, remove this inference and treat empty publishChannel
-    strictly (i.e. mark the package as unpublished).
+    NOTE: azldev now emits explicit ``publishChannel`` values for every
+    row (with a ``-srpm`` / ``-debuginfo`` suffix marking the subrepo
+    kind, which :func:`_normalize_publish_channel` strips). The empty-
+    channel inheritance fallback below is therefore exercised only when
+    azldev returns no channel at all -- kept as a defensive backstop in
+    case older azldev versions or unconfigured components show up.
     """
     decisions: dict[UniverseKey, RoutingDecision] = {}
     tied_components_warned: set[str] = set()

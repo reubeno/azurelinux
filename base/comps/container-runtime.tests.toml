@@ -1,0 +1,27 @@
+# ============================================================================
+# container-runtime — shared test-group spanning multiple runtime components
+# ============================================================================
+#
+# This file defines a single test-group that all container-runtime-shaped
+# components (those that *run* containers) associate themselves with. Each
+# member component carries `tests.tests = [{ group = "container-runtime" }]`
+# in its own <name>.comp.toml; the group itself is defined once here.
+#
+# Note on file placement: shared test-groups that span multiple components
+# don't fit cleanly into either the image-level (base/images/images.tests.toml)
+# or the per-component (<comp>/<comp>.tests.toml) homes. This flat root-level
+# placement parallels how component-mingw-disablement.toml etc. live at the
+# comps root. The pattern won't scale to many such files; revisit when we
+# accumulate more cross-component test-groups.
+# ============================================================================
+
+[test-groups.container-runtime]
+description = "Container runtime scenario tests: black-box exercise of whatever runtime is installed (containerd / runc / crun / podman / cri-o / moby-engine)"
+# TODO: populate with a runtime-agnostic scenario test once authored.
+# The rationale for the group is precisely to run a *scenario-level* test
+# (e.g. pull → run → exec → stop a container) that exercises any of the
+# member runtimes through their common interface — not the runtime-specific
+# tests each upstream dist-git happens to carry. No such homegrown test
+# exists in the tree yet, so the member list starts empty and the group
+# acts purely as a stable identity for component associations.
+tests = []

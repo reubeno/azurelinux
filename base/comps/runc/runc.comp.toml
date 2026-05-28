@@ -1,0 +1,2 @@
+[components.runc]
+tests.tests = [{ group = "container-runtime" }]

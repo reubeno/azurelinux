@@ -22,7 +22,7 @@
 # `<repository>` points at azl4-dev for local builds; koji overrides
 # this for distro builds).
 #
-# Capabilities and test-suites are identical between a canonical / `-dev`
+# Capabilities and tests are identical between a canonical / `-dev`
 # pair (the variants only differ in what `-repos` package ships and,
 # for `core`, the OCI tag).
 # ============================================================================
@@ -32,7 +32,7 @@
 [images.vm-base]
 description = "VM Base Image"
 definition = { type = "kiwi", path = "vm-base/vm-base.kiwi", profile = "vm-base" }
-tests.test-suites = [{ name = "static-image-checks" }]
+tests.tests = [{ name = "static-image-checks" }]
 
 [images.vm-base.capabilities]
 machine-bootable = true
@@ -43,7 +43,7 @@ runtime-package-management = true
 [images.vm-base-dev]
 description = "VM Base Image (dev)"
 definition = { type = "kiwi", path = "vm-base/vm-base.kiwi", profile = "vm-base-dev" }
-tests.test-suites = [{ name = "static-image-checks" }]
+tests.tests = [{ name = "static-image-checks" }]
 
 [images.vm-base-dev.capabilities]
 machine-bootable = true
@@ -56,7 +56,7 @@ runtime-package-management = true
 [images.container-base]
 description = "Container Base Image"
 definition = { type = "kiwi", path = "container-base/container-base.kiwi", profile = "core" }
-tests.test-suites = [{ name = "static-image-checks" }]
+tests.tests = [{ name = "static-image-checks" }]
 
 [images.container-base.capabilities]
 machine-bootable = false
@@ -67,7 +67,7 @@ runtime-package-management = true
 [images.container-base-dev]
 description = "Container Base Image (dev)"
 definition = { type = "kiwi", path = "container-base/container-base.kiwi", profile = "core-dev" }
-tests.test-suites = [{ name = "static-image-checks" }]
+tests.tests = [{ name = "static-image-checks" }]
 
 [images.container-base-dev.capabilities]
 machine-bootable = false
@@ -110,28 +110,3 @@ definition = { type = "kiwi", path = "vm-iso-installer/vm-iso-installer.kiwi", p
 [images.vm-iso-installer-dev]
 description = "VM ISO Installer (dev)"
 definition = { type = "kiwi", path = "vm-iso-installer/vm-iso-installer.kiwi", profile = "vm-iso-installer-dev" }
-
-# ============================================================================
-# Test suites
-# ============================================================================
-
-# Single shared pytest suite for static (offline) image validation.
-[test-suites.static-image-checks]
-type = "pytest"
-description = "Offline image validation (shared + image-specific tests)"
-
-[test-suites.static-image-checks.pytest]
-working-dir = "tests"
-install = "pyproject"
-test-paths = ["cases/"]
-# {capabilities} is substituted by azldev as a comma-separated list of
-# the names of capabilities set to `true` for the image (e.g.
-# "machine-bootable,systemd,runtime-package-management"). Names use
-# the same dash-case form declared above. The pytest plugin parses
-# this string into a set; @pytest.mark.require_capability("...") tests
-# that don't match are skipped.
-extra-args = [
-    "--image-path", "{image-path}",
-    "--image-name", "{image-name}",
-    "--capabilities", "{capabilities}",
-]

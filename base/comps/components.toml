@@ -1,4 +1,4 @@
-includes = ["**/*.comp.toml", "component-check-disablement.toml", "component-mingw-disablement.toml", "components-publish-channels.toml"]
+includes = ["**/*.comp.toml", "**/*.tests.toml", "container-runtime.tests.toml", "component-check-disablement.toml", "component-mingw-disablement.toml", "components-publish-channels.toml"]
 
 #
 # Components imported from Fedora with no per-component modifications.
@@ -256,7 +256,6 @@ includes = ["**/*.comp.toml", "component-check-disablement.toml", "component-min
 [components.console-login-helper-messages]
 [components.console-setup]
 [components.container-selinux]
-[components.containerd]
 [components.containers-common]
 [components.convmv]
 [components.corosync]
@@ -272,14 +271,12 @@ includes = ["**/*.comp.toml", "component-check-disablement.toml", "component-min
 [components.crash-gcore-command]
 [components.crash-trace-command]
 [components.createrepo_c]
-[components.cri-o]
 [components.cri-tools]
 [components.'cri-tools1.35']
 [components.criu]
 [components.cronie]
 [components.crontabs]
 [components.cross-binutils]
-[components.crun]
 [components.cryptsetup]
 [components.cscope]
 [components.ctags]
@@ -2109,7 +2106,7 @@ includes = ["**/*.comp.toml", "component-check-disablement.toml", "component-min
 [components.mksh]
 [components.mm-common]
 [components.mobile-broadband-provider-info]
-[components.moby-engine]
+
 [components.mock]
 [components.mockito]
 [components.mod_auth_gssapi]
@@ -3300,7 +3297,6 @@ includes = ["**/*.comp.toml", "component-check-disablement.toml", "component-min
 [components.pmix]
 [components.pngcrush]
 [components.pocketfft]
-[components.podman]
 [components.poetry]
 [components.policycoreutils]
 [components.polkit]
@@ -4719,7 +4715,6 @@ includes = ["**/*.comp.toml", "component-check-disablement.toml", "component-min
 [components.rubygem-zeitwerk]
 [components.rubypick]
 [components.ruff]
-[components.runc]
 [components.rust-actix-codec]
 [components.rust-actix-http]
 [components.rust-actix-macros]

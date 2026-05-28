@@ -1,0 +1,2 @@
+[components.cri-o]
+tests.tests = [{ group = "container-runtime" }]

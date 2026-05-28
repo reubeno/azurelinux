@@ -1,0 +1,59 @@
+# ============================================================================
+# Image-oriented test definitions and test-groups
+# ============================================================================
+#
+# Per the schema:
+#   - [tests.X]       declares a single unit of testing: one configuration
+#                     of one runner/harness, with framework-specific options.
+#   - [test-groups.X] bundles tests under a stable name so that an image (or
+#                     a component) can reference the group instead of
+#                     enumerating member tests.
+#
+# Image and component associations are *not* defined here. They live with
+# the entity that runs them:
+#   - images.toml         (tests.tests = [...])
+#   - <comp>/<comp>.comp.toml (tests.tests = [...])
+#
+# Both fields can mix per-test and per-group references:
+#   tests.tests = [{ name = "static-image-checks" }, { group = "x" }]
+#
+# Declarative metadata available on [tests.X]:
+#   description       (required-ish; human-readable summary)
+#   kind = [...]      ["functional"] | ["performance"] | both
+#   long-running      boolean; omit unless the test may run for hours
+#
+# ============================================================================
+
+# ---- tests --------------------------------------------------------------
+
+# Single shared pytest suite for static (offline) image validation.
+[tests.static-image-checks]
+type        = "pytest"
+description = "Offline image validation (shared + image-specific tests)"
+kind        = ["functional"]
+# long-running omitted: this suite runs in well under 30 min.
+
+[tests.static-image-checks.pytest]
+working-dir = "tests"
+install     = "pyproject"
+test-paths  = ["cases/"]
+# {capabilities} is substituted by azldev as a comma-separated list of
+# the names of capabilities set to `true` for the image (e.g.
+# "machine-bootable,systemd,runtime-package-management"). Names use
+# the same dash-case form declared above. The pytest plugin parses
+# this string into a set; @pytest.mark.require_capability("...") tests
+# that don't match are skipped.
+extra-args = [
+    "--image-path", "{image-path}",
+    "--image-name", "{image-name}",
+    "--capabilities", "{capabilities}",
+]
+
+# ---- test-groups --------------------------------------------------------
+
+# Demonstrative group: a stable handle images can reference even if the
+# underlying set of static-validation tests grows later (e.g. additional
+# offline scanners, manifest checks, signature checks).
+[test-groups.image-static-validation]
+description = "Offline / static validation applicable to any bootable or container image"
+tests       = ["static-image-checks"]

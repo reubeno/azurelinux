@@ -1,0 +1,2 @@
+[components.crun]
+tests.tests = [{ group = "container-runtime" }]

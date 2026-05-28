@@ -1,0 +1,2 @@
+[components.moby-engine]
+tests.tests = [{ group = "container-runtime" }]

@@ -1,0 +1,50 @@
+#!/usr/bin/python3
+"""azl-anaconda — launch anaconda with the Azure Linux Textual UI.
+
+This wrapper monkey-patches ``pyanaconda.anaconda.Anaconda.initialize_interface``
+so that, when anaconda is started in TUI display mode, our
+``AzlTextualInterface`` is used instead of the upstream simpleline-based
+``TextUserInterface``. For GUI or webui modes we delegate back to anaconda's
+original behavior.
+
+After patching, we invoke anaconda's stock entry point (``/usr/sbin/anaconda``)
+via runpy so we inherit all of anaconda's startup behavior (DBus modules,
+storage, payloads, etc.).
+"""
+from __future__ import annotations
+
+import runpy
+import sys
+
+
+def _install_ui_override() -> None:
+    """Monkey-patch anaconda so TUI mode uses AzlTextualInterface."""
+    from pyanaconda import anaconda as _anaconda_mod
+
+    original = _anaconda_mod.Anaconda.initialize_interface
+
+    def initialize_interface(self):  # type: ignore[no-untyped-def]
+        if getattr(self, "tui_mode", False):
+            if self._intf:
+                raise RuntimeError(
+                    "Second attempt to initialize the InstallInterface"
+                )
+            from azl_installer_ui.interface import AzlTextualInterface
+            self._intf = AzlTextualInterface(None, self.payload)
+            return
+        original(self)
+
+    _anaconda_mod.Anaconda.initialize_interface = initialize_interface
+
+
+def main() -> int:
+    _install_ui_override()
+    # Invoke anaconda's real entry point. /usr/sbin/anaconda is the
+    # anaconda.py script installed from the anaconda-core RPM.
+    sys.argv[0] = "/usr/sbin/anaconda"
+    runpy.run_path("/usr/sbin/anaconda", run_name="__main__")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

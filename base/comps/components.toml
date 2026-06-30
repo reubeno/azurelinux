@@ -708,7 +708,7 @@ includes = ["**/*.comp.toml", "component-check-disablement.toml", "component-min
 [components.glew]
 [components.glib]
 [components.glib-networking]
-[components.glib2]
+# [components.glib2] — moved to base/comps/glib2/glib2.comp.toml (overlays for OpenSSL GHmac backend)
 [components.'glibmm2.4']
 [components.'glibmm2.68']
 [components.glog]
@@ -4275,6 +4275,7 @@ includes = ["**/*.comp.toml", "component-check-disablement.toml", "component-min
 [components.python-testtools]
 [components.python-texext]
 [components.python-text-unidecode]
+[components.python-textual]
 [components.python-texttable]
 [components.python-threadpoolctl]
 [components.python-tifffile]

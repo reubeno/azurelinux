@@ -1,0 +1,3 @@
+[components.azl-installer-ui]
+spec = { type = "local", path = "azl-installer-ui.spec" }
+release = { calculation = "manual" }

@@ -1,0 +1,833 @@
+From: Azure Linux <azurelinux@microsoft.com>
+Date: Wed, 04 Jun 2026 00:00:00 +0000
+Subject: [PATCH] ghmac: route GHmac through OpenSSL instead of GnuTLS
+
+Azure Linux variant of the Fedora/RHEL gnutls-hmac.patch series, with
+the crypto backend switched from GnuTLS to OpenSSL.
+
+The Fedora/RHEL patch series routes GLib's GHmac primitives through
+GnuTLS so that GHmac honours the system FIPS policy. In Azure Linux
+the system reference crypto provider is OpenSSL (the crypto-policies
+package ships openssl_fips.config), so routing GHmac through GnuTLS
+forces a separate crypto stack (gnutls + nettle + gmp + libidn2 +
+libunistring) into the runtime image solely to back GLib's HMAC API.
+
+This patch swaps the backend to libcrypto.so.3 (still loaded via
+dlopen so libglib has only a weak runtime dependency, mirroring the
+Fedora pattern). It is equivalent to applying the four upstream
+commits below, but with ghmac-gnutls.c replaced by an ghmac-openssl.c
+that uses the OpenSSL legacy HMAC API (still exported from
+libcrypto.so.3, routes through the FIPS provider).
+
+Combines and replaces the four upstream commits:
+  [PATCH 1/4] ghmac: Split off wrapper functions into ghmac-utils.c
+  [PATCH 2/4] Add a gnutls backend for GHmac
+  [PATCH 3/4] dlopen GnuTLS instead of linking directly
+  [PATCH 4/4] Disable MD5 and SHA-1 HMac tests
+---
+diff --git a/glib/gchecksum.c b/glib/gchecksum.c
+index 196fda2..fb9d4ff 100644
+--- a/glib/gchecksum.c
++++ b/glib/gchecksum.c
+@@ -22,7 +22,7 @@
+ 
+ #include <string.h>
+ 
+-#include "gchecksum.h"
++#include "gchecksumprivate.h"
+ 
+ #include "gslice.h"
+ #include "gmem.h"
+@@ -176,9 +176,9 @@ sha_byte_reverse (guint32 *buffer,
+ }
+ #endif /* G_BYTE_ORDER == G_BIG_ENDIAN */
+ 
+-static gchar *
+-digest_to_string (guint8 *digest,
+-                  gsize   digest_len)
++gchar *
++gchecksum_digest_to_string (guint8 *digest,
++                            gsize   digest_len)
+ {
+   gsize i, len = digest_len * 2;
+   gchar *retval;
+@@ -197,6 +197,7 @@ digest_to_string (guint8 *digest,
+ 
+   return retval;
+ }
++#define digest_to_string gchecksum_digest_to_string
+ 
+ /*
+  * MD5 Checksum
+diff --git a/glib/gchecksumprivate.h b/glib/gchecksumprivate.h
+new file mode 100644
+index 0000000..70fd2a4
+--- /dev/null
++++ b/glib/gchecksumprivate.h
+@@ -0,0 +1,32 @@
++/* gchecksumprivate.h - Private GLib checksum helpers
++ *
++ * Copyright 2017 Руслан Ижбулатов
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * This library is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public License
++ * along with this library; if not, see <http://www.gnu.org/licenses/>.
++ */
++
++#ifndef __G_CHECKSUMPRIVATE_H__
++#define __G_CHECKSUMPRIVATE_H__
++
++#include "gchecksum.h"
++
++G_BEGIN_DECLS
++
++gchar *
++gchecksum_digest_to_string (guint8 *digest,
++                            gsize   digest_len);
++
++G_END_DECLS
++
++#endif
+diff --git a/glib/ghmac-openssl.c b/glib/ghmac-openssl.c
+new file mode 100644
+index 0000000..5447de4
+--- /dev/null
++++ b/glib/ghmac-openssl.c
+@@ -0,0 +1,288 @@
++/* ghmac.h - data hashing functions
++ *
++ * Copyright (C) 2011  Collabora Ltd.
++ * Copyright (C) 2019  Red Hat, Inc.
++ * Copyright (C) 2026  Microsoft Corporation
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * This library is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public License
++ * along with this library; if not, see <http://www.gnu.org/licenses/>.
++ */
++
++#include "config.h"
++
++#include <dlfcn.h>
++#include <string.h>
++
++#include "ghmac.h"
++
++#include "glib/galloca.h"
++#include "gatomic.h"
++#include "gslice.h"
++#include "gmem.h"
++#include "gstrfuncs.h"
++#include "gchecksumprivate.h"
++#include "gtestutils.h"
++#include "gthread.h"
++#include "gtypes.h"
++#include "glibintl.h"
++
++#ifndef USE_OPENSSL
++#error "build configuration error"
++#endif
++
++/* We dlopen libcrypto.so.3 instead of linking against it so that
++ * libglib-2.0.so retains only a weak (Recommends) runtime dependency
++ * on OpenSSL, mirroring the original Fedora pattern for libgnutls.
++ * This keeps minimal images (e.g. azurelinux container-base, glib2-static
++ * consumers) free of a hard NEEDED entry on libcrypto.
++ *
++ * Opaque typedefs that mirror the OpenSSL ABI for the symbols we
++ * dlopen. We intentionally do NOT include any OpenSSL headers — that
++ * would pull in a build-time dependency on openssl-devel for nothing.
++ */
++typedef struct hmac_ctx_st HMAC_CTX;
++typedef struct evp_md_st   EVP_MD;
++typedef struct engine_st   ENGINE;
++
++static HMAC_CTX *     (*p_HMAC_CTX_new)     (void);
++static void           (*p_HMAC_CTX_free)    (HMAC_CTX *ctx);
++static int            (*p_HMAC_CTX_copy)    (HMAC_CTX *dest, HMAC_CTX *src);
++static int            (*p_HMAC_Init_ex)     (HMAC_CTX *ctx, const void *key, int len,
++                                             const EVP_MD *md, ENGINE *impl);
++static int            (*p_HMAC_Update)      (HMAC_CTX *ctx, const guchar *data, size_t len);
++static int            (*p_HMAC_Final)       (HMAC_CTX *ctx, guchar *md, unsigned int *len);
++static const EVP_MD * (*p_EVP_md5)          (void);
++static const EVP_MD * (*p_EVP_sha1)         (void);
++static const EVP_MD * (*p_EVP_sha256)       (void);
++static const EVP_MD * (*p_EVP_sha384)       (void);
++static const EVP_MD * (*p_EVP_sha512)       (void);
++
++struct _GHmac
++{
++  int ref_count;
++  GChecksumType digest_type;
++  HMAC_CTX *hmac;
++  gchar *digest_str;
++};
++
++static gsize    openssl_initialize_attempted = 0;
++static gboolean openssl_initialize_successful = FALSE;
++
++#define LOAD_SYM(name) G_STMT_START {                                          \
++    p_##name = dlsym (libcrypto, #name);                                       \
++    if (!p_##name)                                                             \
++      {                                                                        \
++        g_warning ("Cannot use GHmac: failed to load %s: %s", #name,           \
++                   dlerror ());                                                \
++        return;                                                                \
++      }                                                                        \
++  } G_STMT_END
++
++static void
++initialize_openssl (void)
++{
++  gpointer libcrypto;
++
++  libcrypto = dlopen ("libcrypto.so.3", RTLD_LAZY | RTLD_GLOBAL);
++  if (!libcrypto)
++    {
++      g_warning ("Cannot use GHmac: failed to load libcrypto.so.3: %s", dlerror ());
++      return;
++    }
++
++  LOAD_SYM (HMAC_CTX_new);
++  LOAD_SYM (HMAC_CTX_free);
++  LOAD_SYM (HMAC_CTX_copy);
++  LOAD_SYM (HMAC_Init_ex);
++  LOAD_SYM (HMAC_Update);
++  LOAD_SYM (HMAC_Final);
++  LOAD_SYM (EVP_md5);
++  LOAD_SYM (EVP_sha1);
++  LOAD_SYM (EVP_sha256);
++  LOAD_SYM (EVP_sha384);
++  LOAD_SYM (EVP_sha512);
++
++  openssl_initialize_successful = TRUE;
++}
++
++#undef LOAD_SYM
++
++static const EVP_MD *
++digest_for (GChecksumType digest_type)
++{
++  switch (digest_type)
++    {
++    case G_CHECKSUM_MD5:
++      return p_EVP_md5 ();
++    case G_CHECKSUM_SHA1:
++      return p_EVP_sha1 ();
++    case G_CHECKSUM_SHA256:
++      return p_EVP_sha256 ();
++    case G_CHECKSUM_SHA384:
++      return p_EVP_sha384 ();
++    case G_CHECKSUM_SHA512:
++      return p_EVP_sha512 ();
++    default:
++      return NULL;
++    }
++}
++
++GHmac *
++g_hmac_new (GChecksumType  digest_type,
++            const guchar  *key,
++            gsize          key_len)
++{
++  const EVP_MD *md;
++  GHmac *hmac;
++
++  if (g_once_init_enter (&openssl_initialize_attempted))
++    {
++      initialize_openssl ();
++      g_once_init_leave (&openssl_initialize_attempted, 1);
++    }
++
++  if (!openssl_initialize_successful)
++    return NULL;
++
++  md = digest_for (digest_type);
++  if (md == NULL)
++    g_return_val_if_reached (NULL);
++
++  hmac = g_new0 (GHmac, 1);
++  hmac->ref_count = 1;
++  hmac->digest_type = digest_type;
++
++  hmac->hmac = p_HMAC_CTX_new ();
++  if (hmac->hmac == NULL)
++    {
++      g_free (hmac);
++      return NULL;
++    }
++
++  /* HMAC_Init_ex returns 1 on success, 0 on failure. The "key_len > INT_MAX"
++   * case is statically impossible for any realistic HMAC key, so a direct
++   * cast is safe here.
++   */
++  if (p_HMAC_Init_ex (hmac->hmac, key, (int) key_len, md, NULL) != 1)
++    {
++      /* The most likely failure mode is FIPS mode rejecting the digest
++       * (e.g. MD5). Return NULL so callers can detect and recover, matching
++       * the behaviour of the GnuTLS backend.
++       */
++      p_HMAC_CTX_free (hmac->hmac);
++      g_free (hmac);
++      return NULL;
++    }
++
++  return hmac;
++}
++
++GHmac *
++g_hmac_copy (const GHmac *hmac)
++{
++  GHmac *copy;
++
++  g_return_val_if_fail (hmac != NULL, NULL);
++
++  copy = g_new0 (GHmac, 1);
++  copy->ref_count = 1;
++  copy->digest_type = hmac->digest_type;
++
++  copy->hmac = p_HMAC_CTX_new ();
++  if (copy->hmac == NULL)
++    g_error ("HMAC_CTX_new failed");
++
++  /* g_hmac_copy is not allowed to fail, so we crash on error. */
++  if (p_HMAC_CTX_copy (copy->hmac, hmac->hmac) != 1)
++    g_error ("HMAC_CTX_copy failed");
++
++  return copy;
++}
++
++GHmac *
++g_hmac_ref (GHmac *hmac)
++{
++  g_return_val_if_fail (hmac != NULL, NULL);
++
++  g_atomic_int_inc (&hmac->ref_count);
++
++  return hmac;
++}
++
++void
++g_hmac_unref (GHmac *hmac)
++{
++  g_return_if_fail (hmac != NULL);
++
++  if (g_atomic_int_dec_and_test (&hmac->ref_count))
++    {
++      p_HMAC_CTX_free (hmac->hmac);
++      g_free (hmac->digest_str);
++      g_free (hmac);
++    }
++}
++
++
++void
++g_hmac_update (GHmac        *hmac,
++               const guchar *data,
++               gssize        length)
++{
++  g_return_if_fail (hmac != NULL);
++  g_return_if_fail (length == 0 || data != NULL);
++
++  if (length == -1)
++    length = strlen ((const char *) data);
++
++  /* g_hmac_update is not allowed to fail, so we crash on error. */
++  if (p_HMAC_Update (hmac->hmac, data, (size_t) length) != 1)
++    g_error ("HMAC_Update failed");
++}
++
++const gchar *
++g_hmac_get_string (GHmac *hmac)
++{
++  guint8 *buffer;
++  gsize digest_len;
++  unsigned int out_len = 0;
++
++  g_return_val_if_fail (hmac != NULL, NULL);
++
++  if (hmac->digest_str)
++    return hmac->digest_str;
++
++  digest_len = g_checksum_type_get_length (hmac->digest_type);
++  buffer = g_alloca (digest_len);
++
++  if (p_HMAC_Final (hmac->hmac, buffer, &out_len) != 1)
++    g_error ("HMAC_Final failed");
++
++  hmac->digest_str = gchecksum_digest_to_string (buffer, digest_len);
++  return hmac->digest_str;
++}
++
++
++void
++g_hmac_get_digest (GHmac  *hmac,
++                   guint8 *buffer,
++                   gsize  *digest_len)
++{
++  unsigned int out_len = 0;
++
++  g_return_if_fail (hmac != NULL);
++
++  if (p_HMAC_Final (hmac->hmac, buffer, &out_len) != 1)
++    g_error ("HMAC_Final failed");
++
++  *digest_len = g_checksum_type_get_length (hmac->digest_type);
++}
+diff --git a/glib/ghmac-utils.c b/glib/ghmac-utils.c
+new file mode 100644
+index 0000000..a17359f
+--- /dev/null
++++ b/glib/ghmac-utils.c
+@@ -0,0 +1,145 @@
++/* ghmac.h - data hashing functions
++ *
++ * Copyright (C) 2011  Collabora Ltd.
++ * Copyright (C) 2019  Red Hat, Inc.
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * This library is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public License
++ * along with this library; if not, see <http://www.gnu.org/licenses/>.
++ */
++
++#include "config.h"
++
++#include <string.h>
++
++#include "ghmac.h"
++
++#include "glib/galloca.h"
++#include "gatomic.h"
++#include "gslice.h"
++#include "gmem.h"
++#include "gstrfuncs.h"
++#include "gtestutils.h"
++#include "gtypes.h"
++#include "glibintl.h"
++
++/**
++ * g_compute_hmac_for_data:
++ * @digest_type: a #GChecksumType to use for the HMAC
++ * @key: (array length=key_len): the key to use in the HMAC
++ * @key_len: the length of the key
++ * @data: (array length=length): binary blob to compute the HMAC of
++ * @length: length of @data
++ *
++ * Computes the HMAC for a binary @data of @length. This is a
++ * convenience wrapper for g_hmac_new(), g_hmac_get_string()
++ * and g_hmac_unref().
++ *
++ * The hexadecimal string returned will be in lower case.
++ *
++ * Returns: the HMAC of the binary data as a string in hexadecimal.
++ *   The returned string should be freed with g_free() when done using it.
++ *
++ * Since: 2.30
++ */
++gchar *
++g_compute_hmac_for_data (GChecksumType  digest_type,
++                         const guchar  *key,
++                         gsize          key_len,
++                         const guchar  *data,
++                         gsize          length)
++{
++  GHmac *hmac;
++  gchar *retval;
++
++  g_return_val_if_fail (length == 0 || data != NULL, NULL);
++
++  hmac = g_hmac_new (digest_type, key, key_len);
++  if (!hmac)
++    return NULL;
++
++  g_hmac_update (hmac, data, length);
++  retval = g_strdup (g_hmac_get_string (hmac));
++  g_hmac_unref (hmac);
++
++  return retval;
++}
++
++/**
++ * g_compute_hmac_for_bytes:
++ * @digest_type: a #GChecksumType to use for the HMAC
++ * @key: the key to use in the HMAC
++ * @data: binary blob to compute the HMAC of
++ *
++ * Computes the HMAC for a binary @data. This is a
++ * convenience wrapper for g_hmac_new(), g_hmac_get_string()
++ * and g_hmac_unref().
++ *
++ * The hexadecimal string returned will be in lower case.
++ *
++ * Returns: the HMAC of the binary data as a string in hexadecimal.
++ *   The returned string should be freed with g_free() when done using it.
++ *
++ * Since: 2.50
++ */
++gchar *
++g_compute_hmac_for_bytes (GChecksumType  digest_type,
++                          GBytes        *key,
++                          GBytes        *data)
++{
++  gconstpointer byte_data;
++  gsize length;
++  gconstpointer key_data;
++  gsize key_len;
++
++  g_return_val_if_fail (data != NULL, NULL);
++  g_return_val_if_fail (key != NULL, NULL);
++
++  byte_data = g_bytes_get_data (data, &length);
++  key_data = g_bytes_get_data (key, &key_len);
++  return g_compute_hmac_for_data (digest_type, key_data, key_len, byte_data, length);
++}
++
++
++/**
++ * g_compute_hmac_for_string:
++ * @digest_type: a #GChecksumType to use for the HMAC
++ * @key: (array length=key_len): the key to use in the HMAC
++ * @key_len: the length of the key
++ * @str: the string to compute the HMAC for
++ * @length: the length of the string, or -1 if the string is nul-terminated
++ *
++ * Computes the HMAC for a string.
++ *
++ * The hexadecimal string returned will be in lower case.
++ *
++ * Returns: the HMAC as a hexadecimal string.
++ *     The returned string should be freed with g_free()
++ *     when done using it.
++ *
++ * Since: 2.30
++ */
++gchar *
++g_compute_hmac_for_string (GChecksumType  digest_type,
++                           const guchar  *key,
++                           gsize          key_len,
++                           const gchar   *str,
++                           gssize         length)
++{
++  g_return_val_if_fail (length == 0 || str != NULL, NULL);
++
++  if (length < 0)
++    length = strlen (str);
++
++  return g_compute_hmac_for_data (digest_type, key, key_len,
++                                  (const guchar *) str, length);
++}
+diff --git a/glib/ghmac.c b/glib/ghmac.c
+index 97e2fff..a2d8c1f 100644
+--- a/glib/ghmac.c
++++ b/glib/ghmac.c
+@@ -35,6 +35,9 @@
+ #include "gtypes.h"
+ #include "glibintl.h"
+ 
++#ifdef USE_OPENSSL
++#error "build configuration error"
++#endif
+ 
+ /**
+  * GHmac:
+@@ -89,6 +92,18 @@ struct _GHmac
+  * Support for digests of type %G_CHECKSUM_SHA512 has been added in GLib 2.42.
+  * Support for %G_CHECKSUM_SHA384 was added in GLib 2.52.
+  *
++ * Note that #GHmac creation may fail, in which case this function will
++ * return %NULL. Since there is no error parameter, it is not possible
++ * to indicate why.
++ *
++ * In Azure Linux, GLib is configured to use OpenSSL to implement #GHmac
++ * in order to support FIPS compliance through the system's reference
++ * crypto provider. This introduces additional failure possibilities
++ * that are not present in upstream GLib. For example, the creation of
++ * a #GHmac will fail if @digest_type is %G_CHECKSUM_MD5 and the system
++ * is running in FIPS mode. #GHmac creation may also fail if GLib is
++ * unable to load OpenSSL.
++ *
+  * Returns: (nullable) (transfer full): the newly created #GHmac, or %NULL.
+  *   Use g_hmac_unref() to free the memory allocated by it.
+  *
+@@ -356,115 +371,3 @@ g_hmac_get_digest (GHmac  *hmac,
+   g_checksum_update (hmac->digesto, buffer, len_signed);
+   g_checksum_get_digest (hmac->digesto, buffer, digest_len);
+ }
+-
+-/**
+- * g_compute_hmac_for_data:
+- * @digest_type: a #GChecksumType to use for the HMAC
+- * @key: (array length=key_len): the key to use in the HMAC
+- * @key_len: the length of the key
+- * @data: (array length=length): binary blob to compute the HMAC of
+- * @length: length of @data
+- *
+- * Computes the HMAC for a binary @data of @length. This is a
+- * convenience wrapper for g_hmac_new(), g_hmac_get_string()
+- * and g_hmac_unref().
+- *
+- * The hexadecimal string returned will be in lower case.
+- *
+- * Returns: the HMAC of the binary data as a string in hexadecimal.
+- *   The returned string should be freed with g_free() when done using it.
+- *
+- * Since: 2.30
+- */
+-gchar *
+-g_compute_hmac_for_data (GChecksumType  digest_type,
+-                         const guchar  *key,
+-                         gsize          key_len,
+-                         const guchar  *data,
+-                         gsize          length)
+-{
+-  GHmac *hmac;
+-  gchar *retval;
+-
+-  g_return_val_if_fail (length == 0 || data != NULL, NULL);
+-
+-  hmac = g_hmac_new (digest_type, key, key_len);
+-  if (!hmac)
+-    return NULL;
+-
+-  g_hmac_update (hmac, data, length);
+-  retval = g_strdup (g_hmac_get_string (hmac));
+-  g_hmac_unref (hmac);
+-
+-  return retval;
+-}
+-
+-/**
+- * g_compute_hmac_for_bytes:
+- * @digest_type: a #GChecksumType to use for the HMAC
+- * @key: the key to use in the HMAC
+- * @data: binary blob to compute the HMAC of
+- *
+- * Computes the HMAC for a binary @data. This is a
+- * convenience wrapper for g_hmac_new(), g_hmac_get_string()
+- * and g_hmac_unref().
+- *
+- * The hexadecimal string returned will be in lower case.
+- *
+- * Returns: the HMAC of the binary data as a string in hexadecimal.
+- *   The returned string should be freed with g_free() when done using it.
+- *
+- * Since: 2.50
+- */
+-gchar *
+-g_compute_hmac_for_bytes (GChecksumType  digest_type,
+-                          GBytes        *key,
+-                          GBytes        *data)
+-{
+-  gconstpointer byte_data;
+-  gsize length;
+-  gconstpointer key_data;
+-  gsize key_len;
+-
+-  g_return_val_if_fail (data != NULL, NULL);
+-  g_return_val_if_fail (key != NULL, NULL);
+-
+-  byte_data = g_bytes_get_data (data, &length);
+-  key_data = g_bytes_get_data (key, &key_len);
+-  return g_compute_hmac_for_data (digest_type, key_data, key_len, byte_data, length);
+-}
+-
+-
+-/**
+- * g_compute_hmac_for_string:
+- * @digest_type: a #GChecksumType to use for the HMAC
+- * @key: (array length=key_len): the key to use in the HMAC
+- * @key_len: the length of the key
+- * @str: the string to compute the HMAC for
+- * @length: the length of the string, or -1 if the string is nul-terminated
+- *
+- * Computes the HMAC for a string.
+- *
+- * The hexadecimal string returned will be in lower case.
+- *
+- * Returns: the HMAC as a hexadecimal string.
+- *     The returned string should be freed with g_free()
+- *     when done using it.
+- *
+- * Since: 2.30
+- */
+-gchar *
+-g_compute_hmac_for_string (GChecksumType  digest_type,
+-                           const guchar  *key,
+-                           gsize          key_len,
+-                           const gchar   *str,
+-                           gssize         length)
+-{
+-  g_return_val_if_fail (length == 0 || str != NULL, NULL);
+-
+-  if (length < 0)
+-    length = strlen (str);
+-
+-  return g_compute_hmac_for_data (digest_type, key, key_len,
+-                                  (const guchar *) str, length);
+-}
+diff --git a/glib/meson.build b/glib/meson.build
+index 209bcbf..0beae00 100644
+--- a/glib/meson.build
++++ b/glib/meson.build
+@@ -284,7 +284,7 @@ glib_sources += files(
+   'gfileutils.c',
+   'ggettext.c',
+   'ghash.c',
+-  'ghmac.c',
++  'ghmac-utils.c',
+   'ghook.c',
+   'ghostutils.c',
+   'giochannel.c',
+@@ -396,6 +396,17 @@ else
+   glib_dtrace_hdr = []
+ endif
+ 
++# OpenSSL backend for GHmac is opt-in (see meson.options). The default
++# upstream GHmac implementation (ghmac.c, bundled MD5/SHA code) is used
++# when the option is disabled. With openssl=true, ghmac-openssl.c routes
++# the GHmac API through libcrypto.so.3 (dlopened at runtime) so the
++# system FIPS provider applies.
++if get_option('openssl')
++  glib_sources += files('ghmac-openssl.c')
++else
++  glib_sources += files('ghmac.c')
++endif
++
+ pcre2_static_args = []
+ 
+ if use_pcre2_static_flag
+diff --git a/glib/tests/hmac.c b/glib/tests/hmac.c
+index 3ac3206..9ec97e0 100644
+--- a/glib/tests/hmac.c
++++ b/glib/tests/hmac.c
+@@ -1,7 +1,10 @@
++#include "config.h"
++
+ #include <glib.h>
+ #include <string.h>
+ #include <stdlib.h>
+ 
++#ifndef USE_OPENSSL
+ /* HMAC-MD5 test vectors as per RFC 2202 */
+ 
+ /* Test 1 */
+@@ -81,6 +84,7 @@ guint8 key_md5_test7[] = {
+ guint8 result_md5_test7[] = {
+     0x6f, 0x63, 0x0f, 0xad, 0x67, 0xcd, 0xa0, 0xee, 0x1f, 0xb1,
+     0xf5, 0x62, 0xdb, 0x3a, 0xa5, 0x3e };
++#endif
+ 
+ /* HMAC-SHA1, HMAC-SHA256, HMAC-SHA384 and HMAC-SHA512 test vectors
+  * as per RFCs 2202 and 4868.
+@@ -299,6 +303,7 @@ typedef struct {
+   gconstpointer result;
+ } HmacCase;
+ 
++#ifndef USE_OPENSSL
+ HmacCase hmac_md5_tests[] = {
+   { G_CHECKSUM_MD5, key_md5_test1, 16, "Hi There", 8, result_md5_test1 },
+   { G_CHECKSUM_MD5, "Jefe", 4, "what do ya want for nothing?", 28,
+@@ -336,6 +341,7 @@ HmacCase hmac_sha1_tests[] = {
+                " Than One Block-Size Data", 73, result_sha1_test7, },
+   { -1, NULL, 0, NULL, 0, NULL },
+ };
++#endif
+ 
+ HmacCase hmac_sha256_tests[] = {
+   { G_CHECKSUM_SHA256, key_sha_test1, 20, "Hi There", 8, result_sha256_test1 },
+@@ -498,8 +504,10 @@ main (int argc,
+     char **argv)
+ {
+   int i;
++
+   g_test_init (&argc, &argv, NULL);
+ 
++#ifndef USE_OPENSSL
+   for (i = 0 ; hmac_sha1_tests[i].key_len > 0 ; i++)
+     {
+       gchar *name = g_strdup_printf ("/hmac/sha1-%d", i + 1);
+@@ -507,6 +515,7 @@ main (int argc,
+         (void (*)(const void *)) test_hmac);
+       g_free (name);
+     }
++#endif
+ 
+   for (i = 0 ; hmac_sha256_tests[i].key_len > 0 ; i++)
+     {
+@@ -532,6 +541,7 @@ main (int argc,
+       g_free (name);
+     }
+ 
++#ifndef USE_OPENSSL
+   for (i = 0 ; hmac_md5_tests[i].key_len > 0 ; i++)
+     {
+       gchar *name = g_strdup_printf ("/hmac/md5-%d", i + 1);
+@@ -539,6 +549,7 @@ main (int argc,
+         (void (*)(const void *)) test_hmac);
+       g_free (name);
+     }
++#endif
+ 
+   g_test_add_func ("/hmac/ref-unref", test_hmac_ref_unref);
+   g_test_add_func ("/hmac/copy", test_hmac_copy);
+diff --git a/meson.build b/meson.build
+index 89556c6..4fc1c82 100644
+--- a/meson.build
++++ b/meson.build
+@@ -2379,6 +2379,11 @@ else
+   wincodecs = not_found
+ endif
+ 
++# OpenSSL is used optionally by GHmac (dlopened at runtime, see ghmac-openssl.c).
++if get_option('openssl')
++  glib_conf.set('USE_OPENSSL', 1)
++endif
++
+ selinux_dep = []
+ if host_system == 'linux'
+   selinux_dep = dependency('libselinux', version: '>=2.2', required: get_option('selinux'))
+diff --git a/meson.options b/meson.options
+index 5ebbe4d..8cff149 100644
+--- a/meson.options
++++ b/meson.options
+@@ -37,6 +37,11 @@ option('libmount',
+        value : 'auto',
+        description : 'build with libmount support')
+ 
++option('openssl',
++       type : 'boolean',
++       value : false,
++       description : 'use OpenSSL libcrypto for GHmac (dlopened at runtime)')
++
+ option('man',
+        type : 'boolean',
+        value : false,
+
+-- 
+2.51.1

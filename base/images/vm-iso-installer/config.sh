@@ -211,63 +211,74 @@ echo "=== Offline repo ready at $OFFLINE_REPO ==="
 ln -sf /usr/local/bin/anaconda-launcher.sh /usr/local/bin/install-azl
 
 #----------------------------------------------------------------------
+# Plymouth — text theme only.
+#
+# We deliberately use only the `text` theme (shipped by the main plymouth
+# package; no plymouth-graphics-libs / system-logos required) for a
+# minimal, dependency-light cleaner boot sequence.
+#
+# IMPORTANT: the kernel cmdline must include `plymouth.ignore-serial-consoles`
+# (set in vm-iso-installer.kiwi) — otherwise plymouth detects ttyS0 and
+# silently forces the `details` theme instead of `text`, which echoes all
+# systemd unit-status lines verbatim. See plymouth's ply-device-manager.c
+# `create_devices_from_terminals()` for the detection logic.
+#----------------------------------------------------------------------
+if command -v plymouth-set-default-theme >/dev/null 2>&1; then
+    plymouth-set-default-theme text || true
+fi
+# Sanity-check the default.plymouth symlink (it is what plymouthd actually
+# loads). If it's wrong, plymouth silently falls back to `details`.
+if [ -L /usr/share/plymouth/themes/default.plymouth ]; then
+    echo "=== Plymouth default theme: $(readlink /usr/share/plymouth/themes/default.plymouth) ==="
+else
+    echo "WARN: /usr/share/plymouth/themes/default.plymouth is missing — forcing text"
+    ln -sfn text/text.plymouth /usr/share/plymouth/themes/default.plymouth
+fi
+# Regenerate the initramfs so it bundles plymouth + the dracut module
+# (the /etc/dracut.conf.d/10-plymouth.conf snippet from this image).
+if command -v dracut >/dev/null 2>&1; then
+    dracut --force --regenerate-all || \
+        echo "WARN: dracut regenerate-all failed; plymouth may be absent from initramfs"
+fi
+
+#----------------------------------------------------------------------
 # Welcome banner
 #----------------------------------------------------------------------
 
 cat > /root/.bash_profile << 'PROFILEEOF'
 # Auto-install mode: if "azl.autoinstall" is on the kernel cmdline
 # (selected via the "Install Azure Linux 4.0" GRUB entry), launch
-# the installer automatically.
+# the installer on the first auto-login getty that completes.
 #
-# Console selection logic:
-#   - Hyper-V (systemd-detect-virt = "microsoft") → user is on VGA (tty1)
-#   - QEMU/KVM/bare-metal with serial in cmdline  → user is on serial (ttyS0)
-#   - QEMU/KVM/bare-metal without serial          → user is on VGA (tty1)
-# This prevents the invisible tty1 from stealing the installer on QEMU -nographic.
-if grep -q 'azl\.autoinstall' /proc/cmdline 2>/dev/null; then
+# Race-safe: both tty1 and ttyS0 may auto-login simultaneously when both
+# are wired up (typical for QEMU with both -nographic-style serial AND
+# a VGA/VNC console). We use flock + a marker file so whichever getty
+# fires first wins, and the other(s) fall through to the help banner.
+if grep -q 'azl\.autoinstall' /proc/cmdline 2>/dev/null \
+   && [ ! -f /run/azl-installer-aborted ]; then
     MY_TTY=$(tty 2>/dev/null)
-    VIRT=$(systemd-detect-virt 2>/dev/null)
-    LAUNCH=false
-    if [ "$VIRT" = "microsoft" ]; then
-        # Hyper-V: user interacts via VGA console
-        [ "$MY_TTY" = "/dev/tty1" ] && LAUNCH=true
-    else
-        # QEMU/KVM/bare-metal
-        case "$MY_TTY" in
-            /dev/ttyS0)
-                LAUNCH=true
-                ;;
-            /dev/tty1|/dev/hvc0)
-                # Only autoinstall on VGA if serial is NOT in kernel cmdline
-                # (otherwise ttyS0 will handle it)
-                if ! grep -q 'console=ttyS' /proc/cmdline 2>/dev/null; then
-                    LAUNCH=true
-                fi
-                ;;
-        esac
-    fi
-    if [ "$LAUNCH" = true ]; then
-        echo ""
-        echo "========================================"
-        echo "  Azure Linux 4.0 — Offline Installer"
-        echo "========================================"
-        echo ""
-        echo "  Starting installer automatically..."
-        echo ""
-        exec /usr/local/bin/anaconda-launcher.sh
-    fi
+    case "$MY_TTY" in
+        /dev/tty1|/dev/tty0|/dev/ttyS0|/dev/ttyS1|/dev/hvc0)
+            # First to grab the lock wins. flock -n returns immediately
+            # with non-zero if someone else holds it.
+            exec 9>/run/azl-installer.lock
+            if flock -n 9 && [ ! -f /run/azl-installer-started ]; then
+                : > /run/azl-installer-started
+                exec /usr/local/bin/anaconda-launcher.sh
+            fi
+            ;;
+    esac
 fi
-echo ""
+echo
 echo "========================================"
-echo "  Azure Linux 4.0 — Offline Installer"
+echo "  Azure Linux 4.0 - Offline Installer"
 echo "========================================"
-echo ""
+echo
 echo "  To start the installer, run:"
-echo ""
 echo "    install-azl"
-echo ""
+echo
 echo "========================================"
-echo ""
+echo
 PROFILEEOF
 
 cat > /root/.bashrc << 'RCEOF'

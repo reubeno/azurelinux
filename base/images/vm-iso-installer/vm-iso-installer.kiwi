@@ -24,7 +24,7 @@
             image="iso"
             flags="dmsquash"
             filesystem="ext4"
-            kernelcmdline="console=ttyS0,115200 console=tty0 enforcing=0 audit=0 inst.text inst.lang=en_US.UTF-8 inst.nokill"
+            kernelcmdline="console=tty0 console=ttyS0,115200 enforcing=0 audit=0 inst.text inst.lang=en_US.UTF-8 inst.nokill plymouth.enable=1 rd.plymouth=1 plymouth.ignore-serial-consoles plymouth.debug quiet rhgb loglevel=3 rd.systemd.show_status=false systemd.show_status=false rd.udev.log_priority=3 vt.global_cursor_default=0 systemd.log_target=journal"
             firmware="uefi"
             hybridpersistent="false"
             mediacheck="true">
@@ -116,6 +116,24 @@
         <package name="anaconda-core" />
         <package name="anaconda-tui" />
         <package name="anaconda-install-env-deps" />
+
+        <!-- Azure Linux modern Textual frontend for anaconda -->
+        <package name="python3-textual" />
+        <package name="azl-installer-ui" />
+
+        <!-- Plymouth (text theme only — main package ships text/details/tribar;
+             we deliberately avoid plymouth-graphics-libs which would pull in
+             system-logos and other graphical deps). -->
+        <package name="plymouth" />
+
+        <file
+            name="plymouth-dracut.conf"
+            target="/etc/dracut.conf.d/10-plymouth.conf"
+            permissions="0644" />
+        <file
+            name="plymouthd.conf"
+            target="/etc/plymouth/plymouthd.conf"
+            permissions="0644" />
 
         <!-- Offline repo creation -->
         <package name="createrepo_c" />

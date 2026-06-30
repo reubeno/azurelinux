@@ -179,8 +179,58 @@
         <package name="azurelinux-release-container" />
     </packages>
 
+    <!--
+        Pin `coreutils-single` during bootstrap (where dnf5 + rpm + their
+        deps drag in some provider of `coreutils`). Without this pin
+        libsolv may pick the full `coreutils` package — which then drags
+        in `coreutils-common` (~11 MiB of docs/translations) and
+        `gnulib-l10n` (~655 KiB). For distroless profiles this is
+        autoremoved by config.sh anyway, but pinning here keeps the
+        bootstrap transaction consistent across profiles.
+
+        Pin `libcurl-minimal` for the same reason: `libcurl` (full)
+        and `libcurl-minimal` both Provide `libcurl`, and libsolv picks
+        the full variant by default. `libcurl-minimal` is built without
+        DICT/GOPHER/IMAP/LDAP/MQTT/NTLM/POP3/RTSP/SMB/SMTP/TELNET/TFTP/
+        TLS-SRP/WebSockets protocol support, and without brotli, libpsl,
+        and libssh — sufficient for HTTPS+FTP repo access (the only
+        thing librepo needs) and lets us drop `libbrotli`, `libssh`,
+        `libssh-config`, `libpsl`, and `publicsuffix-list-dafsa` from
+        the image (~1.8 MiB net saving after accounting for libcurl-minimal
+        itself).
+    -->
+    <packages type="bootstrap"
+              profiles="core,core-dev,distroless-minimal,distroless-base,distroless-debug">
+        <package name="coreutils-single" />
+        <package name="libcurl-minimal" />
+    </packages>
+
     <packages type="bootstrap"
               profiles="distroless-minimal,distroless-base,distroless-debug">
         <package name="busybox" />
+    </packages>
+
+    <!--
+        Post-install removal of `findutils`, `grep`, and `sed` from the
+        `core`/`core-dev` images. These are only pulled in by
+        `ca-certificates` scriptlets that regenerate the trust bundle —
+        once the bundle is generated during the kiwi build the binaries
+        are dead weight in the runtime image (~3.8 MiB combined).
+
+        `grep` and `sed` are an explicit runtime `Requires` of
+        `ca-certificates` (not just install-time), so `type="uninstall"`
+        would also remove `ca-certificates`. `type="delete"` does a
+        force-removal that ignores dependencies, which keeps
+        `ca-certificates` intact. Distroless variants don't need this —
+        their `config.sh` autoremove already strips these.
+
+        Trade-off: shell users in the `core` container lose interactive
+        access to `find`/`grep`/`sed`. Document at the image level if
+        users need these for ad-hoc work.
+    -->
+    <packages type="delete" profiles="core,core-dev">
+        <package name="findutils" />
+        <package name="grep" />
+        <package name="sed" />
     </packages>
 </image>

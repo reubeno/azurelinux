@@ -10,7 +10,7 @@
 Summary: A utility for getting files from remote servers (FTP, HTTP, and others)
 Name: curl
 Version: 8.15.0
-Release: 7%{?dist}
+Release: 8%{?dist}
 License: curl
 Source0: https://curl.se/download/%{name}-%{version_no_tilde}.tar.xz
 Source1: https://curl.se/download/%{name}-%{version_no_tilde}.tar.xz.asc
@@ -59,7 +59,6 @@ BuildRequires: libpsl-devel
 BuildRequires: libssh-devel
 BuildRequires: libtool
 BuildRequires: make
-BuildRequires: openldap-devel
 BuildRequires: openssh-clients
 BuildRequires: openssh-server
 BuildRequires: openssl
@@ -293,7 +292,7 @@ export common_configure_opts="          \
         --disable-websockets            \
         --without-brotli                \
         --without-libpsl                \
-        --without-libssh
+        --without-libssh --without-gssapi --without-libidn2
 )
 
 # configure full build
@@ -303,8 +302,8 @@ export common_configure_opts="          \
         --enable-dict                   \
         --enable-gopher                 \
         --enable-imap                   \
-        --enable-ldap                   \
-        --enable-ldaps                  \
+        --disable-ldap                   \
+        --disable-ldaps                  \
         --enable-mqtt                   \
         --enable-ntlm                   \
         --enable-pop3                   \

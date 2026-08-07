@@ -39,7 +39,7 @@ Summary:        Azure Linux release files
 Name:           azurelinux-release
 Version:        4.0
 # TODO(azl): Review whether we can move back to autorelease (with conditional -p)
-Release:        21%{?dist}
+Release: 22%{?dist}
 License:        MIT
 URL:            https://aka.ms/azurelinux
 

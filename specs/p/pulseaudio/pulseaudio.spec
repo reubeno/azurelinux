@@ -1,9 +1,7 @@
 # This spec file has been modified by azldev to include build configuration overlays.
 # Do not edit manually; changes may be overwritten.
 
-# All Azure Linux specs with overlays include this macro file, irrespective of whether new macros have been added.
-%{load:%{_sourcedir}/pulseaudio.azl.macros}
-
+%global azl_release 6
 %global pa_major   17.0
 #global pa_minor   0
 
@@ -53,7 +51,6 @@ Source1:        http://freedesktop.org/software/pulseaudio/releases/pulseaudio-%
 %endif
 
 Source5:        default.pa-for-gdm
-Source9999: pulseaudio.azl.macros
 
 # revert upstream commit to rely solely on autospawn for autostart, instead
 # include a fallback to manual launch when autospawn fails, like when

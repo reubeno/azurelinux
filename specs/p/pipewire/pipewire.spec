@@ -1,6 +1,7 @@
 # This spec file has been modified by azldev to include build configuration overlays.
 # Do not edit manually; changes may be overwritten.
 
+%global azl_release 8
 # All Azure Linux specs with overlays include this macro file, irrespective of whether new macros have been added.
 %{load:%{_sourcedir}/pipewire.azl.macros}
 

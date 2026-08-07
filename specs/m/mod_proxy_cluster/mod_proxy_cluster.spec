@@ -9,7 +9,7 @@
 %global selinuxtype targeted
 %define aplibdir %{_libdir}/httpd/modules/
  
-%define serial 1
+%define serial 2
  
 Name:          mod_proxy_cluster
 Summary:       JBoss mod_proxy_cluster for Apache httpd

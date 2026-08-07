@@ -1,3 +1,4 @@
 # Managed by azldev component update. Do not edit manually.
 version = 1
-input-fingerprint = 'sha256:d1cc028f962349cd61ec32c56584dbb890aebb6120c0ff641cecdfd4117b31e2'
+release-counter-baseline = 'sha256:d1cc028f962349cd61ec32c56584dbb890aebb6120c0ff641cecdfd4117b31e2'
+input-fingerprint = 'sha256:8f0253b03214b8ab00cf30f7452d1ca19d2e55faaadea393b98885a0b99778a9'

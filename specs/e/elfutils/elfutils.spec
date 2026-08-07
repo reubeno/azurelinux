@@ -1,9 +1,7 @@
 # This spec file has been modified by azldev to include build configuration overlays.
 # Do not edit manually; changes may be overwritten.
 
-# All Azure Linux specs with overlays include this macro file, irrespective of whether new macros have been added.
-%{load:%{_sourcedir}/elfutils.azl.macros}
-
+%global azl_release 2
 # Rebuild --with static to enable static subpackages
 # This is *not* supported by elfutils maintainers
 %bcond_with static
@@ -17,7 +15,6 @@ URL: http://elfutils.org/
 License: GPL-3.0-or-later AND (GPL-2.0-or-later OR LGPL-3.0-or-later) AND GFDL-1.3-no-invariants-or-later
 Source: %{?source_url}%{name}-%{version}.tar.bz2
 Source1: elfutils-debuginfod.sysusers
-Source9999: elfutils.azl.macros
 Summary: A collection of utilities and DSOs to handle ELF files and DWARF data
 
 # Needed for isa specific Provides and Requires.

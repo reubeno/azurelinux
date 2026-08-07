@@ -6,7 +6,7 @@
 %global	rpmminorver	.%(echo %preminorver | sed -e 's|^\\.\\.*||')
 %global	fullver	%{majorver}%{?preminorver}
 
-%global	baserelease	1
+%global	baserelease	2
 
 %global	gem_name	rspec-core
 

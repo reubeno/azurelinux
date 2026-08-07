@@ -1,6 +1,7 @@
 # This spec file has been modified by azldev to include build configuration overlays.
 # Do not edit manually; changes may be overwritten.
 
+%global azl_release 7
 %if 0%{?fedora}
 # rhel/epel has no flexmock, pytest-capturelog
 %global with_check 0
@@ -17,7 +18,7 @@
 %global release 23
 %else
 %global postrelease 0
-%global release 6
+%global release %{azl_release}
 %endif
 
 %global osbs_obsolete_vr 0.14-2

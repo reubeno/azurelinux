@@ -1,9 +1,7 @@
 # This spec file has been modified by azldev to include build configuration overlays.
 # Do not edit manually; changes may be overwritten.
 
-# All Azure Linux specs with overlays include this macro file, irrespective of whether new macros have been added.
-%{load:%{_sourcedir}/rocm-compilersupport.azl.macros}
-
+%global azl_release 6
 # The package follows LLVM's major version, but API version is still important:
 %global comgr_maj_api_ver 3
 # local, fedora
@@ -56,7 +54,6 @@ Url:            https://github.com/ROCm/llvm-project
 License:        NCSA and MIT
 Source0:        https://github.com/ROCm/%{upstreamname}/archive/refs/tags/rocm-%{rocm_version}.tar.gz#/%{name}-%{rocm_version}.tar.gz
 Source1:        rocm-compilersupport.prep.in
-Source9999: rocm-compilersupport.azl.macros
 
 Patch3:         0001-Remove-err_drv_duplicate_config-check.patch
 Patch4:         0001-Replace-use-of-mktemp-with-mkstemp.patch

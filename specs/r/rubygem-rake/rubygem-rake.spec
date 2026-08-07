@@ -1,9 +1,7 @@
 # This spec file has been modified by azldev to include build configuration overlays.
 # Do not edit manually; changes may be overwritten.
 
-# All Azure Linux specs with overlays include this macro file, irrespective of whether new macros have been added.
-%{load:%{_sourcedir}/rubygem-rake.azl.macros}
-
+%global azl_release 2
 # Generated from rake-0.7.3.gem by gem2rpm -*- rpm-spec -*-
 %global	majorver	13.3.0
 #%%global	preminorver	.beta.5
@@ -27,7 +25,6 @@ Source0:	https://rubygems.org/gems/%{gem_name}-%{version}.gem
 # git clone --no-checkout https://github.com/ruby/rake
 # cd rake && git archive -v -o rake-13.1.0-tests.txz v13.1.0 Rakefile test
 Source1: %{gem_name}-%{version}-tests.txz
-Source9999: rubygem-rake.azl.macros
 
 BuildRequires:	ruby(release)
 BuildRequires:	rubygems-devel

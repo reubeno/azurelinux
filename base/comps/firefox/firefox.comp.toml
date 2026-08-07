@@ -2,29 +2,9 @@
 # Upstream Fedora ships `Release: 1%{?pre_tag}%{?dist}`. We rewrite that line
 # (see overlay below) to `Release: %[1 + %{azl_release}]%{?pre_tag}%{?dist}`
 # so the AZL release counter is composed with — rather than replacing —
-# upstream's value. That way the only knob to turn for an AZL-only rebuild
-# is `azl_release` in build.defines below.
-release = { calculation = "manual" }
-
-[components.firefox.build.defines]
-# AZL-only release counter. Added to upstream's leading Release integer (1
-# at the pinned f43 commit) via the overlay below, keeping a single-number
-# Fedora-style Release schema. Bump whenever an AZL-only change requires a
-# new RPM (e.g. new overlay, build-flag change) WITHOUT moving the upstream
-# pin. Reset to "1" when bumping the upstream pin (so the first AZL build
-# on a new upstream is always Release == N+1 where N is whatever the new
-# upstream pin ships).
-#
-# Current value accounts for prior AZL changes already updating this
-# component's input fingerprint:
-#   1. 'feat: introduce deterministic commit resolution via Azure Linux
-#      lock file'
-#   2. 'fix(firefox): set manual release calculation'
-#   3. 'feat(firefox): add azl_release counter for independent rebuild
-#      tracking' (introduces the azl_release counter mechanism)
-#   4. 'feat(firefox): strip malware-flagged files from source tarball'
-#   5. 'fix(firefox): drop fdk-aac-free-devel and Fedora fdk-aac patch'
-azl_release = "5"
+# upstream's value. The overlay-defined `azl_release` remains the single
+# Azure Linux rebuild counter.
+release = { calculation = "static", counter = { source = "spec-macro", directive = "global", name = "azl_release" } }
 
 # The upstream Mozilla source tarball ships content flagged by the AZL RPM
 # signing pipeline as obfuscated / malware-like (e.g. an obfuscated Windows

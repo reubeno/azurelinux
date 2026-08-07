@@ -3,12 +3,12 @@
 # https://github.com/openbios/openbios/commit/e5ac46dd24e6216c36aa80462af25457e7029440
 [components.openbios]
 # Release: %[1 + %{azl_release}].git%{hash}%{?dist}
-release = { calculation = "manual" }
+release = { calculation = "static", counter = { source = "spec-macro", directive = "global", name = "azl_release" } }
 
-[components.openbios.build.defines]
-# AZL-only release counter. Add this to upstream's Release value (1) so future
-# Azure Linux rebuilds only need to increment this define.
-azl_release = "1"
+[[components.openbios.overlays]]
+description = "Define the Azure Linux release counter independently of the upstream Release value"
+type = "spec-prepend-lines"
+lines = ["%global azl_release 1"]
 
 [[components.openbios.overlays]]
 description = "Compose azl_release with upstream Release so Azure Linux rebuilds can be bumped independently"

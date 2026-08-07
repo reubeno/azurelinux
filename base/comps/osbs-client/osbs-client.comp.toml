@@ -1,3 +1,14 @@
 [components.osbs-client]
 # Release: %{release}.%{postrelease}.git.%{shortcommit}%{?dist}
-release = { calculation = "manual" }
+release = { calculation = "static", counter = { source = "spec-macro", directive = "global", name = "azl_release" } }
+
+[[components.osbs-client.overlays]]
+description = "Add a unique Azure Linux counter for reusable osbs-client release management"
+type = "spec-prepend-lines"
+lines = ["%global azl_release 6"]
+
+[[components.osbs-client.overlays]]
+description = "Use the Azure Linux release counter for the non-development release while preserving the development branch"
+type = "spec-search-replace"
+regex = '^%global release 6$'
+replacement = "%global release %{azl_release}"

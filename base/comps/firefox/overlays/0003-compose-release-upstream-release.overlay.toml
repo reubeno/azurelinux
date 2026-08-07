@@ -17,6 +17,12 @@
 [metadata]
 category = "azl-release-management"
 upstream-status = "inapplicable"
+
+[[overlays]]
+description = "Define the Azure Linux release counter independently of the upstream Release integer"
+type = "spec-prepend-lines"
+lines = ["%global azl_release 5"]
+
 [[overlays]]
 description = "Compose azl_release with upstream Release integer so AZL-only bumps are tracked independently of upstream Fedora's Release counter"
 type = "spec-search-replace"

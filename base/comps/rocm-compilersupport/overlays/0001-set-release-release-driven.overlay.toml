@@ -8,6 +8,11 @@ category = "azl-release-management"
 upstream-status = "inapplicable"
 
 [[overlays]]
+description = "Define the Azure Linux release counter independently of the upstream ROCm release base"
+type = "spec-prepend-lines"
+lines = ["%global azl_release 5"]
+
+[[overlays]]
 description = "Set Release to %{azl_release}-driven formula so AZL-only rebuilds bump cleanly without manual edits"
 type = "spec-set-tag"
 tag = "Release"

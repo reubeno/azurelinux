@@ -1,6 +1,6 @@
 [components.rpm]
 # Release: %{?snapver:0.%{snapver}.}%{baserelease}%{?dist}
-release = { calculation = "manual" }
+release = { calculation = "static", counter = { source = "spec-macro", directive = "global", name = "baserelease" } }
 
 # Update vendor macro.
 [[components.rpm.overlays]]
@@ -8,4 +8,3 @@ description = "Customize RPM vendor"
 type = "spec-search-replace"
 regex = "RPM_VENDOR=redhat"
 replacement = "RPM_VENDOR=azurelinux"
-

@@ -6,6 +6,11 @@ category = "azl-release-management"
 upstream-status = "inapplicable"
 
 [[overlays]]
+description = "Define the Azure Linux release counter independently of the imported Fedora baserelease"
+type = "spec-prepend-lines"
+lines = ["%global azl_release 1"]
+
+[[overlays]]
 description = "Add the Azure Linux release delta to the imported Fedora baserelease"
 type = "spec-search-replace"
 regex = '^Release:\s+%\{baserelease\}%\{\?dist\}$'

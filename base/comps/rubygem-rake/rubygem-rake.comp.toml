@@ -1,11 +1,11 @@
 [components.rubygem-rake]
 # Release: %{?preminorver:0.}%{baserelease}%{?preminorver:%{rpmminorver}}%{?dist}
-release = { calculation = "manual" }
+release = { calculation = "static", counter = { source = "spec-macro", directive = "global", name = "azl_release" } }
 
-[components.rubygem-rake.build.defines]
-# AZL-only release counter added to upstream's %{baserelease}. Bump for an AZL
-# rebuild, since manual release calculation can't auto-bump the Release.
-azl_release = "1"
+[[components.rubygem-rake.overlays]]
+description = "Define the Azure Linux release counter independently of upstream baserelease"
+type = "spec-prepend-lines"
+lines = ["%global azl_release 1"]
 
 [[components.rubygem-rake.overlays]]
 description = "Fold azl_release into %{baserelease} so we can bump the Release independently of upstream (manual release calculation can't auto-bump)"

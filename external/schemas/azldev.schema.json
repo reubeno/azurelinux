@@ -977,6 +977,30 @@
       "type": "object"
     },
     "ReleaseConfig": {
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "counter"
+            ]
+          },
+          "then": {
+            "not": {
+              "properties": {
+                "calculation": {
+                  "enum": [
+                    "autorelease",
+                    "manual"
+                  ]
+                }
+              },
+              "required": [
+                "calculation"
+              ]
+            }
+          }
+        }
+      ],
       "properties": {
         "calculation": {
           "type": "string",
@@ -987,12 +1011,98 @@
             "manual"
           ],
           "title": "Release calculation",
-          "description": "Controls how the Release tag is managed during rendering. Empty or omitted means auto.",
+          "description": "Controls how the Release tag is managed during rendering. Auto uses autorelease when directly selected by the Release tag and otherwise uses the configured or built-in static counter. Autorelease delegates to rpmautospec. Static requires a static counter. Manual disables release manipulation.",
           "default": "auto"
+        },
+        "counter": {
+          "$ref": "#/$defs/ReleaseCounterConfig",
+          "title": "Release counter",
+          "description": "Optional integral counter locator used by auto and static release calculation."
         }
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "ReleaseCounterConfig": {
+      "oneOf": [
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "directive"
+                ]
+              },
+              {
+                "required": [
+                  "name"
+                ]
+              }
+            ]
+          },
+          "properties": {
+            "source": {
+              "const": "release-tag"
+            }
+          },
+          "required": [
+            "regex"
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "regex"
+            ]
+          },
+          "properties": {
+            "source": {
+              "const": "spec-macro"
+            }
+          },
+          "required": [
+            "directive",
+            "name"
+          ]
+        }
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": [
+            "release-tag",
+            "spec-macro"
+          ],
+          "title": "Counter source",
+          "description": "Where to locate the integral release counter."
+        },
+        "regex": {
+          "type": "string",
+          "minLength": 1,
+          "title": "Counter regex",
+          "description": "Full-value regular expression with exactly one capturing group containing the integral counter. Required for release-tag counters."
+        },
+        "directive": {
+          "type": "string",
+          "enum": [
+            "global",
+            "define"
+          ],
+          "title": "Macro directive",
+          "description": "RPM directive used by the selected spec macro. Required for spec-macro counters."
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Macro name",
+          "description": "Name of the bare integral spec macro. Required for spec-macro counters."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "source"
+      ]
     },
     "ResourcesConfig": {
       "properties": {

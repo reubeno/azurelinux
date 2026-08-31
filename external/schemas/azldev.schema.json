@@ -162,6 +162,11 @@
           "$ref": "#/$defs/ComponentPublishConfig",
           "title": "Publish settings",
           "description": "Component-level publish channel settings"
+        },
+        "tests": {
+          "$ref": "#/$defs/ComponentTestsConfig",
+          "title": "Tests",
+          "description": "Per-component test or test-group references"
         }
       },
       "additionalProperties": false,
@@ -346,6 +351,20 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "ComponentTestsConfig": {
+      "properties": {
+        "tests": {
+          "items": {
+            "$ref": "#/$defs/TestRef"
+          },
+          "type": "array",
+          "title": "Tests",
+          "description": "Per-component test or test-group references"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "ConfigFile": {
       "properties": {
         "$schema": {
@@ -431,6 +450,22 @@
           "type": "object",
           "title": "Test Suites",
           "description": "Definitions of test suites for this project"
+        },
+        "tests": {
+          "additionalProperties": {
+            "$ref": "#/$defs/TestDefinition"
+          },
+          "type": "object",
+          "title": "Tests",
+          "description": "Definitions of individual tests"
+        },
+        "test-groups": {
+          "additionalProperties": {
+            "$ref": "#/$defs/TestGroup"
+          },
+          "type": "object",
+          "title": "Test Groups",
+          "description": "Definitions of named bundles of tests"
         }
       },
       "additionalProperties": false,
@@ -638,6 +673,26 @@
           "type": "boolean",
           "title": "Runtime package management",
           "description": "Whether the image supports installing or removing packages at runtime"
+        },
+        "wsl": {
+          "type": "boolean",
+          "title": "WSL",
+          "description": "Whether the image runs under the Windows Subsystem for Linux runtime"
+        },
+        "installer-media": {
+          "type": "boolean",
+          "title": "Installer media",
+          "description": "Whether the image is installer media that installs another OS rather than a directly runnable end-state image"
+        },
+        "fips-enabled": {
+          "type": "boolean",
+          "title": "FIPS enabled",
+          "description": "Whether the image is built or configured to run in FIPS mode"
+        },
+        "cvm": {
+          "type": "boolean",
+          "title": "Confidential VM",
+          "description": "Whether the image supports running as a Confidential VM (CVM)"
         }
       },
       "additionalProperties": false,
@@ -729,6 +784,14 @@
           "type": "array",
           "title": "Test Suites",
           "description": "List of test suite references that apply to this image"
+        },
+        "tests": {
+          "items": {
+            "$ref": "#/$defs/TestRef"
+          },
+          "type": "array",
+          "title": "Tests",
+          "description": "List of test or test-group references that apply to this image"
         }
       },
       "additionalProperties": false,
@@ -1107,10 +1170,71 @@
           "type": "object",
           "title": "RPM repo sets",
           "description": "Template instantiations that expand to a group of related RPM repos"
+        },
+        "rpm-repo-comparisons": {
+          "additionalProperties": {
+            "$ref": "#/$defs/RpmRepoComparison"
+          },
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+            "description": "Name; projected verbatim into dnf section headers and kiwi --add-repo arguments."
+          },
+          "type": "object",
+          "title": "RPM repo comparisons",
+          "description": "Named repeatable comparisons between RPM repo sets"
         }
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "RpmRepoComparison": {
+      "properties": {
+        "left": {
+          "type": "string",
+          "title": "Left repo set",
+          "description": "Name of the left rpm-repo-set"
+        },
+        "right": {
+          "type": "string",
+          "title": "Right repo set",
+          "description": "Name of the right rpm-repo-set"
+        },
+        "arches": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "title": "Architectures",
+          "description": "Architectures to compare; empty uses the command default"
+        },
+        "latest-only": {
+          "type": "boolean",
+          "title": "Latest only",
+          "description": "Compare only the latest EVR independently in each sub-repo"
+        },
+        "check-publish-routing": {
+          "type": "boolean",
+          "title": "Check publish routing",
+          "description": "Validate physical sub-repo placement against project publish-channel metadata"
+        },
+        "skip-checksum-comparison": {
+          "type": "boolean",
+          "title": "Skip checksum comparison",
+          "description": "Skip checksum and size comparison for matching package identities"
+        },
+        "ignore-older-added-in-right": {
+          "type": "boolean",
+          "title": "Ignore older additions in right",
+          "description": "Ignore right-only package identities older than a matching left package identity"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "left",
+        "right"
+      ]
     },
     "RpmRepoResource": {
       "oneOf": [
@@ -1181,6 +1305,11 @@
           "type": "array",
           "title": "Arches",
           "description": "Restrict to specific target architectures; empty = all"
+        },
+        "disable-ssl-verify": {
+          "type": "boolean",
+          "title": "Disable SSL verification",
+          "description": "Disable TLS certificate verification for this repository"
         }
       },
       "additionalProperties": false,
@@ -1221,6 +1350,11 @@
           "title": "Disable GPG check",
           "description": "Opt out of GPG signature verification for repos in this set"
         },
+        "disable-ssl-verify": {
+          "type": "boolean",
+          "title": "Disable SSL verification",
+          "description": "Disable TLS certificate verification for repos in this set"
+        },
         "arches": {
           "items": {
             "type": "string"
@@ -1236,6 +1370,11 @@
           "type": "array",
           "title": "Sub-repos",
           "description": "Allowlist of template sub-repos to instantiate (default: all)"
+        },
+        "unrouted": {
+          "type": "boolean",
+          "title": "Unrouted",
+          "description": "Treat this set as a union of publish channels during repository comparisons"
         }
       },
       "additionalProperties": false,
@@ -1376,6 +1515,14 @@
           ],
           "title": "Kind",
           "description": "Sub-repo classification; defaults to binary"
+        },
+        "publish-channels": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "title": "Publish channels",
+          "description": "Publish-channel values routed to this physical sub-repo"
         }
       },
       "additionalProperties": false,
@@ -1384,6 +1531,235 @@
         "name",
         "subpath"
       ]
+    },
+    "TestDefinition": {
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "pytest"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "lisa"
+                  ]
+                },
+                {
+                  "required": [
+                    "tmt"
+                  ]
+                }
+              ]
+            },
+            "required": [
+              "pytest"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "lisa"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "pytest"
+                  ]
+                },
+                {
+                  "required": [
+                    "tmt"
+                  ]
+                }
+              ]
+            },
+            "required": [
+              "lisa"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "tmt"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "pytest"
+                  ]
+                },
+                {
+                  "required": [
+                    "lisa"
+                  ]
+                }
+              ]
+            },
+            "required": [
+              "tmt"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "pytest",
+            "lisa",
+            "tmt"
+          ],
+          "title": "Type",
+          "description": "Test framework type"
+        },
+        "description": {
+          "type": "string",
+          "title": "Description",
+          "description": "Description of this test"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "functional",
+            "performance"
+          ],
+          "title": "Kind",
+          "description": "Kind hint for the test"
+        },
+        "long-running": {
+          "type": "boolean",
+          "title": "Long running",
+          "description": "Hints that this test may run for hours"
+        },
+        "metrics-enabled": {
+          "type": "boolean",
+          "title": "Metrics enabled",
+          "description": "Hints to the test execution environment/validation service whether metrics from this test should be collected and stored"
+        },
+        "required-capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "title": "Required capabilities",
+          "description": "Capability tokens the image must declare"
+        },
+        "lisa": {
+          "type": "object",
+          "title": "LISA config",
+          "description": "LISA-specific configuration"
+        },
+        "tmt": {
+          "type": "object",
+          "title": "TMT config",
+          "description": "TMT-specific configuration"
+        },
+        "pytest": {
+          "type": "object",
+          "title": "Pytest config",
+          "description": "pytest-specific configuration"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "type"
+      ]
+    },
+    "TestGroup": {
+      "properties": {
+        "description": {
+          "type": "string",
+          "title": "Description",
+          "description": "Description of this test group"
+        },
+        "tests": {
+          "items": {
+            "not": {
+              "required": [
+                "group"
+              ]
+            },
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^\\S",
+                "description": "Name of a test"
+              }
+            },
+            "type": "object",
+            "required": [
+              "name"
+            ]
+          },
+          "type": "array",
+          "title": "Tests",
+          "description": "Ordered test references for this group (name only)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "TestRef": {
+      "oneOf": [
+        {
+          "not": {
+            "required": [
+              "group"
+            ]
+          },
+          "required": [
+            "name"
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "name"
+            ]
+          },
+          "required": [
+            "group"
+          ]
+        }
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^\\S",
+          "title": "Name",
+          "description": "Name of a test (mutually exclusive with group)"
+        },
+        "group": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^\\S",
+          "title": "Group",
+          "description": "Name of a test group (mutually exclusive with name)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "TestSuiteConfig": {
       "properties": {

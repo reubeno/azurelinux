@@ -16,10 +16,11 @@ azldev.toml                          # Root config — includes distro/ and base
 │   ├── build/                       # Build artifacts (configured by log-dir, work-dir)
 │   │   ├── logs/                    # Build logs
 │   │   └── work/<name>/             # Per-component working directories
-│   └── comps/                       # Component definitions
-│       ├── components.toml          # Main component list (includes **/*.comp.toml)
-│       ├── <name>/<name>.comp.toml  # Dedicated component files (when overlays/config needed)
-│       └── <name>/                  # May also contain local spec files and overlay sources
+│   ├── comps/                       # Component definitions
+│   │   ├── components.toml          # Main component list (includes **/*.comp.toml)
+│   │   ├── <name>/<name>.comp.toml  # Dedicated component files (when overlays/config needed)
+│   │   └── <name>/                  # May also contain local spec files and overlay sources
+│   └── repos.toml                   # Published/Koji repo sets and comparison profiles
 ├── distro/                          # Distro definitions (shared across projects)
 │   ├── azurelinux.distro.toml       # Azure Linux 4.0: default distro, mock configs, build defines
 │   ├── distro.toml                  # Includes all *.distro.toml
@@ -65,7 +66,7 @@ When making a PR, the lock and rendered specs must be updated and self-consisten
 
 **Overlays** modify upstream specs/sources without forking. See the [`azldev-overlays` skill](../.agents/skills/azldev-overlays/SKILL.md) for types, syntax, and pitfalls. Schema: [`azldev.schema.json`](../external/schemas/azldev.schema.json).
 
-**TOML include hierarchy**: `azldev.toml` → `distro/distro.toml` + `base/project.toml` → `base/comps/components.toml` → `**/*.comp.toml` (stitched into single namespace).
+**TOML include hierarchy**: `azldev.toml` → `distro/distro.toml` + `base/project.toml`; the base project includes `base/repos.toml`, images, and `base/comps/components.toml` → `**/*.comp.toml` (stitched into one namespace).
 
 ## azldev CLI Reference
 

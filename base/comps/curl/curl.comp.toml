@@ -1,2 +1,46 @@
 [components.curl]
 
+# Disable openldap support in curl: drop the openldap-devel BuildRequires and
+# flip --enable-ldap/--enable-ldaps to --disable-ldap/--disable-ldaps in the
+# "full" configure invocation. The "minimal" build already passes
+# --disable-ldap/--disable-ldaps upstream, so no change is needed there.
+[[components.curl.overlays]]
+description = "Drop openldap-devel BuildRequires — Azure Linux curl does not link against openldap (LDAP/LDAPS protocols disabled)"
+type = "spec-remove-tag"
+tag = "BuildRequires"
+value = "openldap-devel"
+
+[[components.curl.overlays]]
+description = "Disable LDAP protocol support in the curl 'full' build (drop dependency on openldap)"
+type = "spec-search-replace"
+section = "%build"
+regex = '--enable-ldap\b'
+replacement = '--disable-ldap'
+
+[[components.curl.overlays]]
+description = "Disable LDAPS protocol support in the curl 'full' build (drop dependency on openldap)"
+type = "spec-search-replace"
+section = "%build"
+regex = '--enable-ldaps\b'
+replacement = '--disable-ldaps'
+
+# Trim the `libcurl-minimal` subpackage further: Fedora's upstream spec
+# puts `--with-gssapi` and `--with-libidn2` in the shared
+# `common_configure_opts`, so they apply to both the full and minimal
+# builds. For the minimal build that's overkill — it ships to images
+# (like container-base) that fetch from ASCII repo hostnames over
+# anonymous HTTPS and have no business pulling in `krb5-libs`,
+# `keyutils-libs`, `libcom_err`, `libverto`, or `libidn2`. Append
+# `--without-gssapi --without-libidn2` to the minimal block only.
+# The full libcurl is untouched, so users that need GSSAPI/IDN can
+# still swap `libcurl-minimal` for `libcurl`.
+#
+# `--without-libssh` is the last line of the minimal configure block
+# upstream and is unique to that block (full uses `--with-libssh`),
+# so it's a safe anchor for the replacement.
+[[components.curl.overlays]]
+description = "Drop GSSAPI/Kerberos and libidn2 support from libcurl-minimal (full libcurl keeps them)"
+type = "spec-search-replace"
+section = "%build"
+regex = '--without-libssh\b'
+replacement = '--without-libssh --without-gssapi --without-libidn2'

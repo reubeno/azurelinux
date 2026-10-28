@@ -9,3 +9,32 @@ type = "spec-search-replace"
 regex = "RPM_VENDOR=redhat"
 replacement = "RPM_VENDOR=azurelinux"
 
+# Demote `curl` from a hard runtime Requires to a Recommends. `rpm` only
+# uses `curl` for the optional %{_rpmconfigdir}/macros.d/macros.fetch
+# helpers and similar transport tooling — the core RPM stack does not
+# need it to install, query, or build packages. Keeping it as a weak
+# dependency lets minimal images (e.g. the kiwi `container-base` `core`
+# variant, which uses kiwi's default `patternType="onlyRequired"` and
+# therefore skips Recommends) omit `curl` while still pulling it in for
+# package-manager-equipped systems via `dnf install --setopt=install_weak_deps=True`.
+[[components.rpm.overlays]]
+description = "Drop hard `Requires: curl` so it is not pulled into minimal images via the rpm package"
+type = "spec-remove-tag"
+tag = "Requires"
+value = "curl"
+
+[[components.rpm.overlays]]
+description = "Re-add `curl` as a weak dependency (Recommends) so dnf-equipped images still pull it in"
+type = "spec-add-tag"
+tag = "Recommends"
+value = "curl"
+
+# Manual-release bump: changing overlays here does not auto-bump
+# Release (per the comp-toml convention for `release.calculation =
+# "manual"`), so we tick baserelease ourselves.
+[[components.rpm.overlays]]
+description = "Bump baserelease for the curl Requires → Recommends transition"
+type = "spec-search-replace"
+regex = '^%global baserelease 1$'
+replacement = '%global baserelease 2'
+

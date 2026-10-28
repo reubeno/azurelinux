@@ -1,0 +1,114 @@
+[components.glib2]
+
+# Azure Linux re-targets glib2's GHmac primitives from GnuTLS to
+# OpenSSL. See ghmac-openssl.patch for the full rationale; in short,
+# OpenSSL is the system reference crypto provider in AZL (the
+# crypto-policies package ships openssl_fips.config) and is already
+# loaded by every other consumer in the base container image, while
+# GnuTLS exists in the image *only* to back GHmac, dragging in
+# gnutls + nettle + gmp + libidn2 + libunistring (~7.5 MiB).
+
+# Remove the upstream Fedora gnutls-hmac patch series. Our combined
+# replacement patch produces the same end-state shape (split ghmac
+# into a backend-agnostic "wrappers" file + a backend-specific impl,
+# guarded by USE_OPENSSL instead of USE_GNUTLS, with corresponding
+# test skips for MD5/SHA-1 vectors).
+#
+# Note: glib2's upstream spec uses bare `Patch:` (no number) tags;
+# azldev's `patch-remove`/`patch-add` overlays only operate on numbered
+# `PatchN` tags, so we swap by hand via spec-search-replace + file-add
+# + file-remove rather than the higher-level overlays.
+[[components.glib2.overlays]]
+description = "Swap the Patch reference: gnutls-hmac.patch → ghmac-openssl.patch (bare Patch tag, not PatchN)"
+type = "spec-search-replace"
+regex = '^Patch:\s+gnutls-hmac\.patch$'
+replacement = 'Patch:          ghmac-openssl.patch'
+
+[[components.glib2.overlays]]
+description = "Stage the new ghmac-openssl.patch alongside the spec so the `Patch:` reference resolves at build time"
+type = "file-add"
+file = "ghmac-openssl.patch"
+source = "ghmac-openssl.patch"
+
+[[components.glib2.overlays]]
+description = "Drop the now-orphaned gnutls-hmac.patch source file (kept the comment block above the Patch line; it still describes the RHEL FIPS rationale)"
+type = "file-remove"
+file = "gnutls-hmac.patch"
+
+# Build-time dependency swap. We do not need openssl-devel headers
+# (the dlopen wrapper declares OpenSSL types/symbols itself to avoid
+# an explicit header include), but openssl is still needed at build
+# time to validate that the soname we dlopen (libcrypto.so.3) is
+# present in the build environment — same pattern Fedora uses for
+# gnutls. Using `openssl-devel` rather than bare `openssl` keeps the
+# build sysroot self-contained for any future header reference.
+[[components.glib2.overlays]]
+description = "Drop gnutls BuildRequires (replaced by OpenSSL backend for GHmac)"
+type = "spec-remove-tag"
+tag = "BuildRequires"
+value = "gnutls"
+
+[[components.glib2.overlays]]
+description = "Add openssl-devel BuildRequires for the OpenSSL GHmac backend"
+type = "spec-add-tag"
+tag = "BuildRequires"
+value = "openssl-devel"
+
+# Runtime dependency swap. The original Fedora patch sets a HARD
+# `Requires: libgnutls.so.30` so that callers of GHmac get a usable
+# implementation. We demote this to a weak `Recommends:` for OpenSSL
+# because:
+#   1. libcrypto.so.3 is dlopened lazily — libglib loads fine without
+#      it (only GHmac callers fail), and most consumers of libglib in
+#      a minimal image (libdnf5, librepo) do not call GHmac.
+#   2. Every package that DOES exercise crypto (curl, librepo, dnf5,
+#      python-cryptography, ...) already pulls openssl-libs as a hard
+#      Requires through other paths, so a weak Recommends here is
+#      sufficient to keep libcrypto present on any realistic system.
+[[components.glib2.overlays]]
+description = "Drop hard Requires on libgnutls.so.30 (64-bit) — replaced by weak Recommends on libcrypto.so.3"
+type = "spec-remove-tag"
+tag = "Requires"
+value = "libgnutls.so.30()(64bit)"
+
+[[components.glib2.overlays]]
+description = "Drop hard Requires on libgnutls.so.30 (32-bit fallback for the %if 0%{?__isa_bits} == 64 / %else branch)"
+type = "spec-remove-tag"
+tag = "Requires"
+value = "libgnutls.so.30"
+
+[[components.glib2.overlays]]
+description = "Add weak Recommends on libcrypto.so.3 — GHmac dlopens it lazily, so non-GHmac consumers of libglib do not need it at load time"
+type = "spec-add-tag"
+tag = "Recommends"
+value = "libcrypto.so.3()(64bit)"
+
+# Configure-time flag swap. The patch wires the openssl backend
+# through `meson.options` with the same shape as the Fedora gnutls
+# option, so we flip the meson flag here.
+[[components.glib2.overlays]]
+description = "Switch the meson flag from -Dgnutls=true to -Dopenssl=true so the OpenSSL backend is compiled in"
+type = "spec-search-replace"
+section = "%build"
+regex = '-Dgnutls=true'
+replacement = '-Dopenssl=true'
+
+# Refresh the comment block in the spec that references the (now
+# replaced) gnutls patch so future readers understand the AZL story.
+[[components.glib2.overlays]]
+description = "Update the patch comment to reflect the OpenSSL backend swap (cosmetic only — keeps the in-spec narrative consistent with the comp.toml)"
+type = "spec-search-replace"
+regex = '^# For gnutls-hmac\.patch\. We now dlopen libgnutls\.so\.30 so that we can build a$'
+replacement = '# For ghmac-openssl.patch (Azure Linux). We dlopen libcrypto.so.3 so libglib has only'
+
+[[components.glib2.overlays]]
+description = "Update the second line of the (former) gnutls patch comment block"
+type = "spec-search-replace"
+regex = '^# static glib2 without depending on a static build of GnuTLS as well\. This will$'
+replacement = '# a weak runtime dependency on OpenSSL and the glib2-static subpackage does not'
+
+[[components.glib2.overlays]]
+description = "Update the third line of the (former) gnutls patch comment block"
+type = "spec-search-replace"
+regex = '^# ensure we notice if the GnuTLS soname bumps, so that we can update our patch\.$'
+replacement = '# need an openssl-static counterpart. See ghmac-openssl.patch for the full rationale.'

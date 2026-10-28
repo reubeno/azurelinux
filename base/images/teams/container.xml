@@ -58,6 +58,11 @@
         <package name="azurelinux-release-container" />
         <package name="filesystem" />
     </packages>
+    <!-- Pin minimal providers instead of letting the bootstrap solver pick full variants. -->
+    <packages type="bootstrap" profiles="core,distroless-minimal,distroless-base,distroless-debug">
+        <package name="coreutils-single" />
+        <package name="libcurl-minimal" />
+    </packages>
     <packages type="image" profiles="ContainerCore">
         <package name="azurelinux-release-container" />
         <package name="bash" />
@@ -85,5 +90,11 @@
     </packages>
     <packages type="image" profiles="distroless-debug">
         <package name="busybox" />
+    </packages>
+    <!-- Force-remove scriptlet tools after trust bundle generation without removing ca-certificates. -->
+    <packages type="delete" profiles="core">
+        <package name="findutils" />
+        <package name="grep" />
+        <package name="sed" />
     </packages>
 </image>
